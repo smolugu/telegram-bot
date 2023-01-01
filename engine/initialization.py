@@ -1,5 +1,5 @@
-from datetime import date, datetime, timedelta, timezone
-import time
+from datetime import date, datetime, time, timedelta, timezone
+# import time
 
 from framework.models.auction.engine.auction_engine import initialize_auction
 from framework.models.auction.models.auction_engine import AuctionEngine
@@ -14,6 +14,31 @@ from engine.helpers.atr import calculate_daily_atr
 from helpers.atr import calculate_atr
 from helpers.liquidity_levels import get_liquidity_values, refresh_liquidity, reset_liquidity
 from market_data.candle_builder.htf_candle_builder import NY_TZ, UTC_TZ
+
+def get_previous_trading_day_for_pdhl(start_time_ny: datetime) -> date:
+
+    # Determine the date on which the current futures session started
+    if start_time_ny.hour >= 18:
+        current_session_date = start_time_ny.date()
+    else:
+        current_session_date = (
+            start_time_ny.date() - timedelta(days=1)
+        )
+
+    # Previous session starts one calendar day earlier
+    previous_trading_day = (
+        current_session_date - timedelta(days=1)
+    )
+
+    # Saturday → Friday
+    if previous_trading_day.weekday() == 5:
+        previous_trading_day -= timedelta(days=1)
+
+    # Sunday is VALID because Sunday 18:00 is the weekly open
+    return previous_trading_day
+
+    
+
 
 def get_previous_trading_day(start_time_ny: datetime) -> date:
 
@@ -63,7 +88,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         runtime.nq_contract = day_nq_contract
         runtime.es_contract = day_es_contract
 
-        previous_trading_day = get_previous_trading_day(
+        previous_trading_day = get_previous_trading_day_for_pdhl(
             start_time_ny
         )
         prev_day_nq_contract = contract_repo.get_front_month(
@@ -81,7 +106,9 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         # ===========================
         # Initialize Daily Context - PDH/L and ATRs and LIQUIDITY levels
         # ===========================
-        trading_date = get_previous_trading_day(start_time_ny)
+        print("start_time_ny: ", start_time_ny)
+        trading_date = get_previous_trading_day_for_pdhl(start_time_ny)
+        print("trading_date: ", trading_date)
         candle_time_ny = datetime.combine(
             trading_date,
             datetime.min.time(),
@@ -89,14 +116,16 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         ).replace(hour=18)
 
         candle_time_utc = candle_time_ny.astimezone(timezone.utc)
+        print("candle_time_utc: ", candle_time_utc)
         previous_day_nq_candle = candle_repo.get_at(
-            contract=nq_contract,
+            contract=prev_day_nq_contract,
             timeframe=1440,
             timestamp=candle_time_utc,
         )
+        print("previous day candle nq: ", previous_day_nq_candle)
 
         previous_day_es_candle = candle_repo.get_at(
-            contract=es_contract,
+            contract=prev_day_es_contract,
             timeframe=1440,
             timestamp=candle_time_utc,
         )
@@ -121,7 +150,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
 
         end_time_utc = end_time_ny.astimezone(timezone.utc)
         nq_last_5_daily_candles = candle_repo.get_last_n(
-            contract=nq_contract,
+            contract=runtime.nq_contract,
             timeframe=1440,
             end=end_time_utc,
             n=5,
@@ -130,7 +159,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             print("NQ daily candle: ", candle.timestamp, candle.open, candle.high, candle.low, candle.close)
 
         es_last_5_daily_candles = candle_repo.get_last_n(
-            contract=es_contract,
+            contract=runtime.es_contract,
             timeframe=1440,
             end=end_time_utc,
             n=5,
@@ -154,14 +183,14 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         history_end_utc=history_end_ny.astimezone(UTC_TZ)
 
         nq_atr_candles=candle_repo.get_between(
-            contract=nq_contract,
+            contract=runtime.nq_contract,
             timeframe=30,
             start=history_start_utc,
             end=history_end_utc,
         )
 
         es_atr_candles = candle_repo.get_between(
-            contract=es_contract,
+            contract=runtime.es_contract,
             timeframe=30,
             start=history_start_utc,
             end=history_end_utc,
@@ -189,8 +218,8 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         runtime.es_ny_market_context = NewYorkMarketContext("ES")
 
         # sever hour builder candles
-        nq_seven_hour_builder = SevenHourBuilder("NQ")
-        es_seven_hour_builder = SevenHourBuilder("ES")
+        runtime.nq_seven_hour_builder = SevenHourBuilder("NQ")
+        runtime.es_seven_hour_builder = SevenHourBuilder("ES")
 
         runtime.nq_market_context.set_daily_atr(runtime.nq_daily_atr)
         runtime.es_market_context.set_daily_atr(runtime.es_daily_atr)
@@ -216,13 +245,13 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 candle_time_utc = candle_time_ny.astimezone(timezone.utc)
                 candle_end_time_utc = candle_end_time_ny.astimezone(timezone.utc)
                 nq_candle_result = candle_repo.get_at(
-                    contract=nq_contract,
+                    contract=runtime.nq_contract,
                     timeframe=1440,
                     timestamp=candle_time_utc,
                 )
         
                 es_candle_result = candle_repo.get_at(
-                    contract=es_contract,
+                    contract=runtime.es_contract,
                     timeframe=1440,
                     timestamp=candle_time_utc,
                 )
@@ -236,28 +265,28 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 # prev_nq_30m = get_futures_session(nq["30m"], prev_test_date)
                 
                 prev_nq_30m = candle_repo.get_between(
-                    contract=nq_contract,
+                    contract=runtime.nq_contract,
                     timeframe=30,
                     start=candle_time_utc,
                     end=candle_end_time_utc,
                 )
                 # prev_nq_3m = get_futures_session(nq["3m"], prev_test_date)
                 prev_nq_3m=candle_repo.get_between(
-                    contract=nq_contract,
+                    contract=runtime.nq_contract,
                     timeframe=3,
                     start=candle_time_utc,
                     end=candle_end_time_utc,
                 )
                 
                 prev_es_30m = candle_repo.get_between(
-                    contract=es_contract,
+                    contract=runtime.es_contract,
                     timeframe=30,
                     start=candle_time_utc,
                     end=candle_end_time_utc,
                 )
                 
                 # prev_es_3m=candle_repo.get_between(
-                #     contract=es_contract,
+                #     contract=runtime.es_contract,
                 #     timeframe=3,
                 #     start=candle_time_utc,
                 #     end=candle_end_time_utc,
@@ -269,16 +298,16 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                     return
                 
                 prev_nq_30m_closes = {
-                    prev_nq_30m[i]["timestamp"]: i
+                    prev_nq_30m[i].timestamp: i
                     for i in range(len(prev_nq_30m))
                 }
                 for candle_3m in prev_nq_3m:
                         
-                    ts = candle_3m["timestamp"]
+                    ts = candle_3m.timestamp
                     if ts in prev_nq_30m_closes:
                         i = prev_nq_30m_closes[ts]
                         print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
-                        prev_current_30m_start = prev_nq_30m[i]["timestamp"]
+                        prev_current_30m_start = prev_nq_30m[i].timestamp
                         prev_last_closed_nq = prev_nq_30m[i - 1]
                         prev_last_closed_es = prev_es_30m[i - 1]
                         if i == 1:
@@ -363,34 +392,34 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
 
             # NQ
             nq_1h_candles = candle_repo.get_between(
-                contract=nq_contract,
+                contract=runtime.nq_contract,
                 timeframe=60,
                 start=start_utc_10,
                 end=start_time_utc,
             )
             nq_3m_auction = candle_repo.get_between(
-                contract=nq_contract,
+                contract=runtime.nq_contract,
                 timeframe=3,
                 start=auction_start_utc_60,
                 end=start_time_utc,
             )
 
             nq_4h_auction = candle_repo.get_between(
-                contract=nq_contract,
+                contract=runtime.nq_contract,
                 timeframe=240,
                 start=auction_start_utc_30,
                 end=start_time_utc,
             )
 
             nq_7h_auction = candle_repo.get_between(
-                contract=nq_contract,
+                contract=runtime.nq_contract,
                 timeframe=420,
                 start=auction_start_utc_45,
                 end=start_time_utc,
             )
 
             nq_1d_auction = candle_repo.get_between(
-                contract=nq_contract,
+                contract=runtime.nq_contract,
                 timeframe=1440,
                 start=auction_start_utc_60,
                 end=start_time_utc,
@@ -398,35 +427,35 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
 
             # ES
             es_1h_candles = candle_repo.get_between(
-                contract=es_contract,
+                contract=runtime.es_contract,
                 timeframe=60,
                 start=start_utc_10,
                 end=start_time_utc,
             )
 
             es_3m_auction = candle_repo.get_between(
-                contract=es_contract,
+                contract=runtime.es_contract,
                 timeframe=3,
                 start=auction_start_utc_60,
                 end=start_time_utc,
             )
 
             es_4h_auction = candle_repo.get_between(
-                contract=es_contract,
+                contract=runtime.es_contract,
                 timeframe=240,
                 start=auction_start_utc_30,
                 end=start_time_utc,
             )
 
             es_7h_auction = candle_repo.get_between(
-                contract=es_contract,
+                contract=runtime.es_contract,
                 timeframe=420,
                 start=auction_start_utc_45,
                 end=start_time_utc,
             )
 
             es_1d_auction = candle_repo.get_between(
-                contract=es_contract,
+                contract=runtime.es_contract,
                 timeframe=1440,
                 start=auction_start_utc_60,
                 end=start_time_utc,
@@ -516,21 +545,21 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         # start_time_utc = start_time_ny.astimezone(timezone.utc)
                                 
         # prev_nq_30m = candle_repo.get_between(
-        #     contract=nq_contract,
+        #     contract=runtime.nq_contract,
         #     timeframe=30,
         #     start=start_of_day_utc,
         #     end=start_time_utc,
         # )
         
         # prev_nq_3m=candle_repo.get_between(
-        #     contract=nq_contract,
+        #     contract=runtime.nq_contract,
         #     timeframe=3,
         #     start=start_of_day_utc,
         #     end=start_time_utc,
         # )
 
         # prev_es_30m=candle_repo.get_between(
-        #     contract=es_contract,
+        #     contract=runtime.es_contract,
         #     timeframe=30,
         #     start=start_of_day_utc,
         #     end=start_time_utc,
@@ -541,7 +570,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         # }
         
         # prev_es_3m=candle_repo.get_between(
-        #     contract=es_contract,
+        #     contract=runtime.es_contract,
         #     timeframe=3,
         #     start=start_of_day_utc,
         #     end=start_time_utc,

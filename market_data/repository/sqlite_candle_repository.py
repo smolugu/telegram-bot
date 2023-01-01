@@ -9,6 +9,7 @@
 # =================================================
 
 from datetime import datetime, timezone
+from sqlite3 import IntegrityError
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -43,17 +44,79 @@ class SQLiteCandleRepository(CandleRepository):
 
     
 
-    def save(self, candles: list[Candle]) -> None:
-        """
-        Insert or update candles.
-        """
-        print(f"Saving {len(candles)} candles")
-                # candle_repo.save(candles)
+    # def save(self, candles: list[Candle]) -> None:
+    #     """
+    #     Insert or update candles.
+    #     """
+    #     print(f"Saving {len(candles)} candles")
+    #             # candle_repo.save(candles)
         
-        for candle in candles:
-            self.session.merge(self._to_orm(candle))
+    #     for candle in candles:
+    #         self.session.merge(self._to_orm(candle))
 
-        self.session.commit()
+    #     self.session.commit()
+    #     count = self.session.query(CandleORM).count()
+    #     print(self.session.bind.url)
+    #     print("Rows after commit:", count)
+    #     print("Save finished")
+    # def save(self, candles: list[Candle]) -> None:
+    #     try:
+    #         for candle in candles:
+    #             self.session.merge(self._to_orm(candle))
+
+    #         self.session.commit()
+    #         count = self.session.query(CandleORM).count()
+    #         print(self.session.bind.url)
+    #         print("Rows after commit:", count)
+    #         print("Save finished")
+
+    #     except Exception:
+    #         self.session.rollback()
+    #         raise
+    def save(self, candles: list[Candle]) -> None:
+        print(f"Saving {len(candles)} candles")
+
+        for candle in candles:
+            orm_candle = self._to_orm(candle)
+
+            existing = self.session.get(
+                CandleORM,
+                (
+                    orm_candle.timeframe,
+                    orm_candle.timestamp,
+                    orm_candle.contract,
+                ),
+            )
+
+            # print(
+            #     "CANDLE SAVE:",
+            #     orm_candle.instrument,
+            #     orm_candle.timeframe,
+            #     repr(orm_candle.timestamp),
+            #     orm_candle.timestamp.tzinfo,
+            #     orm_candle.contract,
+            #     "EXISTS:",
+            #     existing is not None,
+            # )
+
+            self.session.merge(orm_candle)
+
+        # self.session.commit()
+        try:
+            self.session.commit()
+
+        except IntegrityError as e:
+            self.session.rollback()
+
+            if "UNIQUE constraint failed: candles.timeframe, candles.timestamp, candles.contract" in str(e):
+                print(
+                    ">>> Duplicate candle detected; "
+                    "skipping insert and continuing"
+                )
+                return
+
+            raise
+
         count = self.session.query(CandleORM).count()
         print(self.session.bind.url)
         print("Rows after commit:", count)

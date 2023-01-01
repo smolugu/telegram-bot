@@ -1,5 +1,3 @@
-from data.models.compression import detect_compression
-from data.models.displacement import is_displacement_candle
 from helpers.ib_helpers import check_ib_rejection
 from helpers.sessions import in_session
 from helpers.time_windows import get_active_window
@@ -135,7 +133,7 @@ def track_asia_context(
                     "type": "bullish",
                     "low": prev_prev_candle["high"],
                     "high": c["low"],
-                    "created_at": c["timestamp"]
+                    "created_at": c.timestamp
                 }
 
             # Bearish FVG
@@ -144,7 +142,7 @@ def track_asia_context(
                     "type": "bearish",
                     "low": c["high"],
                     "high": prev_prev_candle["low"],
-                    "created_at": c["timestamp"]
+                    "created_at": c.timestamp
                 }
 
         prev_prev_candle = prev_candle

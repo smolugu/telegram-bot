@@ -13,10 +13,20 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         time = candidate.ob_data["confirmation_timestamp"]
     if candidate.sweep_and_ob_confirmation_timestamp is not None:
         time = candidate.sweep_and_ob_confirmation_timestamp
-    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
+    ts=None
+    if isinstance(time, str):
+        ts = datetime.fromisoformat(time)
+    else:
+        ts = time
+    # dt = datetime.fromisoformat(time) + timedelta(minutes=30)
+    dt = ts + timedelta(minutes=30)
     time_formatted = dt.strftime("%b %d, %Y %I:%M %p")
-
-    dt2 = datetime.fromisoformat(current_time)
+    dt2=None
+    if isinstance(current_time, str):
+        dt2 = datetime.fromisoformat(current_time)
+    else:
+        dt2 = current_time
+    # dt2 = datetime.fromisoformat(current_time)
     time_formatted = dt2.strftime("%b %d, %Y %I:%M %p")
     default_risk = None
 

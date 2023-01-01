@@ -38,7 +38,12 @@ def calculate_daily_atr(candles, period=5):
     # -------- group candles into futures sessions --------
     for c in candles:
 
-        ts = datetime.fromisoformat(c["timestamp"])
+        # ts = datetime.fromisoformat(c["timestamp"])
+        ts=None
+        if isinstance(c.timestamp, str):
+            ts = datetime.fromisoformat(c.timestamp)
+        else:
+            ts = c.timestamp
 
         # skip Saturday completely
         if ts.weekday() == 5:

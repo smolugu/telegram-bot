@@ -510,7 +510,7 @@ class NewYorkMarketContext:
         # -------------------------
         if low < self.structure["range_low"]:
             self.sweep["side"] = "sell_side"
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_low'] == 0:
                 self.sweep["count_low"] += 1
                 self.sweep["count"] += 1
@@ -542,7 +542,7 @@ class NewYorkMarketContext:
         # -------------------------
         elif high > self.structure["range_high"]:
             self.sweep["side"] = "buy_side"
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_high'] == 0:
                 self.sweep["count_high"] += 1
                 self.sweep["count"] += 1

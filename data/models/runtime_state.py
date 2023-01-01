@@ -15,7 +15,7 @@ class PingRuntime:
         self.nq_london_market_context = None
         self.es_london_market_context = None
 
-        self.nq_ny_market_context = NewYorkMarketContext()
+        self.nq_ny_market_context = None
         self.es_ny_market_context = None
 
         # Weekly state

@@ -75,8 +75,12 @@ def is_in_reversal_window(timestamp_iso: str, windows: dict):
 
 
 
-def get_active_window(timestamp_iso, wick_minutes=90):
-    ts = datetime.fromisoformat(timestamp_iso)
+def get_active_window(timestamp, wick_minutes=90):
+    ts=None
+    if isinstance(timestamp, str):
+        ts = datetime.fromisoformat(timestamp)
+    else:
+        ts = timestamp
 
     if ts.tzinfo is None:
         ts = NY_TZ.localize(ts)
@@ -147,6 +151,7 @@ def is_blocked_time(ts, blocked_windows = None, buffer_minutes=5):
     ]
     tz = ZoneInfo("America/New_York")
     
+    dt=None
     if isinstance(ts, str):
         dt = datetime.fromisoformat(ts).astimezone(tz)
     else:

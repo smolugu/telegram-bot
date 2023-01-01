@@ -50,6 +50,18 @@ def build_auction_status(context):
 
         if auction.confirmed:
             print("confirmed auction timeframe when not at htf: ", timeframe)
+            if auction.current_objective is None:
+                print(
+                    f"WARNING: {timeframe} auction is confirmed "
+                    f"but current_objective is None. "
+                    f"Skipping this timeframe."
+                )
+                continue
+
+            print(
+                "confirmed auction timeframe when not at htf: ",
+                timeframe,
+            )
 
             status.active_timeframe = timeframe
             status.active_direction = (

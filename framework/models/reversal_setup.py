@@ -210,6 +210,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         look_for_shorts = True
     elif candidate.side == "sell_side":
         look_for_longs = True
+    auction_allowed_direction = allowed_auction_direction(auction_engine.status)
 
     # expansion type function
     def categorize_expansion():
@@ -554,6 +555,8 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
 
     # daily bias
     daily_bias = determine_daily_bias()
+    structure_bias = "bullish" if look_for_longs else "bearish"
+    htf_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
 
     # -----------------------------------------------
     # disable or allow longs and shorts based on atr_usage and smt

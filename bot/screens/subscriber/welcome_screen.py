@@ -4,20 +4,31 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 def subscriber_welcome_screen():
     keyboard = [
         [
+            # InlineKeyboardButton(
+            #     "📡 My Pings",
+            #     callback_data="alerts:home",
+            # ),
             InlineKeyboardButton(
-                "📡 My Pings",
-                callback_data="alerts:home",
+                "Subscirbe",
+                callback_data="subscribe",
+
             ),
+            InlineKeyboardButton(
+                            "Unsubscirbe",
+                            callback_data="unsubscribe",
+            
+                        )
+
         ],
         [
             InlineKeyboardButton(
                 "⚙️ Settings",
                 callback_data="settings:home",
             ),
-            InlineKeyboardButton(
-                "👤 Subscription",
-                callback_data="subscription:home",
-            ),
+            # InlineKeyboardButton(
+            #     "👤 Subscription",
+            #     callback_data="subscription:home",
+            # ),
             InlineKeyboardButton(
                 "💎 Plans",
                 callback_data="plans:home",

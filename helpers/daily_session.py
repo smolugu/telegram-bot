@@ -2,7 +2,12 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 def get_cme_session_date(timestamp):
-    dt = datetime.fromisoformat(timestamp)
+    # dt = datetime.fromisoformat(timestamp)
+    dt=None
+    if isinstance(timestamp, str):
+        dt = datetime.fromisoformat(timestamp)
+    else:
+        dt = timestamp
     if dt.hour >= 18:
         return dt.date()
     return (dt-timedelta(days=1)).date()

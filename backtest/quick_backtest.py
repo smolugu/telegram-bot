@@ -676,8 +676,8 @@ def run_quick_backtest(test_date: str):
 
                 # update london context with IBS
                 if dt.hour == 1 and dt.minute == 30:
-                    nq_london_market_context.set_18_1am_ibs(nq_seven_hour_builder.candles["6PM"].values(),nq_seven_hour_builder.candles["1AM"].values())
-                    es_london_market_context.set_18_1am_ibs(es_seven_hour_builder.candles["6PM"].values(),es_seven_hour_builder.candles["1AM"].values())
+                    nq_london_market_context.set_18_1am_ibs(nq_seven_hour_builder.candles["6PM"].values(),nq_seven_hour_builder.candles["1AM"].values(), nq_market_context.session_high, nq_market_context.session_low)
+                    es_london_market_context.set_18_1am_ibs(es_seven_hour_builder.candles["6PM"].values(),es_seven_hour_builder.candles["1AM"].values(), es_market_context.session_high, es_market_context.session_low)
                     print("nq london structure: ", nq_london_market_context.structure)
                     print("es london structure: ", es_london_market_context.structure)
                     
@@ -728,6 +728,9 @@ def run_quick_backtest(test_date: str):
                     print("ib18: ",  nq_seven_hour_builder.candles["6PM"].values())
                     nq_ny_market_context.set_8am_ib(nq_seven_hour_builder.candles, nq_london_market_context.ib_18, nq_london_market_context.ib_1)
                     es_ny_market_context.set_8am_ib(es_seven_hour_builder.candles, es_london_market_context.ib_18, es_london_market_context.ib_1)
+
+                    # we have structure for ny am
+                    
                     print("test 1: ", nq_ny_market_context.structure)
                     print("rest es: ", es_ny_market_context.structure)
                     print("add new mitigation or equilibrium level to liquidity key levels")

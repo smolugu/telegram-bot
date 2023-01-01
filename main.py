@@ -28,7 +28,7 @@ from config.settings import BOT_TOKEN, POLYGON_API_KEY, PROJECTX_API_KEY, PROJEC
 from market_data.api.massive_rest import MassiveREST
 from market_data.providers.massive_futures_provider import FuturesProvider, MassiveFuturesProvider
 from data.sqlite.db import init_db
-from data.market_data import fetch_market_data
+# from data.market_data import fetch_market_data
 
 from datetime import date, datetime, timedelta, timezone
 
@@ -57,51 +57,51 @@ WICK_WINDOW_MINUTES = 60
 CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
 NY = pytz.timezone("America/New_York")
-MODE = "BACKTEST"   # change to "LIVE" when done
+MODE = "LIVE"   # change to "LIVE" when done
 
-def wait_until_next_3m_close():
-    now = datetime.now(NY)
-    minute = now.minute
-    second = now.second
+# def wait_until_next_3m_close():
+#     now = datetime.now(NY)
+#     minute = now.minute
+#     second = now.second
 
-    # Find next multiple of 3
-    next_minute = minute + (3 - minute % 3)
+#     # Find next multiple of 3
+#     next_minute = minute + (3 - minute % 3)
 
-    if next_minute >= 60:
-        next_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    else:
-        next_time = now.replace(minute=next_minute, second=0, microsecond=0)
+#     if next_minute >= 60:
+#         next_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+#     else:
+#         next_time = now.replace(minute=next_minute, second=0, microsecond=0)
 
-    sleep_seconds = (next_time - now).total_seconds()
+#     sleep_seconds = (next_time - now).total_seconds()
 
-    if sleep_seconds > 0:
-        time.sleep(sleep_seconds)
+#     if sleep_seconds > 0:
+#         time.sleep(sleep_seconds)
     
 
 
 async def on_startup(application):
-    print("Bot started. Launching trading engine...")
-    asyncio.create_task(trading_engine_loop(application))
+    print("Bot started. ")
+    # asyncio.create_task(trading_engine_loop(application))
 
-def run(bot):
-    while True:
-        wait_until_next_3m_close()
+# def run(bot):
+    # while True:
+    #     wait_until_next_3m_close()
 
-        # Grace delay after candle close
-        time.sleep(GRACE_SECONDS)
+    #     # Grace delay after candle close
+    #     time.sleep(GRACE_SECONDS)
         
-        try:
-            market_data = fetch_market_data()
-            result = evaluate_7h_setup(
-                market_data=market_data,
-                seven_hour_open_ts=get_current_7h_open(),
-                wick_window_minutes=WICK_WINDOW_MINUTES
-            )
+    #     try:
+    #         market_data = fetch_market_data()
+    #         result = evaluate_7h_setup(
+    #             market_data=market_data,
+    #             seven_hour_open_ts=get_current_7h_open(),
+    #             wick_window_minutes=WICK_WINDOW_MINUTES
+    #         )
 
-            handle_stage(result, bot)
+    #         handle_stage(result, bot)
 
-        except Exception as e:
-            print("Error:", e)
+    #     except Exception as e:
+    #         print("Error:", e)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -109,12 +109,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Python 3.12 + MacPorts + venv ✨"
     )
 
-retry_30m_pipeline = False
-retry_30m_end = None
+
 def main():
     init_db()  # initialize database if needed
     
-    if MODE == "BACKTEST":
+    if MODE == "LIVE":
 
         with SessionLocal() as session:
             repo = SQLiteCandleRepository(session)
@@ -558,6 +557,11 @@ def main():
         # print("First 1m 2:", first_1m.tzinfo)
         # print("Last 1m 2:", last_1m.tzinfo)
 
+
+        # ============================
+        # code for backfill history HTF
+        # run this code to historically fill htf candles
+        # ============================
         results = htf_builder.backfill_contract_htf_history_v2(
             instrument="ES",
             # contract="ESU6",
@@ -570,7 +574,9 @@ def main():
             # contract="NQU6",
             contract=nq_contract,
         )
-        # print(results)
+        print(results)
+        # ============================
+        # ============================
         # count = htf_builder.backfill_htf_v2(
         #     instrument="NQ",
         #     contract="NQU6",
@@ -623,7 +629,7 @@ def main():
         ping_start_time = datetime.now(timezone.utc)
         # after reconsiliation of candles till date
         # start ping flow and initialize
-        start_ping = False
+        start_ping = True
         ping_runtime = None
         
         if start_ping:
@@ -633,14 +639,7 @@ def main():
                 candle_repo=projectx_candle_repo,
             )
 
-        # ping_runtime = initialize_ping(
-        #     start_time=ping_start_time,
-        #     contract_repo=contract_repo,
-        #     candle_repo=projectx_candle_repo,
-        # )
-
         # process ping loop
-        
         
         # Create ProjectX WebSocket connection
         websocket_session = SessionLocal()
@@ -676,6 +675,10 @@ def main():
         # Give the realtime feed some time to run
         print("Waiting 10 seconds before reconciliation...")
         time.sleep(10)
+        # time.sleep(30)
+
+        # print(">>> TEST: Calling forced WebSocket disconnect")
+        # projectx_websocket.test_force_disconnect()
 
         # Test REST reconciliation
         # reconciled = projectx_history_candle_loader.reconcile_recent_candles(
@@ -1090,9 +1093,6 @@ def main():
                     )
                 return True
              
-
-            
-
         def process_4h():
             print(">>> 4H processing started")
 
@@ -1103,14 +1103,14 @@ def main():
 
             nq_count = htf_builder.process_realtime_htf(
                 instrument="NQ",
-                contract="NQU6",
+                contract=nq_contract,
                 boundary_utc=end,
                 definition=HTF_4H,
             )
 
             es_count = htf_builder.process_realtime_htf(
                 instrument="ES",
-                contract="ESU6",
+                contract=es_contract,
                 boundary_utc=end,
                 definition=HTF_4H,
             )
@@ -1119,8 +1119,6 @@ def main():
                 f">>> 4H HTF processing complete: "
                 f"NQ={nq_count}, ES={es_count}"
             )
-
-        
 
         def process_7h():
             print(">>> 7H processing started")
@@ -1132,14 +1130,14 @@ def main():
 
             nq_count = htf_builder.process_realtime_htf(
                 instrument="NQ",
-                contract="NQU6",
+                contract=nq_contract,
                 boundary_utc=end,
                 definition=HTF_7H,
             )
 
             es_count = htf_builder.process_realtime_htf(
                 instrument="ES",
-                contract="ESU6",
+                contract=es_contract,
                 boundary_utc=end,
                 definition=HTF_7H,
             )
@@ -1159,14 +1157,14 @@ def main():
 
             nq_count = htf_builder.process_realtime_htf(
                 instrument="NQ",
-                contract="NQU6",
+                contract=nq_contract,
                 boundary_utc=end,
                 definition=HTF_D,
             )
 
             es_count = htf_builder.process_realtime_htf(
                 instrument="ES",
-                contract="ESU6",
+                contract=es_contract,
                 boundary_utc=end,
                 definition=HTF_D,
             )
@@ -1175,6 +1173,7 @@ def main():
                 f">>> Daily HTF processing complete: "
                 f"NQ={nq_count}, ES={es_count}"
             )
+
         def process_ping(now_utc):
             print("processing ping...")
             current_30m_start = now_utc.replace(
@@ -1241,58 +1240,66 @@ def main():
             print(">>> 30m processing completed successfully")
 
         def process_30m_v3(end_utc):
-            print(">>> 30m processing started")
-            
-            # Use one boundary timestamp for the entire pipeline.
-            # end = datetime.now(timezone.utc).replace(
-            #     second=0,
-            #     microsecond=0,
-            # )
+            try:
+                print(">>> 30m processing started")
+                
+                # Use one boundary timestamp for the entire pipeline.
+                # end = datetime.now(timezone.utc).replace(
+                #     second=0,
+                #     microsecond=0,
+                # )
 
-            # Step 1: Reconcile recent 1m candles
-            nq_reconciled = (
-                projectx_history_candle_loader.reconcile_recent_candles(
-                    "NQ",
-                    lookback_minutes=60,
+                # Step 1: Reconcile recent 1m candles
+                nq_reconciled = (
+                    projectx_history_candle_loader.reconcile_recent_candles(
+                        "NQ",
+                        lookback_minutes=60,
+                    )
                 )
-            )
 
-            es_reconciled = (
-                projectx_history_candle_loader.reconcile_recent_candles(
-                    "ES",
-                    lookback_minutes=60,
+                es_reconciled = (
+                    projectx_history_candle_loader.reconcile_recent_candles(
+                        "ES",
+                        lookback_minutes=60,
+                    )
                 )
-            )
-            print(
-                f">>> 30m reconciliation complete: "
-                f"NQ={nq_reconciled}, ES={es_reconciled}"
-            )
-            # Reconcile 3m
-            # reconciled in 3m boundary
-            
-            # Reconcile 30m candles
-            process_30m_reconcile_v3(end_utc)
+                print(
+                    f">>> 30m reconciliation complete: "
+                    f"NQ={nq_reconciled}, ES={es_reconciled}"
+                )
+                # Reconcile 3m
+                # reconciled in 3m boundary
+                
+                # Reconcile 30m candles
+                process_30m_reconcile_v3(end_utc)
 
-            # build 30m candle from last 10 3m candles
-            htf_builder.build_latest_30m_from_3m_v3(
-                instrument="NQ",
-                contract=nq_contract,
-                end_utc=end_utc,
-            )
-            htf_builder.build_latest_30m_from_3m_v3(
-                instrument="ES",
-                contract=es_contract,
-                end_utc=end_utc,
-            )
-            htf_builder.process_1h_v2(nq_contract,
-                            es_contract,
-                            end_utc
-                            )
+                # build 30m candle from last 10 3m candles
+                htf_builder.build_latest_30m_from_3m_v3(
+                    instrument="NQ",
+                    contract=nq_contract,
+                    end_utc=end_utc,
+                )
+                htf_builder.build_latest_30m_from_3m_v3(
+                    instrument="ES",
+                    contract=es_contract,
+                    end_utc=end_utc,
+                )
+                htf_builder.process_1h_v2(nq_contract,
+                                es_contract,
+                                end_utc
+                                )
 
-            print(">>> 30m processing completed successfully")
+                print(">>> 30m processing completed successfully")
+                return True
+            except Exception as e:
+                print(
+                    f">>> 30m processing FAILED: "
+                    f"{type(e).__name__}: {e}"
+                )
 
-        
-        
+                return False
+
+    
         def process_scheduler_tasks():
 
             now_utc = datetime.now(timezone.utc).replace(
@@ -1326,7 +1333,7 @@ def main():
                             es_contract,
                             now_utc)
                 
-                # process_ping(now_utc)
+                process_ping(now_utc)
         
         scheduler = Scheduler()
 
@@ -1338,9 +1345,9 @@ def main():
 
         scheduler.start()
 
-        # Keep the WebSocket process alive
-        while True:
-            time.sleep(1)
+        # # Keep the WebSocket process alive
+        # while True:
+        #     time.sleep(1)
 
         # print("1m:", len(candles_1m))
 
@@ -1488,7 +1495,7 @@ def main():
         # print(r.text)
         # run_quick_backtest("2026-09-01")
         # run_quick_test("2026-04-21")
-        return
+        # return
     # token = os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 

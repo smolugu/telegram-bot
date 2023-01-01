@@ -40,7 +40,10 @@ async def subscription_callback(update, context):
     #     query.data,
     # )
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
 
     session = SessionLocal()

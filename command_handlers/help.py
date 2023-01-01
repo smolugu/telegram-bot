@@ -1,3 +1,5 @@
+from telegram.error import BadRequest
+
 from bot.screens.help.commands import help_commands_screen
 from bot.screens.help.getting_started import help_getting_started_screen
 from bot.screens.help.help import help_home_screen
@@ -28,7 +30,10 @@ async def help_callback(update, context):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     if query.data == "help:home":
 

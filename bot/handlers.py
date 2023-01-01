@@ -11,6 +11,7 @@ from command_handlers.settings import settings_callback, settings_command
 from command_handlers.start import start_command
 from command_handlers.subscribe import subscribe
 from command_handlers.subscription import subscription_callback, subscription_command
+from command_handlers.subscription_actions import subscription_action_callback
 from command_handlers.unsubscribe import unsubscribe
 
 
@@ -108,7 +109,17 @@ def register_handlers(application):
             home_command,
         )
     )
+    application.add_handler(
+        CallbackQueryHandler(
+            subscription_action_callback,
+            pattern=r"^(subscribe|unsubscribe)$",
+        )
+    )
 
-
+    application.add_handler(
+        CallbackQueryHandler(
+            debug_callback,
+        )
+    )
 
     print("Handlers registered successfully.")

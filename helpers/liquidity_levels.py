@@ -22,6 +22,16 @@ def add_ob_mitigation_level(liquidity_levels, ob_level, session, side):
     if side == "buy_side" and session == "1AM":
         liquidity_levels["ob1_mtl_high"]["price"] = ob_level
 
+def add_fvg_mitigation_level(liquidity_levels, fvg_level, session, side):
+    if side == "sell_side" and session == "8AM":
+        liquidity_levels["fvg8_mtl_low"]["price"] = fvg_level
+    if side == "buy_side" and session == "8AM":
+        liquidity_levels["fvg8_mtl_high"]["price"] = fvg_level
+    if side == "sell_side" and session == "1AM":
+        liquidity_levels["fvg1_mtl_low"]["price"] = fvg_level
+    if side == "buy_side" and session == "1AM":
+        liquidity_levels["fvg1_mtl_high"]["price"] = fvg_level
+
 
 def add_mitigation_level(liquidity_levels, mtl_level, session, side):
     
@@ -51,6 +61,18 @@ def add_8am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_
         add_ob_mitigation_level(liquidity_levels, bullish_ob_level, "8AM", "sell_side")
     if bearish_ob_level is not None:
         add_ob_mitigation_level(liquidity_levels, bearish_ob_level, "8AM", "buy_side")
+
+def add_8am_ib_fvg_levels(liquidity_levels, bullish_fvg_level, bearish_fvg_level):
+    if bullish_fvg_level is not None:
+        add_fvg_mitigation_level(liquidity_levels, bullish_fvg_level, "8AM", "sell_side")
+    if bearish_fvg_level is not None:
+        add_fvg_mitigation_level(liquidity_levels, bearish_fvg_level, "8AM", "buy_side")
+
+def add_1am_ib_fvg_levels(liquidity_levels, bullish_fvg_level, bearish_fvg_level):
+    if bullish_fvg_level is not None:
+        add_fvg_mitigation_level(liquidity_levels, bullish_fvg_level, "1AM", "sell_side")
+    if bearish_fvg_level is not None:
+        add_fvg_mitigation_level(liquidity_levels, bearish_fvg_level, "1AM", "buy_side")
 
 def add_1am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_level):
     if bullish_ob_level is not None:
@@ -142,6 +164,12 @@ def reset_liquidity():
         "ob1_mtl_high": {"name": "ob1_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "ob1_mtl_low": {"name": "ob1_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
 
+        "fvg8_mtl_high": {"name": "fvg8_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "fvg8_mtl_low": {"name": "fvg8_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+        
+        "fvg1_mtl_high": {"name": "fvg1_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "fvg1_mtl_low": {"name": "fvg1_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
         "asia_high": {"name": "asia_high","price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "asia_low": {"name": "asia_low","price": None, "side": "sell_side", "swept": False, "timestamp": None},
 
@@ -167,7 +195,7 @@ def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, curre
     liquidity_levels["pdl"]["price"] = pdl
     asia_levels = get_session_high_low(candles_30m, 20, 0, 0, 0, current_start, "Asia")
     if asia_levels["high"] is not None and liquidity_levels["asia_high"]["price"] != asia_levels["high"]:
-        print("updating asia high at :", current_start)
+        # print("updating asia high at :", current_start)
         liquidity_levels["asia_high"]["price"] = asia_levels["high"]
         liquidity_levels["asia_high"]["swept"] = False
         liquidity_levels["asia_low"]["price"] = asia_levels["low"]

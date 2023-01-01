@@ -45,10 +45,10 @@ def filter_valid_swing_lows(swings, prev_last_closed_candle):
 
     for swing in swings:
 
-        swing_low = swing["low"]
+        swing_low = swing.low
 
         # Remove previous lows that are higher than the current swing
-        valid = [v for v in valid if v["low"] < swing_low]
+        valid = [v for v in valid if v.low < swing_low]
 
         # Add the current swing
         valid.append(swing)
@@ -56,7 +56,7 @@ def filter_valid_swing_lows(swings, prev_last_closed_candle):
     # for v in valid:
     #     print(v["low"], end=", ")
     # print("prev closed low: ", prev_last_closed_candle["low"], prev_last_closed_candle["timestamp"])
-    valid = [v for v in valid if v["low"] <=  prev_last_closed_candle.low]
+    valid = [v for v in valid if v.low <=  prev_last_closed_candle.low]
     # print("\nvalid swing lows - final: ")
     # for v in valid:
     #     print(v['low'], end=", ")
@@ -68,19 +68,21 @@ def filter_valid_swing_highs(swings, prev_last_closed_candle):
 
     for swing in swings:
 
-        swing_high = swing["high"]
+        swing_high = swing.high
 
         # Remove previous highs that are lower than the current swing
-        valid = [v for v in valid if v["high"] > swing_high]
+        valid = [v for v in valid if v.high > swing_high]
 
         # Add the current swing
         valid.append(swing)
-    valid = [v for v in valid if v["high"] >= prev_last_closed_candle.high]
+    valid = [v for v in valid if v.high >= prev_last_closed_candle.high]
 
     return valid
 
 
 def get_valid_swings(historical_candles, i=0):
+    if len(historical_candles) < 3:
+        return [],[]
 
     # prev_last_closed_candle = historical_candles[i-2]
     prev_last_closed_candle = historical_candles[-1]
@@ -97,26 +99,26 @@ def get_valid_swings(historical_candles, i=0):
 def debug_print_30m_swings(nq_30m, test_date):
 
     # Filter only that day
-    day_30m = [c for c in nq_30m if test_date in c["timestamp"]]
+    day_30m = [c for c in nq_30m if test_date in c.timestamp]
 
     swings_high = find_swing_highs(day_30m)
     swings_low = find_swing_lows(day_30m)
 
     print("\n--- 30M SWING HIGHS ---")
     for s in swings_high:
-        print(s["timestamp"], s["high"])
+        print(s.timestamp, s.high)
 
     print("\n--- 30M SWING LOWS ---")
     for s in swings_low:
-        print(s["timestamp"], s["low"])
+        print(s.timestamp, s.low)
     #  print only relevant swings for the day
     print("\n--- FILTERED PROGRESSIVE SWING HIGHS ---")
     progressive_highs = filter_valid_swing_highs(swings_high)
     
     for s in progressive_highs:
-        print(s["timestamp"], s["high"])
+        print(s.timestamp, s.high)
     progressive_lows = filter_valid_swing_lows(swings_low)
     print("\n--- FILTERED PROGRESSIVE SWING LOWS ---")
     for s in progressive_lows:
-        print(s["timestamp"], s["low"])
+        print(s.timestamp, s.low)
 

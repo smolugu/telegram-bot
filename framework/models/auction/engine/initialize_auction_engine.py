@@ -59,7 +59,7 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
     # ---------------------------------------------------------
     # 3. Collect all HTF levels
     # ---------------------------------------------------------
-    print("4h swings in initialize auction: ", h4_swings)
+    # print("4h swings in initialize auction: ", h4_swings)
     levels = collect_levels(
         daily_swings=daily_swings,
         daily_fvgs=daily_fvgs,
@@ -73,9 +73,9 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
         h4_fvgs=h4_fvgs,
         h4_vis=h4_vis,
     )
-    print("levels before: ", levels)
+    # print("levels before: ", levels)
     levels = update_historical_level_state(levels, candles_for_auction)
-    print("levels after: ", levels)
+    # print("levels after: ", levels)
     # build auction context
     # auction_engine.auction_context = build_auction_context(levels)
     build_auction_context(levels, auction_engine)

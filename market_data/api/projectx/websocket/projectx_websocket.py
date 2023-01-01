@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 import threading
 from typing import Callable
@@ -29,9 +29,14 @@ class ProjectXWebSocket:
         self._on_trade = on_trade
         self._on_connected = on_connected
         self._realtime_start: datetime | None = None
+        self._last_trade_received_at = None
+        self._subscribed_contracts: set[str] = set()
+        self._watchdog_thread = None
+        self._watchdog_stop = threading.Event()
 
         self._connection = None
         self._connected = threading.Event()
+        self._trade_event_count = 0
 
     @property
     def realtime_start(self) -> datetime:
@@ -91,6 +96,7 @@ class ProjectXWebSocket:
                 "ProjectX market hub did not become ready "
                 "within 10 seconds"
             )
+        self._start_watchdog()
 
     def _on_open(self):
         self._realtime_start = datetime.now(timezone.utc)
@@ -100,12 +106,39 @@ class ProjectXWebSocket:
 
         self._connected.set()
 
+    # def _on_close(self):
+
+    #     print("ProjectX market hub disconnected")
+
+    #     self._connected.clear()
     def _on_close(self):
-
         print("ProjectX market hub disconnected")
-
         self._connected.clear()
 
+        threading.Thread(
+            target=self._reconnect,
+            daemon=True,
+        ).start()
+    def _reconnect(self):
+        print(">>> ProjectX WebSocket reconnecting...")
+
+        try:
+            self.connect()
+
+            print(">>> ProjectX WebSocket reconnected")
+
+            for contract_id in self._subscribed_contracts:
+                self.subscribe_trades(contract_id)
+
+        except Exception as e:
+            print(f">>> ProjectX WebSocket reconnect failed: {e}")
+    def test_force_disconnect(self):
+        print(">>> TEST: Forcing ProjectX WebSocket disconnect...")
+
+        if self._connection is not None:
+            self._connection.stop()
+        else:
+            print(">>> TEST: No WebSocket connection exists")
     def _on_error(self, error):
 
         print(
@@ -113,6 +146,12 @@ class ProjectXWebSocket:
         )
 
     def _on_gateway_trade(self, *args):
+        self._last_trade_received_at = datetime.now(timezone.utc)
+
+        # print(
+        #     f"GatewayTrade received at "
+        #     f"{datetime.now(timezone.utc)}"
+        # )
 
         contract_id, trades = args[0]
 
@@ -134,7 +173,7 @@ class ProjectXWebSocket:
             return
 
         for data in trades:
-
+            self._trade_event_count += 1
             trade = Trade(
                 instrument=contract.instrument,
                 contract=internal_contract,
@@ -146,10 +185,69 @@ class ProjectXWebSocket:
                 side=int(data["type"]),
             )
 
-            print(trade)
+            # print(trade)
+            if self._trade_event_count % 500 == 0:
+                print(trade)
             if self._on_trade is not None:
                 self._on_trade(trade)
 
+    # def subscribe_trades(self, contract_id: str) -> None:
+
+    #     if not self._connected.is_set():
+    #         raise RuntimeError(
+    #             "WebSocket is not ready"
+    #         )
+
+    #     print(
+    #         f"Subscribing to trades: {contract_id}"
+    #     )
+
+    #     self._connection.invoke(
+    #         "SubscribeContractTrades",
+    #         [contract_id],
+    #     )
+
+    #     print(
+    #         f"Trade subscription sent: {contract_id}"
+    #     )
+    def _watchdog_loop(self) -> None:
+
+        while not self._watchdog_stop.wait(timeout=30):
+
+            if not self._connected.is_set():
+                continue
+
+            if self._last_trade_received_at is None:
+                continue
+
+            elapsed = (
+                datetime.now(timezone.utc)
+                - self._last_trade_received_at
+            )
+
+            if elapsed > timedelta(minutes=2):
+
+                print(
+                    f">>> ProjectX WS stale: "
+                    f"no GatewayTrade for {elapsed}"
+                )
+
+                self._resubscribe_trades()
+    def _start_watchdog(self) -> None:
+
+        if self._watchdog_thread is not None:
+            return
+
+        self._watchdog_stop.clear()
+
+        self._watchdog_thread = threading.Thread(
+            target=self._watchdog_loop,
+            daemon=True,
+        )
+
+        self._watchdog_thread.start()
+
+        print("ProjectX WebSocket watchdog started")
     def subscribe_trades(self, contract_id: str) -> None:
 
         if not self._connected.is_set():
@@ -166,11 +264,51 @@ class ProjectXWebSocket:
             [contract_id],
         )
 
+        self._subscribed_contracts.add(contract_id)
+
         print(
             f"Trade subscription sent: {contract_id}"
         )
 
+    def _resubscribe_trades(
+        self,
+        contract_ids: list[str],
+    ) -> None:
+
+        if not self._connected.is_set():
+            print("Cannot resubscribe: WebSocket is not connected")
+            return
+
+        print(">>> Resubscribing to ProjectX trades")
+
+        for contract_id in contract_ids:
+            print(
+                f">>> Resubscribing trades: {contract_id}"
+            )
+
+            self._connection.invoke(
+                "SubscribeContractTrades",
+                [contract_id],
+            )
+
+            print(
+                f">>> Resubscription sent: {contract_id}"
+            )
+    # def disconnect(self) -> None:
+
+    #     if self._connection is not None:
+
+    #         print(
+    #             "Disconnecting ProjectX market hub..."
+    #         )
+
+    #         self._connection.stop()
+
+    #         self._connection = None
+    #         self._connected.clear()
     def disconnect(self) -> None:
+
+        self._watchdog_stop.set()
 
         if self._connection is not None:
 

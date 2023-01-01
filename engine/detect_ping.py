@@ -1,6 +1,6 @@
 # 
-from datetime import datetime, timedelta, timezone
-import time
+from datetime import datetime, time, timedelta, timezone
+# import time
 
 from alerts.alert_payload import build_trade_alert
 from alerts.execute import execute_trade_and_log, send_newyork_summary
@@ -14,18 +14,18 @@ from framework.models.reversal_setup import check_for_reversal_setup_confirmatio
 from framework.models.sweep_validation import validate_sweeps
 from framework.state.weekly_state import update_weekly_1h_structure
 from helpers.date_time_helpers import to_ny_datetime
-from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ob_mitigation_levels, add_ib_ce_key_level, add_post_8am_mitigation_levels, get_liquidity_values, refresh_liquidity, reset_liquidity, update_compression_range_levels
+from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ib_fvg_levels, add_8am_ob_mitigation_levels, add_ib_ce_key_level, add_post_8am_mitigation_levels, get_liquidity_values, refresh_liquidity, reset_liquidity, update_compression_range_levels
 from helpers.sessions import in_session
 from helpers.swing_points import get_valid_swings
 from helpers.time_windows import get_active_window, is_blocked_time
-from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
+from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle, detect_9am_fvg
 from modules.ob_detector import detect_30m_order_block
 from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, summary_smt
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, update_sweep_info
 
-def update_weekly_1h_structure_abs(nq_weekly_state, nq_1h_candles, es_weekly_state, es_1h_candles, current_30m_start_utc):
-    nq_weekly_state = update_weekly_1h_structure(nq_weekly_state, nq_1h_candles)
-    es_weekly_state = update_weekly_1h_structure(es_weekly_state, es_1h_candles)
+def update_weekly_1h_structure_abs(nq_weekly_state, nq_weekly_1h_candles, es_weekly_state, es_weekly_1h_candles, current_30m_start_utc):
+    nq_weekly_state = update_weekly_1h_structure(nq_weekly_state, nq_weekly_1h_candles)
+    es_weekly_state = update_weekly_1h_structure(es_weekly_state, es_weekly_1h_candles)
     return nq_weekly_state, es_weekly_state
 
 def detect_ping(
@@ -144,20 +144,36 @@ def detect_ping(
     # update weekly state a the end of new 1h candle
     nq_1h_candles = None
     es_1h_candles = None
-    if dt_current.hour==0 and dt_current.hour !=18:
-        nq_1h_candles = candle_repo.get_last_n(
+    # if dt_current.hour==0 and dt_current.hour !=18:
+    if dt_current.hour==0:
+        current_week_start_ny = (
+            last_closed_nq.timestamp
+            - timedelta(
+                days=(last_closed_nq.timestamp.weekday() + 1) % 7
+            )
+        ).replace(
+            hour=18,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        current_week_start_utc = current_week_start_ny.astimezone(
+            timezone.utc
+        )
+        nq_weekly_1h_candles = candle_repo.get_between(
             contract=runtime.nq_contract,
             timeframe=60,
-            end=current_30m_start_utc,
-            n=40,
+            start=current_week_start_utc,
+            end=last_closed_nq.timestamp.astimezone(timezone.utc),
         )
-        es_1h_candles = candle_repo.get_last_n(
+        es_weekly_1h_candles = candle_repo.get_between(
             contract=runtime.es_contract,
             timeframe=60,
-            end=current_30m_start_utc,
-            n=40,
+            start=current_week_start_utc,
+            end=last_closed_nq.timestamp.astimezone(timezone.utc),
         )
-        update_weekly_1h_structure_abs(nq_weekly_state = runtime.nq_weekly_state, nq_1h_candles=nq_1h_candles, es_weekly_state=runtime.es_weekly_state, es_1h_candles=es_1h_candles, current_30m_start_utc=current_30m_start_utc)
+        update_weekly_1h_structure_abs(nq_weekly_state = runtime.nq_weekly_state, nq_weekly_1h_candles=nq_weekly_1h_candles, es_weekly_state=runtime.es_weekly_state, es_weekly_1h_candles=es_weekly_1h_candles, current_30m_start_utc=current_30m_start_utc)
 
     # if i >= 3:
     
@@ -173,7 +189,7 @@ def detect_ping(
     
     # TODO: revisit and check again. candidates reset
     # resetting candidates after alerts are sent at window change
-    if window_name != current_window:
+    if window_name != runtime.current_window:
         print("🔄 New window detected:", window_name)
         # reset only candidates whose alert is sent when a new window starts
         # dont reset active candidates    
@@ -185,9 +201,9 @@ def detect_ping(
             runtime.es_buy_candidate.reset()
         if runtime.es_sell_candidate.alert_sent:
             runtime.es_sell_candidate.reset()
-        current_window = window_name
+        runtime.current_window = window_name
 
-    print("Current window:", current_window)
+    print("Current window:", runtime.current_window)
     # previous 30m candle just closed
     # last_closed_nq = nq_30m[i - 1]
     # last_closed_es = es_30m[i - 1]
@@ -209,8 +225,8 @@ def detect_ping(
         add_post_8am_mitigation_levels(structure_data=runtime.nq_ny_market_context, liquidity_levels=runtime.liquidity_nq)
         add_post_8am_mitigation_levels(structure_data=runtime.es_ny_market_context, liquidity_levels=runtime.liquidity_es)
         # add compression levels from nyam structure to liquidity objects
-        update_compression_range_levels(runtime.liquidity_nq, compression_range_nq, "8AM")
-        update_compression_range_levels(runtime.liquidity_es, compression_range_es, "8AM")
+        
+        
         
     
     # update currest_session for i=0, 1, 2 
@@ -329,26 +345,41 @@ def detect_ping(
 
     if last_closed_candle_timestamp.hour < 18:
         session_start -= timedelta(days=1)
+    print("last_closed_candle_timestamp: ", last_closed_candle_timestamp)
+    print("session_start: ", session_start)
 
     # historical_nq = nq_30m[:i]
+    # historical_nq = candle_repo.get_between(
+    #     contract=runtime.nq_contract,
+    #     timeframe=30,
+    #     start=session_start.astimezone(timezone.utc),
+    #     end=(last_closed_candle_timestamp - timedelta(minutes=30)).astimezone(timezone.utc),
+    # )
+    historical_start_ny = last_closed_nq.timestamp - timedelta(days=14)
+    historical_start_utc = historical_start_ny.astimezone(timezone.utc)
+    historical_end_ny = last_closed_nq.timestamp - timedelta(minutes=30)
+    historical_end_utc = historical_end_ny.astimezone(timezone.utc)
+
     historical_nq = candle_repo.get_between(
         contract=runtime.nq_contract,
         timeframe=30,
-        start=session_start.astimezone(timezone.utc),
-        end=(last_closed_candle_timestamp - timedelta(minutes=30)).astimezone(timezone.utc),
+        start=historical_start_utc,
+        end=historical_end_utc,
     )
     
-    # historical_es = es_30m[:i]
+    print("length: ", len(historical_nq))
     historical_es = candle_repo.get_between(
         contract=runtime.es_contract,
         timeframe=30,
-        start=session_start.astimezone(timezone.utc),
-        end=(last_closed_candle_timestamp - timedelta(minutes=30)).astimezone(timezone.utc),
+        start=historical_start_utc,
+        end=historical_end_utc,
     )
+    print("length es: ", len(historical_es))
     #  gather session liquidity
+    # print("pdh xx: ", runtime.nq_pdh, runtime.nq_pdl)
     runtime.liquidity_nq = get_liquidity_values(symbol= runtime.nq_contract, candles_30m = historical_nq, test_date=None, liquidity_levels=runtime.liquidity_nq, current_start = current_30m_start, pdh = runtime.nq_pdh, pdl = runtime.nq_pdl)
     runtime.liquidity_es = get_liquidity_values(symbol= runtime.es_contract, candles_30m = historical_es, test_date=None, liquidity_levels=runtime.liquidity_es, current_start = current_30m_start, pdh = runtime.es_pdh, pdl = runtime.es_pdl)
-    
+    # print("liquidity_nq xx: ", runtime.liquidity_nq)
     # at 1am store ob_level formed before 1am
     # storing OB levels formed before 1am as key level and removing old active candidates
     if dt_current.hour == 1 and dt_current.minute == 00:
@@ -368,8 +399,8 @@ def detect_ping(
 
     # update london context with IBS
     if dt.hour == 1 and dt.minute == 30:
-        runtime.nq_london_market_context.set_18_1am_ibs(runtime.nq_seven_hour_builder.candles["6PM"].values(),runtime.nq_seven_hour_builder.candles["1AM"].values())
-        runtime.es_london_market_context.set_18_1am_ibs(runtime.es_seven_hour_builder.candles["6PM"].values(),runtime.es_seven_hour_builder.candles["1AM"].values())
+        runtime.nq_london_market_context.set_18_1am_ibs(runtime.nq_seven_hour_builder.candles["6PM"].values(),runtime.nq_seven_hour_builder.candles["1AM"].values(), runtime.nq_market_context.session_high, runtime.nq_market_context.session_low)
+        runtime.es_london_market_context.set_18_1am_ibs(runtime.es_seven_hour_builder.candles["6PM"].values(),runtime.es_seven_hour_builder.candles["1AM"].values(), runtime.es_market_context.session_high, runtime.es_market_context.session_low)
         print("nq london structure: ", runtime.nq_london_market_context.structure)
         print("es london structure: ", runtime.es_london_market_context.structure)
         
@@ -389,6 +420,7 @@ def detect_ping(
     
     # update london context
     if dt.hour > 1 and dt.hour < 8:
+        print("liquidity nq: ", runtime.liquidity_nq)
         runtime.nq_london_market_context.update(last_closed_nq, runtime.liquidity_nq)
         runtime.es_london_market_context.update(last_closed_es, runtime.liquidity_es)
     
@@ -426,6 +458,36 @@ def detect_ping(
         print("add new mitigation or equilibrium level to liquidity key levels")
         print("xxib8am: ",  runtime.nq_seven_hour_builder.candles["8AM"].values())
         print("xxib8am: ",  runtime.es_seven_hour_builder.candles["8AM"].values())
+
+        # we have structure for ny am, determine if 8am IB forms an fvg
+        fvg_results = detect_9am_fvg(
+            runtime.nq_contract, runtime.es_contract, candle_repo, current_30m_start_utc
+        )
+        # add_8am_ib_fvg_levels(liquidity_levels, bullish_fvg_level, bearish_fvg_level):
+        bullish_nq_fvg_level = None
+        bullish_es_fvg_level = None
+        bearish_nq_fvg_level = None
+        bearish_es_fvg_level = None
+        if fvg_results["NQ"] is None:
+            bullish_nq_fvg_level = None
+        else:
+            if fvg_results["NQ"]["type"] == "bullish":
+                bullish_nq_fvg_level = fvg_results["NQ"]["level"]
+            else:
+                bearish_nq_fvg_level = fvg_results["NQ"]["level"]
+
+        if fvg_results["ES"] is None:
+                    bullish_es_fvg_level = None
+        else:
+            if fvg_results["ES"]["type"] == "bullish":
+                bullish_es_fvg_level = fvg_results["ES"]["level"]
+            else:
+                bearish_es_fvg_level = fvg_results["ES"]["level"]
+
+        # a htf fvg has a risk of double sweep inside FVG
+        # add_8am_ib_fvg_levels(liquidity_levels=runtime.liquidity_nq, bullish_fvg_level=bullish_nq_fvg_level, bearish_ob_level=bearish_nq_fvg_level)
+        # add_8am_ib_fvg_levels(liquidity_levels=runtime.liquidity_es, bullish_fvg_level=bullish_es_fvg_level, bearish_ob_level=bearish_es_fvg_level)
+
         print("es liquidity levels: ", runtime.liquidity_es)
         # send nyam summary at 9am est
         summary_message = build_summary_alert(runtime.nq_ny_market_context, runtime.es_ny_market_context, current_30m_start)
@@ -502,12 +564,13 @@ def detect_ping(
         print("es dat type: ", es_day_type)
     # call set_ib towards the end so ib_ready is true for the next candle
     # populate IB for NQ and ES
-    if dt_current.hour == 9:
-        # update Ib setup 
-        runtime.nq_ib_candidate.update(runtime.nq_seven_hour_builder.candles["8AM"].values())
-        runtime.es_ib_candidate.update(runtime.es_seven_hour_builder.candles["8AM"].values())
-        runtime.nq_market_context.set_ib(runtime.nq_ib_candidate.ib_high, runtime.nq_ib_candidate.ib_low)
-        runtime.es_market_context.set_ib(runtime.es_ib_candidate.ib_high, runtime.es_ib_candidate.ib_low)
+    # not using ib setup now
+    # if dt_current.hour == 9:
+    #     # update Ib setup 
+    #     runtime.nq_ib_candidate.update(runtime.nq_seven_hour_builder.candles["8AM"].values())
+    #     runtime.es_ib_candidate.update(runtime.es_seven_hour_builder.candles["8AM"].values())
+    #     runtime.nq_market_context.set_ib(runtime.nq_ib_candidate.ib_high, runtime.nq_ib_candidate.ib_low)
+    #     runtime.es_market_context.set_ib(runtime.es_ib_candidate.ib_high, runtime.es_ib_candidate.ib_low)
     
     # print("NQ Market Context: ", nq_market_context.values())
     # print("ES Market Context: ", es_market_context.values())
@@ -639,7 +702,9 @@ def detect_ping(
         # fetch compression data
         is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq = runtime.nq_ny_market_context.get_compression_data()
         is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es = runtime.es_ny_market_context.get_compression_data()
-        
+
+        update_compression_range_levels(runtime.liquidity_nq, compression_range_nq, "8AM")
+        update_compression_range_levels(runtime.liquidity_es, compression_range_es, "8AM")
         print("compression data after updates:")
         print("compression data nq: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
         print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
@@ -1195,33 +1260,43 @@ def detect_ping(
     # print("nq_1h_filtered: ", nq_1h_filtered)
     nq_1h_filtered = nq_1h_candles
     es_1h_filtered = es_1h_candles
+    nq_1h_filtered = candle_repo.get_last_n(
+        contract=runtime.nq_contract,
+        timeframe=60,
+        end=current_30m_start_utc,
+        n=40,
+    )
+    es_1h_filtered = candle_repo.get_last_n(
+        contract=runtime.es_contract,
+        timeframe=60,
+        end=current_30m_start_utc,
+        n=40,
+    )
     nq_4h_filtered = candle_repo.get_last_n(
         contract=runtime.nq_contract,
         timeframe=240,
         end=current_30m_start_utc,
-        n=40,
+        n=10,
     )
     es_4h_filtered = candle_repo.get_last_n(
         contract=runtime.es_contract,
         timeframe=240,
         end=current_30m_start_utc,
-        n=40,
+        n=10,
     )
     nq_7h_filtered = candle_repo.get_last_n(
         contract=runtime.nq_contract,
         timeframe=420,
         end=current_30m_start_utc,
-        n=40,
+        n=10,
     )
     es_7h_filtered = candle_repo.get_last_n(
         contract=runtime.es_contract,
         timeframe=420,
         end=current_30m_start_utc,
-        n=40,
+        n=10,
     )
-    
-    # nq_7h_filtered = filter_htf_candles(nq["7h"], current_30m_start)
-    # es_7h_filtered = filter_htf_candles(es["7h"], current_30m_start)
+
     
     # print("es_1h_filtered: ", es_1h_filtered)
     print("pre detect smt")
@@ -1509,13 +1584,13 @@ def detect_ping(
                 print("send from blocked time: ", send)
             
             # check last_closed_timestamp with confirmation_time
-            current_last_closed_dt = to_ny_datetime(last_closed_es["timestamp"])
+            current_last_closed_dt = to_ny_datetime(last_closed_es.timestamp)
             confirmation_dt = to_ny_datetime(runtime.es_sell_candidate.confirmation_time)
             if confirmation_dt < current_last_closed_dt:
                 print("current time is ahead of confirmation time, not sending alert")
                 send = False
             # send = True
-            print("ES send == ", send, "trade confirmation time: ", runtime.es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
+            print("ES send == ", send, "trade confirmation time: ", runtime.es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es.timestamp)
             # counter trend check later. candidate move might be finished. below condition disallows reversal
             #  if runtime.nq_buy_candidate.alert_sent or runtime.es_buy_candidate.alert_sent:
             #     send = False
@@ -1552,7 +1627,7 @@ def detect_ping(
             #     print("current time is ahead of confirmation time, not sending alert")
             #     send = False
             # send = True
-            print("send == ", send, "trade confirmation time: ", runtime.es_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
+            print("send == ", send, "trade confirmation time: ", runtime.es_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_es.timestamp)
             # counter trend check later. candidate move might be finished. below condition disallows reversal
             # if runtime.es_sell_candidate.alert_sent or runtime.nq_sell_candidate.alert_sent:
             #     send = False

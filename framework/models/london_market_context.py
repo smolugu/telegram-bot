@@ -95,7 +95,7 @@ class LondonMarketContext:
     # =========================================
     # 1. UPDATE 1AM IB STRUCTURE
     # =========================================
-    def set_18_1am_ibs(self, ib_18, ib_1):
+    def set_18_1am_ibs(self, ib_18, ib_1, session_high, session_low):
         # seven_hour_candle_6pm = seven_hour_builder_candles["6PM"].values()
         # seven_hour_candle_1am = seven_hour_builder_candles["1AM"].values()
         # print("seven_hour_candle_6pm: ", ib_18x)
@@ -109,7 +109,7 @@ class LondonMarketContext:
         self.ib_1["ce"] = ib_1["ib_ce"]
         self.ib_1["open"] = ib_1["ib_open"]
         self.ib_1["close"] = ib_1["ib_close"]
-        self.update_ib_relationships()
+        self.update_ib_relationships(session_high, session_low)
     
     def set_2am_ib(self, last_closed):
         self.ib_2["high"] = last_closed.high
@@ -119,7 +119,7 @@ class LondonMarketContext:
         self.ib_2["close"] = last_closed.close
         self.ib_2["direction"] = "bullish" if last_closed.open < last_closed.close else "bearish"
 
-    def update_ib_relationships(self):
+    def update_ib_relationships(self, session_high, session_low):
         ib18_high = self.ib_18["high"]
         ib18_low = self.ib_18["low"]
 
@@ -127,6 +127,7 @@ class LondonMarketContext:
         ib1_low = self.ib_1["low"]
         ib1_open = self.ib_1["open"]
         ib1_close = self.ib_1["close"]
+
         body = abs(ib1_close - ib1_open)
         range_ = ib1_high - ib1_low
         is_strong_body = body/range_ > 0.75
@@ -149,9 +150,12 @@ class LondonMarketContext:
             self.structure["ib_relationship"] = "inside"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True
-
-            self.structure["range_high"] = ib18_high
-            self.structure["range_low"] = ib18_low
+            self.structure["compression_high"] = ib18_high
+            self.structure["compression_low"] = ib18_low
+            self.structure["compression_ce"] = (ib18_high + ib18_low) / 2
+            self.structure["range_high"] = session_high
+            self.structure["range_low"] = session_low
+            self.structure["range_ce"] = (session_high + session_low ) / 2
 
         # -----------------------------------
         # 2. ENGULFING → expansion happened
@@ -163,9 +167,7 @@ class LondonMarketContext:
 
             self.structure["range_high"] = ib1_high
             self.structure["range_low"] = ib1_low
-            self.structure["ib_direction_1"] = "bullish" if ib1_open < ib1_close else "bearish"
-            self.structure["is_strong_body"] = is_strong_body
-            self.structure["ib_body_range"] = ib_body_range
+            self.structure["range_ce"] = (ib1_high + ib1_low) / 2
 
         # -----------------------------------
         # 3. ABOVE → directional bullish
@@ -237,7 +239,7 @@ class LondonMarketContext:
         # -------------------------
         if low < self.structure["range_low"]:
             self.sweep["side"] = "sell_side"
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_low'] == 0:
                 self.sweep["count_low"] += 1
                 self.sweep["count"] += 1
@@ -270,7 +272,7 @@ class LondonMarketContext:
         # -------------------------
         elif high > self.structure["range_high"]:
             self.sweep["side"] = "buy_side"
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_high'] == 0:
                 self.sweep["count_high"] += 1
                 self.sweep["inducement_level_high"] = high
@@ -699,7 +701,7 @@ class LondonMarketContextES:
         # -------------------------
         if low < self.structure["range_low"]:
             self.sweep["side"] = "sell_side"
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_low'] == 0:
                 self.sweep["count_low"] += 1
                 self.sweep["count"] += 1
@@ -732,7 +734,7 @@ class LondonMarketContextES:
         # -------------------------
         elif high > self.structure["range_high"]:
             self.sweep["side"] = "buy_side"
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_high'] == 0:
                 self.sweep["count_high"] += 1
                 self.sweep["inducement_level_high"] = high

@@ -275,15 +275,30 @@ def _update_timeframe_progress(
 
     if not swept_levels:
         return
+    mitigated_swept_levels = [
+        level
+        for level in swept_levels
+        if level.mitigation_time is not None
+    ]
+
+    if not mitigated_swept_levels:
+        return
 
     latest_swept = max(
-        swept_levels,
+        mitigated_swept_levels,
         key=lambda level: level.mitigation_time,
     )
-    swept_levels.sort(
+
+    mitigated_swept_levels.sort(
         key=lambda level: level.mitigation_time,
-        reverse=True
+        reverse=True,
     )
+
+    # swept_levels.sort(
+    #     key=lambda level: level.mitigation_time,
+    #     reverse=True
+    # )
+    swept_levels = mitigated_swept_levels
     # if tf_auction_progress.timeframe == "4h":
     #     print("swept_levels: ", swept_levels)
     print("recent swept: ", latest_swept)
@@ -405,13 +420,22 @@ def _update_timeframe_progress(
     # Confirm auction after 40%
     # ---------------------------------------------------------
 
+    # if progress >= 0.40:
+    #     print("progress > 0.4")
+    #     tf_auction_progress.confirmed = True
+    #     tf_auction_progress.confirmed_direction = (
+    #         direction
+    #     )
+    #     tf_auction_progress.direction = direction
     if progress >= 0.40:
         print("progress > 0.4")
+
         tf_auction_progress.confirmed = True
-        tf_auction_progress.confirmed_direction = (
-            direction
-        )
+        tf_auction_progress.confirmed_direction = direction
         tf_auction_progress.direction = direction
+
+        assert tf_auction_progress.origin is not None
+        assert tf_auction_progress.current_objective is not None
 
     else:
         print("progress less than 0.4")
@@ -467,3 +491,21 @@ def update_auction_progress(context, candle_30m):
         context.bearish_levels,
         candle_30m,
     )
+    print("\n========== AUCTION PROGRESS STATE ==========")
+
+    for progress in (
+        context.daily,
+        context.h7,
+        context.h4,
+    ):
+        print(
+            progress.timeframe,
+            "confirmed=", progress.confirmed,
+            "completed=", progress.completed,
+            "direction=", progress.direction,
+            "confirmed_direction=", progress.confirmed_direction,
+            "origin=", progress.origin,
+            "current_objective=", progress.current_objective,
+            "previous_origin=", progress.previous_origin,
+            "previous_objective=", progress.previous_objective,
+        )

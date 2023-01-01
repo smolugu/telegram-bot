@@ -157,12 +157,12 @@ class NewYorkMarketContext:
         self.update_ib_relationships()
     
     def set_10am_ib(self, last_closed):
-        self.ib_10["high"] = last_closed["high"]
-        self.ib_10["low"] = last_closed["low"]
-        self.ib_10["ce"] = (last_closed["high"] + last_closed["low"]) / 2
-        self.ib_10["open"] = last_closed["open"]
-        self.ib_10["close"] = last_closed["close"]
-        self.ib_10["direction"] = "bullish" if last_closed["open"] < last_closed["close"] else "bearish"
+        self.ib_10["high"] = last_closed.high
+        self.ib_10["low"] = last_closed.low
+        self.ib_10["ce"] = (last_closed.high + last_closed.low) / 2
+        self.ib_10["open"] = last_closed.open
+        self.ib_10["close"] = last_closed.close
+        self.ib_10["direction"] = "bullish" if last_closed.open < last_closed.close else "bearish"
     
     def update_ib_relationships(self):
         print(" updating ib_8 relationships: ", self.instrument)
@@ -573,67 +573,68 @@ class NewYorkMarketContext:
         # -------------------------
         tradable_range_low = self.structure["range_low"] if self.structure["compression_low"] is None else self.structure["compression_low"]
         tradable_range_high = self.structure["range_high"] if self.structure["compression_high"] is None else self.structure["compression_high"]
-        if low < tradable_range_low:
-            self.sweep["side"] = "sell_side"
-            self.range_low_swept = True
-            self.sweep["time"] = candle.timestamp
-            if self.sweep['count_low'] == 0:
-                self.sweep["count_low"] += 1
-                self.sweep["count"] += 1
-                self.sweep["inducement_level_low"] = low
-                
-            elif low < self.sweep["inducement_level_low"]:
-                self.sweep["count_low"] += 1
-                self.sweep["count"] += 1
-                self.sweep["inducement_level_low"] = low
+        if tradable_range_low is not None and tradable_range_high is not None:
+            if low < tradable_range_low:
+                self.sweep["side"] = "sell_side"
+                self.range_low_swept = True
+                self.sweep["time"] = candle.timestamp
+                if self.sweep['count_low'] == 0:
+                    self.sweep["count_low"] += 1
+                    self.sweep["count"] += 1
+                    self.sweep["inducement_level_low"] = low
+                    
+                elif low < self.sweep["inducement_level_low"]:
+                    self.sweep["count_low"] += 1
+                    self.sweep["count"] += 1
+                    self.sweep["inducement_level_low"] = low
 
-            # Priority check
-            if levels.get("pdl") and low < levels["pdl"]["price"]:
-                self.sweep["level"] = "pdl"
-                self.sweep["tier"] = 1
-                self.sweep["is_external"] = True
+                # Priority check
+                if levels.get("pdl") and low < levels["pdl"]["price"]:
+                    self.sweep["level"] = "pdl"
+                    self.sweep["tier"] = 1
+                    self.sweep["is_external"] = True
 
-            elif levels.get("london_low") and low < levels["london_low"]["price"]:
-                self.sweep["level"] = "london_low"
-                self.sweep["tier"] = 2
-                self.sweep["is_external"] = True
+                elif levels.get("london_low") and low < levels["london_low"]["price"]:
+                    self.sweep["level"] = "london_low"
+                    self.sweep["tier"] = 2
+                    self.sweep["is_external"] = True
 
-            else:
-                self.sweep["level"] = "internal"
-                self.sweep["tier"] = 3
-                self.sweep["is_external"] = False
+                else:
+                    self.sweep["level"] = "internal"
+                    self.sweep["tier"] = 3
+                    self.sweep["is_external"] = False
 
-        # -------------------------
-        # BUY-SIDE SWEEP
-        # -------------------------
-        elif high > tradable_range_high:
-            self.sweep["side"] = "buy_side"
-            self.range_high_swept = True
-            self.sweep["time"] = candle.timestamp
-            if self.sweep['count_high'] == 0:
-                self.sweep["count_high"] += 1
-                self.sweep["count"] += 1
-                self.sweep["inducement_level_high"] = high
+            # -------------------------
+            # BUY-SIDE SWEEP
+            # -------------------------
+            elif high > tradable_range_high:
+                self.sweep["side"] = "buy_side"
+                self.range_high_swept = True
+                self.sweep["time"] = candle.timestamp
+                if self.sweep['count_high'] == 0:
+                    self.sweep["count_high"] += 1
+                    self.sweep["count"] += 1
+                    self.sweep["inducement_level_high"] = high
 
-            elif high > self.sweep["inducement_level_high"]:
-                self.sweep["count_high"] += 1
-                self.sweep["count"] += 1
-                self.sweep["inducement_level_high"] = high
+                elif high > self.sweep["inducement_level_high"]:
+                    self.sweep["count_high"] += 1
+                    self.sweep["count"] += 1
+                    self.sweep["inducement_level_high"] = high
 
-            if levels.get("pdh") and high > levels["pdh"]["price"]:
-                self.sweep["level"] = "pdh"
-                self.sweep["tier"] = 1
-                self.sweep["is_external"] = True
+                if levels.get("pdh") and high > levels["pdh"]["price"]:
+                    self.sweep["level"] = "pdh"
+                    self.sweep["tier"] = 1
+                    self.sweep["is_external"] = True
 
-            elif levels.get("london_high") and high > levels["london_high"]["price"]:
-                self.sweep["level"] = "asia_high"
-                self.sweep["tier"] = 2
-                self.sweep["is_external"] = True
+                elif levels.get("london_high") and high > levels["london_high"]["price"]:
+                    self.sweep["level"] = "asia_high"
+                    self.sweep["tier"] = 2
+                    self.sweep["is_external"] = True
 
-            else:
-                self.sweep["level"] = "internal"
-                self.sweep["tier"] = 3
-                self.sweep["is_external"] = False
+                else:
+                    self.sweep["level"] = "internal"
+                    self.sweep["tier"] = 3
+                    self.sweep["is_external"] = False
     
     # =========================================
     # 4. ACCEPTANCE LOGIC

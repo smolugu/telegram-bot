@@ -2,8 +2,14 @@ from datetime import datetime
 
 
 def get_7h_label(timestamp):
+    ts=None
+    if isinstance(timestamp, str):
+        ts = datetime.fromisoformat(timestamp)
+    else:
+        ts = timestamp
 
-    dt = datetime.fromisoformat(timestamp)
+    # dt = datetime.fromisoformat(ts)
+    dt=ts
     h = dt.hour
 
     if 18 <= h <= 23 or h == 0:
@@ -174,7 +180,12 @@ class SevenHourBuilder:
 
 def in_wick_window(timestamp, wick_minutes=60):
 
-    dt = datetime.fromisoformat(timestamp)
+    # dt = datetime.fromisoformat(timestamp)
+    dt=None
+    if isinstance(timestamp, str):
+        dt = datetime.fromisoformat(timestamp)
+    else:
+        dt = timestamp
 
     centers = [18, 1, 8, 15]
 

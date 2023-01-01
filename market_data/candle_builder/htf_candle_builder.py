@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Callable
 from zoneinfo import ZoneInfo
 
@@ -894,7 +894,7 @@ class HTFCandleBuilder:
 
         start_utc = first_1m
         end_utc = last_1m + timedelta(minutes=1)
-        start_utc = last_1m - timedelta(hours=12)
+        start_utc = last_1m - timedelta(days=2)
         # start_utc=datetime(
         #     2026, 9, 17, 21, 0,
         #     tzinfo=UTC_TZ,
@@ -1446,6 +1446,10 @@ class HTFCandleBuilder:
 
             built = 0
             skipped = 0
+            print(
+                f"DAILY BACKFILL RANGE: "
+                f"{start_utc} → {end_utc}"
+            )
 
             while current < end_utc:
 
@@ -1456,6 +1460,10 @@ class HTFCandleBuilder:
                             definition,
                         )
                     )
+                    print(
+                        f"DAILY PERIOD: "
+                        f"{start_period} → {end_period}"
+                    )
                 except ValueError:
                     # Timestamp is inside a gap between defined periods.
                     current += timedelta(minutes=30)
@@ -1463,9 +1471,11 @@ class HTFCandleBuilder:
 
                 if start_period < start_utc:
                     current = end_period
+                    print("one")
                     continue
 
                 if end_period > end_utc:
+                    print("two")
                     break
 
                 if self._candle_repo.exists(
@@ -1474,6 +1484,7 @@ class HTFCandleBuilder:
                     timestamp=start_period,
                 ):
                     current = end_period
+                    print("three")
                     continue
 
                 candles_30m = self._candle_repo.get_between(
@@ -1481,6 +1492,11 @@ class HTFCandleBuilder:
                     timeframe=30,
                     start=start_period,
                     end=end_period - timedelta(minutes=30),
+                )
+                print(
+                    f"30M FOUND: "
+                    f"{len(candles_30m)} candles "
+                    f"for {start_period} → {end_period}"
                 )
 
                 # expected_count = int(
@@ -2150,16 +2166,31 @@ class HTFCandleBuilder:
             # ---------------------------------------------------------
             # 1. Find the currently active 4H period
             # ---------------------------------------------------------
-            current_start_utc, current_end_utc = (
-                self._get_period_boundaries(
-                    end_utc,
-                    HTF_4H,
-                )
-            )
+            end_ny = end_utc.astimezone(NY_TZ)
 
-            # The current 4H period has not completed yet.
-            # Therefore its start is the end of the previous 4H period.
-            previous_period_end_utc = current_start_utc
+            if time(17, 0) <= end_ny.time() < time(18, 0):
+                # 17:00–18:00 ET is outside the defined 4H framework.
+                # The last defined 4H period ended at 17:00.
+                previous_period_end_utc = (
+                    end_ny.replace(
+                        hour=17,
+                        minute=0,
+                        second=0,
+                        microsecond=0,
+                    )
+                    .astimezone(timezone.utc)
+                )
+
+            else:
+                current_start_utc, current_end_utc = (
+                    self._get_period_boundaries(
+                        end_utc,
+                        HTF_4H,
+                    )
+                )
+
+                # The current 4H period has not completed yet.
+                previous_period_end_utc = current_start_utc
 
             # ---------------------------------------------------------
             # 2. Get the previous / just-closed 4H period
@@ -2240,7 +2271,10 @@ class HTFCandleBuilder:
         end_utc = datetime.now(timezone.utc).replace(
             second=0,
             microsecond=0,
+
         )
+         
+        end_ny = end_utc.astimezone(NY_TZ)
 
         for instrument, contract in [
             ("NQ", nq_contract),
@@ -2248,21 +2282,38 @@ class HTFCandleBuilder:
         ]:
 
             # ---------------------------------------------------------
-            # 1. Find the currently active 4H period
+            # 1. Find the currently active 7H period
             # ---------------------------------------------------------
-            current_start_utc, current_end_utc = (
-                self._get_period_boundaries(
-                    end_utc,
-                    HTF_7H,
+            if time(17, 0) <= end_ny.time() < time(18, 0):
+                # 17:00–18:00 ET is outside the 7H framework.
+                # The last defined period ended at 17:00.
+                previous_period_end_utc = end_ny.replace(
+                    hour=17,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                ).astimezone(timezone.utc)
+
+            else:
+                current_start_utc, current_end_utc = (
+                    self._get_period_boundaries(
+                        end_utc,
+                        HTF_7H,
+                    )
                 )
-            )
+            # current_start_utc, current_end_utc = (
+            #     self._get_period_boundaries(
+            #         end_utc,
+            #         HTF_7H,
+            #     )
+            # )
 
             # The current 7H period has not completed yet.
             # Therefore its start is the end of the previous 7H period.
             previous_period_end_utc = current_start_utc
 
             # ---------------------------------------------------------
-            # 2. Get the previous / just-closed 4H period
+            # 2. Get the previous / just-closed 7H period
             # ---------------------------------------------------------
             previous_period_start_utc, _ = (
                 self._get_period_boundaries(

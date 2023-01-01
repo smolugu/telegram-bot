@@ -1,7 +1,5 @@
 from datetime import date, datetime, timedelta, timezone, time as dt_time
 
-import time
-
 from data.models.candle import NY_TZ
 from market_data.providers.futures_provider import FuturesProvider
 from market_data.repository.candle_repository import CandleRepository

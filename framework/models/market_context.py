@@ -230,7 +230,12 @@ class MarketContext:
         print("session_range: ", self.session_range)
         print("daily_atr: ", self.daily_atr)
 
-        ts = datetime.fromisoformat(current_30m_start)
+        # ts = datetime.fromisoformat(current_30m_start)
+        ts=None
+        if isinstance(current_30m_start, str):
+            ts = datetime.fromisoformat(current_30m_start)
+        else:
+            ts = current_30m_start
 
         # =====================================================
         # BASIC ATR USAGE
@@ -431,27 +436,7 @@ class MarketContext:
 
         }
 
-    def update_atr_usage_old(self, current_30m_start, close=None):
-        print("session_range: ", self.session_range)
-        print("dauly_atr: ", self.daily_atr)
-        ts = datetime.fromisoformat(current_30m_start)
-        if ts.hour == 9 and ts.minute == 30:
-            self.overnight_atr_usage = self.session_range / self.daily_atr
-            if self.overnight_atr_usage > 0.8:
-                self.atr_context = "overnight exhaustion"
-                self.expansion_origin = "overnight"
-                self.overnight_expansion = True
-        self.atr_usage = self.session_range / self.daily_atr
-        # efficiency
-        # > 0.7 - clean trend, 0.4-0.7 mixed, < 0.4 choppy
-        if close is not None and self.session_open is not None:
-            current_price = close
-            net_move = abs(current_price - self.session_open)
-            self.directional_move = abs(net_move) / self.daily_atr
-            self.efficiency = (self.directional_move / self.atr_usage if self.atr_usage > 0 else None)
-
-        print(f"{self.instrument} daily atr: ", self.daily_atr, " atr usage: ", self.atr_usage, " sessio high: ", self.session_high, " session low: ", self.session_low, " atr context: ", self.atr_context)
-
+    
     def update_1h_smt(self, bullish_smt_1h, bearish_smt_1h):
         self.bullish_smt_1h = bullish_smt_1h
         self.bearish_smt_1h = bearish_smt_1h
@@ -462,18 +447,18 @@ class MarketContext:
     def update_1h_smt_status(self, last_closed_nq, last_closed_es):
         if self.bullish_smt_1h is not None:
             if self.bullish_smt_1h["sweeper"] == "nq":
-                if last_closed_es["low"] < self.bullish_smt_1h["es_level_price"]:
+                if last_closed_es.low < self.bullish_smt_1h["es_level_price"]:
                     self.bullish_smt_1h = None  # invalidate bullish smt if price has moved against it
             elif self.bullish_smt_1h["sweeper"] == "es":
-                if last_closed_nq["low"] < self.bullish_smt_1h["nq_level_price"]:
+                if last_closed_nq.low < self.bullish_smt_1h["nq_level_price"]:
                     self.bullish_smt_1h = None  # invalidate bullish smt if price has moved against it
 
         if self.bearish_smt_1h is not None:
             if self.bearish_smt_1h["sweeper"] == "nq":
-                if last_closed_es["high"] > self.bearish_smt_1h["es_level_price"]:
+                if last_closed_es.high > self.bearish_smt_1h["es_level_price"]:
                     self.bearish_smt_1h = None  # invalidate bearish smt if price has moved against it
             elif self.bearish_smt_1h["sweeper"] == "es":
-                if last_closed_nq["high"] > self.bearish_smt_1h["nq_level_price"]:
+                if last_closed_nq.high > self.bearish_smt_1h["nq_level_price"]:
                     self.bearish_smt_1h = None  # invalidate bearish smt if price has moved against it
         
     def update_ib_acceptance(self, close):
@@ -497,7 +482,12 @@ class MarketContext:
         es_ratio=None
     ):
 
-        ts = datetime.fromisoformat(timestamp)
+        # ts = datetime.fromisoformat(timestamp)
+        ts=None
+        if isinstance(timestamp, str):
+            ts = datetime.fromisoformat(timestamp)
+        else:
+            ts = timestamp
 
         bullish = max(0, self.session_high - self.ib_high)
         bearish = max(0, self.ib_low - self.session_low)
@@ -518,9 +508,7 @@ class MarketContext:
     def update_relative_expansion(self, other_expansion_ratio):
         self.relative_expansion = (self.expansion_ratio - other_expansion_ratio)
 
-    
-            
-    
+
     def detect_day_type(
         self,
         # last_closed_candle
@@ -529,7 +517,12 @@ class MarketContext:
         close
         # closes_outside_ib
     ):
-        ts = datetime.fromisoformat(current_timestamp)
+        # ts = datetime.fromisoformat(current_timestamp)
+        ts=None
+        if isinstance(current_timestamp, str):
+            ts = datetime.fromisoformat(current_timestamp)
+        else:
+            ts = current_timestamp
 
         session_range = self.session_high - self.session_low
         # print("MC hour: Min - ", ts.hour, ":", ts.minute)

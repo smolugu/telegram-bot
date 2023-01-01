@@ -1,4 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import BadRequest
 
 from bot.screens.settings.instruments_screen import settings_instruments_screen
 from bot.screens.settings.notifications_screen import settings_notifications_screen
@@ -28,7 +29,10 @@ async def settings_callback(update, context):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     if query.data == "settings:home":
 

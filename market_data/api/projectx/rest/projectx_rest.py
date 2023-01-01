@@ -140,9 +140,9 @@ class ProjectXREST:
                     f"timeframe={timeframe}m"
                 )
 
-                print("RAW ProjectX bars:")
-                for bar in data.get("bars", []):
-                    print(bar["t"])
+                # print("RAW ProjectX bars:")
+                # for bar in data.get("bars", []):
+                #     print(bar["t"])
 
                 return data
 

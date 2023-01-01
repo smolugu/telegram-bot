@@ -17,7 +17,12 @@ def build_summary_alert(
 
     lines = []
     # dt = datetime.fromisoformat(current_time) + timedelta(minutes=30)
-    dt = datetime.fromisoformat(current_time)
+    # dt = datetime.fromisoformat(current_time)
+    dt=None
+    if isinstance(current_time, str):
+        dt = datetime.fromisoformat(current_time)
+    else:
+        dt = current_time
     time_formatted = dt.strftime("%b %d, %Y %I:%M %p")
 
     lines.append("⚡️ Ping NY AM Summary")

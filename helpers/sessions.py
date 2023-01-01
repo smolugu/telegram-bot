@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 def in_session(ts, start_h, start_m, end_h, end_m):
     tz = ZoneInfo("America/New_York")
+    dt=None
     if isinstance(ts, str):
         dt = datetime.fromisoformat(ts).astimezone(tz)
     else:
@@ -95,8 +96,12 @@ def get_session_high_low(
 
     tz = ZoneInfo("America/New_York")
 
-    # last_closed_dt = datetime.fromisoformat(last_closed_candle_ts).astimezone(tz)
-    last_closed_dt = datetime.fromisoformat(current_start).astimezone(tz)
+    # last_closed_dt = datetime.fromisoformat(current_start).astimezone(tz)
+    last_closed_dt=None
+    if isinstance(current_start, str):
+        last_closed_dt = datetime.fromisoformat(current_start).astimezone(tz)
+    else:
+        last_closed_dt = current_start
     
 
     # -------------------------
@@ -149,7 +154,13 @@ def get_session_high_low(
     session = []
 
     for c in candles:
-        dt = datetime.fromisoformat(c.timestamp).astimezone(tz)
+
+        # dt = datetime.fromisoformat(c.timestamp).astimezone(tz)
+        dt=None
+        if isinstance(c.timestamp, str):
+            dt = datetime.fromisoformat(c.timestamp).astimezone(tz)
+        else:
+            dt = c.timestamp
 
         if session_start <= dt < session_end:
             session.append(c)

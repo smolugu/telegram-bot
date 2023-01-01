@@ -1,3 +1,5 @@
+from telegram.error import BadRequest
+
 from accounts.repository.sqlite_user_repository import SQLiteUserRepository
 from bot.screens.non_subscriber.welcome_screen import non_subscriber_welcome_screen
 from bot.screens.subscriber.welcome_screen import subscriber_welcome_screen
@@ -44,7 +46,10 @@ async def home_callback(update, context):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     session = SessionLocal()
 

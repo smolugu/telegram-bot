@@ -9,7 +9,7 @@ def get_1am_7h_bias(candles_1h):
 
     for c in candles_1h:
 
-        dt = datetime.fromisoformat(c["timestamp"])
+        dt = c.timestamp
 
         if 1 <= dt.hour < 8:
             session.append(c)
@@ -59,12 +59,12 @@ def get_morning_context(candles_1h, candles_30m):
     # -------------------------
     for c in candles_1h:
 
-        dt = datetime.fromisoformat(c["timestamp"])
+        dt = c.timestamp
 
         if dt.hour == 8:
 
-            ib_high = c["high"]
-            ib_low = c["low"]
+            ib_high = c.high
+            ib_low = c.low
             break
 
     # -------------------------
@@ -78,16 +78,16 @@ def get_morning_context(candles_1h, candles_30m):
         c2 = candles_30m[i]
         c3 = candles_30m[i + 1]
 
-        dt = datetime.fromisoformat(c2["timestamp"])
+        dt = c2.timestamp
 
         if dt.hour > 9:
             break
 
-        if c2["high"] > c1["high"] and c2["high"] > c3["high"]:
-            swings.append(("high", c2["high"]))
+        if c2.high > c1.high and c2.high > c3.high:
+            swings.append(("high", c2.high))
 
-        if c2["low"] < c1["low"] and c2["low"] < c3["low"]:
-            swings.append(("low", c2["low"]))
+        if c2.low < c1.low and c2.low < c3.low:
+            swings.append(("low", c2.low))
 
     highs = [s[1] for s in swings if s[0] == "high"]
     lows = [s[1] for s in swings if s[0] == "low"]

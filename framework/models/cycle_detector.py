@@ -9,7 +9,12 @@ CYCLE_TIMES = [
 
 def in_cycle_window(timestamp, window_minutes=5):
 
-    dt = datetime.fromisoformat(timestamp)
+    # dt = datetime.fromisoformat(timestamp)
+    dt=None
+    if isinstance(timestamp, str):
+        dt = datetime.fromisoformat(timestamp)
+    else:
+        dt = timestamp
 
     for h,m in CYCLE_TIMES:
 

@@ -5,6 +5,10 @@ from framework.models.auction.models.auction_status import AuctionStatus
 def get_auction_direction(
         auction_status: AuctionStatus,
 ) -> AuctionDirection:
+    print("auction status daily: ", auction_status.daily)
+    print("auction status daily: ", auction_status.h7)
+    print("auction status daily: ", auction_status.h4)
+    print("auction summary: ", auction_status.summary)
     if auction_status.active_direction == AuctionDirection.NEUTRAL:
         return auction_status.previous_direction
     else:

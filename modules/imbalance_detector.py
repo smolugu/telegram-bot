@@ -1,92 +1,147 @@
-# from datetime import timedelta, datetime
-
-# def detect_3m_imbalance_inside_ob_candle(
-#     candles_3m,
-#     candidate
-# ):
-
-#     if not candidate.ob_confirmed:
-#         return None
-
-#     ob = candidate.ob_data
-
-#     confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
-#     ob_candle_start = confirmation_ts - timedelta(minutes=30)
-#     ob_candle_end = confirmation_ts
-
-#     ob_high = ob["ob_high"]
-#     ob_low = ob["ob_low"]
-
-#     # 1️⃣ Extract 3m candles inside OB candle
-#     inside = [
-#         c for c in candles_3m
-#         if ob_candle_start <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
-#     ]
-
-#     if len(inside) < 3:
-#         return None
-
-#     direction = candidate.side
-
-#     candidates = []
-
-#     # 2️⃣ Detect FVGs inside that 30m window
-#     for i in range(2, len(inside)):
-
-#         c1 = inside[i - 2]
-#         c3 = inside[i]
-
-#         # ---------------------------
-#         # Bearish FVG (short setup)
-#         # ---------------------------
-#         if direction == "buy_side":
-
-#             if c1["low"] > c3["high"]:
-
-#                 fvg_high = c1["low"]
-#                 fvg_low = c3["high"]
-
-#                 if fvg_high <= ob_high and fvg_low >= ob_low:
-
-#                     distance = abs(ob_high - fvg_low)
-
-#                     candidates.append({
-#                         "entry": fvg_low,
-#                         "timestamp": c3["timestamp"],
-#                         "distance": distance,
-#                         "type": "bearish_fvg"
-#                     })
-
-#         # ---------------------------
-#         # Bullish FVG (long setup)
-#         # ---------------------------
-#         if direction == "sell_side":
-
-#             if c1["high"] < c3["low"]:
-
-#                 fvg_low = c1["high"]
-#                 fvg_high = c3["low"]
-
-#                 if fvg_low >= ob_low and fvg_high <= ob_high:
-
-#                     distance = abs(ob_low - fvg_high)
-
-#                     candidates.append({
-#                         "entry": fvg_high,
-#                         "timestamp": c3["timestamp"],
-#                         "distance": distance,
-#                         "type": "bullish_fvg"
-#                     })
-
-#     if not candidates:
-#         return None
-
-#     # 3️⃣ Pick closest imbalance to OB boundary
-#     best = min(candidates, key=lambda x: x["distance"])
-
-#     return best
 
 from datetime import timedelta, datetime
+
+from data.models.candle import NY_TZ
+from market_data.candle_builder.htf_candle_builder import UTC_TZ
+
+def detect_9am_fvg(
+    nq_contract,
+    es_contract,
+    candle_repo,
+    end_utc: datetime,
+):
+    """
+    At the beginning of the 9:00 AM NY 30m candle, inspect
+    the completed 7:30, 8:00 and 8:30 30m candles.
+
+    If an FVG exists, return it as a key liquidity level.
+
+    Returns:
+        {
+            "NQ": fvg | None,
+            "ES": fvg | None,
+        }
+    """
+
+    results = {}
+
+    # ---------------------------------------------------------
+    # Convert current boundary to NY time
+    # ---------------------------------------------------------
+    end_ny = end_utc.astimezone(NY_TZ)
+
+    # Only run at the beginning of the 9:00 AM 30m candle
+    if not (
+        end_ny.hour == 9
+        and end_ny.minute == 0
+    ):
+        return results
+
+    # ---------------------------------------------------------
+    # 7:30 -> 9:00 NY
+    # ---------------------------------------------------------
+    start_ny = end_ny.replace(
+        hour=7,
+        minute=30,
+        second=0,
+        microsecond=0,
+    )
+
+    end_ny = end_ny.replace(
+        hour=9,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    start_utc = start_ny.astimezone(UTC_TZ)
+    end_utc = end_ny.astimezone(UTC_TZ)
+
+    for instrument, contract in [
+        ("NQ", nq_contract),
+        ("ES", es_contract),
+    ]:
+
+        # -----------------------------------------------------
+        # Get 7:30, 8:00 and 8:30 candles
+        # -----------------------------------------------------
+        candles = candle_repo.get_between(
+            contract=contract,
+            timeframe=30,
+            start=start_utc,
+            end=end_utc - timedelta(minutes=30),
+        )
+
+        if len(candles) != 3:
+            print(
+                f">>> {instrument}: expected 3 candles "
+                f"for 7:30–9:00, found {len(candles)}"
+            )
+            results[instrument] = None
+            continue
+
+        c1 = candles[0]   # 7:30
+        c2 = candles[1]   # 8:00
+        c3 = candles[2]   # 8:30
+
+        print(
+            f">>> {instrument} 9AM FVG check:"
+            f"\n    7:30 H={c1.high} L={c1.low}"
+            f"\n    8:00 H={c2.high} L={c2.low}"
+            f"\n    8:30 H={c3.high} L={c3.low}"
+        )
+
+        fvg = None
+
+        # -----------------------------------------------------
+        # Bullish FVG
+        #
+        # Candle 1 high < Candle 3 low
+        # -----------------------------------------------------
+        if c1.high < c3.low:
+
+            fvg = {
+                "instrument": instrument,
+                "type": "bullish",
+                "low": c1.high,
+                "high": c3.low,
+                "timestamp": c3.timestamp,
+                "source": "9am_fvg",
+                "level": c3.low
+            }
+
+        # -----------------------------------------------------
+        # Bearish FVG
+        #
+        # Candle 1 low > Candle 3 high
+        # -----------------------------------------------------
+        elif c1.low > c3.high:
+
+            fvg = {
+                "instrument": instrument,
+                "type": "bearish",
+                "low": c3.high,
+                "high": c1.low,
+                "timestamp": c3.timestamp,
+                "source": "9am_fvg",
+                "level": c3.high
+            }
+
+        results[instrument] = fvg
+
+        if fvg:
+            print(
+                f">>> {instrument} 9AM FVG detected: "
+                f"{fvg['type']} "
+                f"{fvg['low']} → {fvg['high']}"
+            )
+        else:
+            print(
+                f">>> {instrument}: "
+                f"no 9AM FVG"
+            )
+
+    return results
 
 def detect_3m_imbalance_inside_ob_candle(
     candles_3m,
@@ -96,22 +151,36 @@ def detect_3m_imbalance_inside_ob_candle(
     if not candidate.final_ob_confirmed:
         print("return none as final ob not confirmed")
         return None
+    confirmation_ts=None
     if candidate.ob_data is not None:
         ob = candidate.ob_data
-        confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+        # confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+        
+        if isinstance(ob["confirmation_timestamp"], str):
+            confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+        else:
+            confirmation_ts = ob["confirmation_timestamp"]
         ob_high = ob["ob_high"]
         ob_low = ob["ob_low"]
         ce_ob = (ob_high + ob_low) / 2
     else:
         ob_high = last_closed_candle.high
         ob_low = last_closed_candle.low
-        confirmation_ts = datetime.fromisoformat(last_closed_candle.timestamp)
+        # confirmation_ts = datetime.fromisoformat(last_closed_candle.timestamp)
+        if isinstance(last_closed_candle.timestamp, str):
+            confirmation_ts = datetime.fromisoformat(last_closed_candle.timestamp)
+        else:
+            confirmation_ts = last_closed_candle.timestamp
         ce_ob = (ob_high + ob_low) / 2
     print("ob_low: ", ob_low)
 
     # we are detecting imbalances in the current candle which created the OB
-    last_closed_candle_ts = datetime.fromisoformat(last_closed_candle.timestamp)
-    # confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+    # last_closed_candle_ts = datetime.fromisoformat(last_closed_candle.timestamp)
+    last_closed_candle_ts=None
+    if isinstance(last_closed_candle.timestamp, str):
+        last_closed_candle_ts = datetime.fromisoformat(last_closed_candle.timestamp)
+    else:
+        last_closed_candle_ts = last_closed_candle.timestamp
     
     if last_closed_candle_ts > confirmation_ts:
         confirmation_ts = last_closed_candle_ts

@@ -1,4 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import BadRequest
 
 from accounts.repository.sqlite_user_repository import SQLiteUserRepository
 from accounts.services.referral_service import get_or_create_referral_code, get_referral_count
@@ -10,7 +11,10 @@ async def invite_callback(update, context):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     session = SessionLocal()
 

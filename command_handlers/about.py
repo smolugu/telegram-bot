@@ -1,3 +1,5 @@
+from telegram.error import BadRequest
+
 from bot.screens.about_screen import about_home_screen
 from bot.utils.safe_edit_message import safe_edit_message
 
@@ -15,7 +17,10 @@ async def about_callback(update, context):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     if query.data == "about:home":
 

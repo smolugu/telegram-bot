@@ -816,7 +816,7 @@ def detect_30m_swing_sweep(candles, windows, instrument):
         last_closed.timestamp,
         windows
     )
-    print(f"valid: {valid}, window_name: {window_name} for timestamp {last_closed['timestamp']} in windows {windows}")
+    print(f"valid: {valid}, window_name: {window_name} for timestamp {last_closed.timestamp} in windows {windows}")
     if not valid:
         return _no_sweep()
     
@@ -833,7 +833,7 @@ def detect_30m_swing_sweep(candles, windows, instrument):
     swept_levels = []
 
     for swing in valid_swings_high:
-        print(f"Comparing last closed high {last_closed['high']} with swing high {swing['high']}")
+        print(f"Comparing last closed high {last_closed.high} with swing high {swing.high}")
         if last_closed.high > swing.high:
             swept_levels.append(swing)
     print(f"Swept levels: {swept_levels}")

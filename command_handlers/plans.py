@@ -1,3 +1,5 @@
+from telegram.error import BadRequest
+
 from bot.screens.plans_screen import plans_home_screen
 
 
@@ -5,7 +7,10 @@ async def plans_callback(update, context):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     if query.data == "plans:home":
 
