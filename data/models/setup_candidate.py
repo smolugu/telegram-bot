@@ -22,6 +22,7 @@ class SetupCandidate:
         self.fvg_data = None
 
         self.alert_sent = False
+        self.insert_trade_data = None
 
     # --------------------------------------------------
 
@@ -73,6 +74,9 @@ class SetupCandidate:
         self.alert_sent = True
 
     # --------------------------------------------------
+
+    def insert_trade(self, insert_trade_data):
+        self.insert_trade_data = insert_trade_data
 
     def invalidate(self):
         self.reset()

@@ -9,17 +9,21 @@ print("Database file path functions.py:", DB_FILE)
 
 def insert_trade(candidate):
 
-    entry = candidate.fvg_data["entry"]
-    side = candidate.side
-    stop = candidate.sweep_candle_extreme
-
+    # entry = candidate.fvg_data["entry"]
+    # side = candidate.side
+    # stop = candidate.sweep_candle_extreme
+    entry = candidate.insert_trade_data["entry"]
+    side = candidate.insert_trade_data["side"]
+    stop = candidate.insert_trade_data["stop"]
+    ce_confirmation_candle_price = candidate.insert_trade_data["ce_confirmation_candle_price"]
+    entry_type = candidate.insert_trade_data["entry_type"]
     if side == "buy_side":
         stop = stop
         risk = stop - entry
         tp = entry - (risk * 1.5)
         trade_side = "short"
     else:
-        stop = candidate.sweep_candle_extreme
+        stop = stop
         risk = entry - stop
         tp = entry + (risk * 1.5)
         trade_side = "long"
@@ -31,7 +35,7 @@ def insert_trade(candidate):
 
     cursor.execute("""
     INSERT OR IGNORE INTO trades
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         trade_id,
         candidate.sweep_timestamp,
@@ -42,6 +46,7 @@ def insert_trade(candidate):
         tp,
         risk,
         candidate.fvg_data["type"],
+        entry_type,
         "OPEN",
         None
     ))

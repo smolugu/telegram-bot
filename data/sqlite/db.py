@@ -20,6 +20,7 @@ def init_db():
         tp REAL,
         risk REAL,
         imbalance_type TEXT,
+        entry_type TEXT,
         status TEXT,
         r_multiple REAL
     )

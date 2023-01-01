@@ -105,16 +105,18 @@ def detect_3m_imbalance_inside_ob_candle(
     ob_high = ob["ob_high"]
     ob_low = ob["ob_low"]
     ce_ob = (ob_high + ob_low) / 2
+    sweep_extreme_price = candidate.sweep_candle_extreme
     print("Ob high/low:", ob_high, ob_low, "| OB candle window:", ob_candle_start, "to", ob_candle_end)
     print("Sweep timestamp:", sweep_time)
     print("On end time: ", ob_candle_end)
+    print("sweep extreme: ", candidate.sweep_candle_extreme)
 
     # 1️⃣ Extract 3m candles inside OB candle
     inside = [
         c for c in candles_3m
         if sweep_time <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
     ]
-    print("inside candles:", inside)
+    # print("inside candles:", inside)
 
     if len(inside) < 2:
         return None
@@ -155,7 +157,8 @@ def detect_3m_imbalance_inside_ob_candle(
                 # if vi_high <= ob_high and vi_low >= ob_low:  # Vi should be inside OB, so vi_low >= ob_low is not required
                 if vi_high <= ob_high:
 
-                    distance = abs(ob_high - vi_low)
+                    # distance = abs(ob_high - vi_low)
+                    distance = abs(sweep_extreme_price - vi_low)
 
                     candidates.append({
                         "entry": vi_low,
@@ -181,7 +184,8 @@ def detect_3m_imbalance_inside_ob_candle(
                     # if fvg_high <= ob_high and fvg_low >= ob_low:
                     if fvg_high <= ob_high:
 
-                        distance = abs(ob_high - fvg_low)
+                        # distance = abs(ob_high - fvg_low)
+                        distance = abs(sweep_extreme_price - fvg_low)
 
                         candidates.append({
                             "entry": fvg_low,
@@ -216,7 +220,8 @@ def detect_3m_imbalance_inside_ob_candle(
 
                 if vi_low >= ob_low:
 
-                    distance = abs(ob_low - vi_high)
+                    # distance = abs(ob_low - vi_high)
+                    distance = abs(sweep_extreme_price - vi_high)
 
                     candidates.append({
                         "entry": vi_high,
@@ -241,7 +246,8 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     if fvg_low >= ob_low:
 
-                        distance = abs(ob_low - fvg_high)
+                        # distance = abs(ob_low - fvg_high)
+                        distance = abs(sweep_extreme_price - fvg_high)
 
                         candidates.append({
                             "entry": fvg_high,
