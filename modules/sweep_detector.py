@@ -1,20 +1,44 @@
 from datetime import datetime, timedelta
 
 
-def detect_7h_wick_sweep(
-    candles_30m: list[dict],
+def detect_dual_sweep(
+    nq_30m: list[dict],
+    es_30m: list[dict],
     seven_hour_open_ts: str,
     window_minutes: int = 60
 ) -> dict:
     """
-    Detects liquidity sweep during the WICK of a 7H candle.
-    Looks ONLY at 30m candles.
+    Detect sweep on BOTH NQ and ES during 7H wick window.
+    """
 
-    Sweep windows:
-    - Early wick: first `window_minutes` of 7H candle
-    - Late wick: last `window_minutes` of 7H candle
+    nq_sweep = _detect_single_sweep(
+        nq_30m,
+        seven_hour_open_ts,
+        window_minutes
+    )
 
-    candles_30m: list of 30m candles (oldest -> newest)
+    es_sweep = _detect_single_sweep(
+        es_30m,
+        seven_hour_open_ts,
+        window_minutes
+    )
+
+    at_least_one = nq_sweep["sweep_detected"] or es_sweep["sweep_detected"]
+
+    return {
+        "sweep_exists": at_least_one,
+        "NQ": nq_sweep,
+        "ES": es_sweep
+    }
+
+
+def _detect_single_sweep(
+    candles_30m: list[dict],
+    seven_hour_open_ts: str,
+    window_minutes: int
+) -> dict:
+    """
+    Detect sweep for a single market.
     """
 
     if len(candles_30m) < 4:
@@ -26,26 +50,26 @@ def detect_7h_wick_sweep(
     early_end = seven_open + timedelta(minutes=window_minutes)
     late_start = seven_close - timedelta(minutes=window_minutes)
 
-    # Prior liquidity levels (exclude current 7H candles)
-    prior_candles = [
+    # Prior candles before 7H open
+    prior = [
         c for c in candles_30m
         if datetime.fromisoformat(c["timestamp"]) < seven_open
     ]
 
-    if not prior_candles:
+    if not prior:
         return _no_sweep()
 
-    prior_high = max(c["high"] for c in prior_candles)
-    prior_low = min(c["low"] for c in prior_candles)
+    prior_high = max(c["high"] for c in prior)
+    prior_low = min(c["low"] for c in prior)
 
-    # Check 30m candles inside wick windows
+    # Check wick windows
     for candle in candles_30m:
         ts = datetime.fromisoformat(candle["timestamp"])
 
-        in_early_wick = seven_open <= ts < early_end
-        in_late_wick = late_start <= ts < seven_close
+        in_early = seven_open <= ts < early_end
+        in_late = late_start <= ts < seven_close
 
-        if not (in_early_wick or in_late_wick):
+        if not (in_early or in_late):
             continue
 
         # Buy-side sweep
@@ -54,7 +78,7 @@ def detect_7h_wick_sweep(
                 "sweep_detected": True,
                 "side": "buy_side",
                 "level": prior_high,
-                "window": "early" if in_early_wick else "late",
+                "window": "early" if in_early else "late",
                 "timestamp": candle["timestamp"]
             }
 
@@ -64,7 +88,7 @@ def detect_7h_wick_sweep(
                 "sweep_detected": True,
                 "side": "sell_side",
                 "level": prior_low,
-                "window": "early" if in_early_wick else "late",
+                "window": "early" if in_early else "late",
                 "timestamp": candle["timestamp"]
             }
 
