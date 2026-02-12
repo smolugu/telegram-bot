@@ -8,8 +8,9 @@ from execution_model import build_execution_plan
 
 def evaluate_7h_setup(
     market_data: dict,
-    seven_hour_open_ts: str
-) -> dict:
+    seven_hour_open_ts: str,
+    wick_window_minutes: int
+):
 
     # -------------------------
     # 1️⃣ Daily Bias
@@ -23,12 +24,13 @@ def evaluate_7h_setup(
         return _result("NONE", daily_bias=daily_bias)
 
     # -------------------------
-    # 2️⃣ Dual Sweep Detection
+    # 2️⃣ Dual Sweep
     # -------------------------
     sweep = detect_dual_sweep(
         nq_30m=market_data["NQ"]["30m"],
         es_30m=market_data["ES"]["30m"],
-        seven_hour_open_ts=seven_hour_open_ts
+        seven_hour_open_ts=seven_hour_open_ts,
+        wick_window_minutes=wick_window_minutes
     )
 
     if not sweep["sweep_exists"]:
@@ -42,21 +44,29 @@ def evaluate_7h_setup(
         es_30m=market_data["ES"]["30m"],
         nq_1h=market_data["NQ"]["1h"],
         es_1h=market_data["ES"]["1h"],
-        seven_hour_open_ts=seven_hour_open_ts
+        seven_hour_open_ts=seven_hour_open_ts,
+        wick_window_minutes=wick_window_minutes
     )
 
-    if not smt["smt_confirmed"]:
+    if not smt.get("smt_confirmed"):
+        return _result("NONE", daily_bias=daily_bias, sweep=sweep)
+
+    # -------------------------
+    # 4️⃣ Structural Alignment Check
+    # -------------------------
+    if not _is_structurally_aligned(sweep, smt):
         return _result(
             "NONE",
             daily_bias=daily_bias,
-            sweep=sweep
+            sweep=sweep,
+            smt=smt
         )
 
     trade_symbol = smt["trade_symbol"]
     trade_direction = smt["trade_direction"]
 
     # -------------------------
-    # 4️⃣ Order Block (Chosen Symbol)
+    # 5️⃣ Order Block
     # -------------------------
     ob = detect_30m_order_block(
         candles_30m=market_data[trade_symbol]["30m"],
@@ -72,7 +82,7 @@ def evaluate_7h_setup(
         )
 
     # -------------------------
-    # 5️⃣ 3m Imbalance
+    # 6️⃣ 3m Imbalance
     # -------------------------
     imbalance = detect_3m_fvg(
         candles_3m=market_data[trade_symbol]["3m"],
@@ -92,7 +102,7 @@ def evaluate_7h_setup(
         )
 
     # -------------------------
-    # 6️⃣ Execution Plan
+    # 7️⃣ Execution
     # -------------------------
     execution = build_execution_plan(
         imbalance=imbalance,
@@ -122,7 +132,34 @@ def evaluate_7h_setup(
     )
 
 
-def _result(stage: str, **kwargs) -> dict:
+# ----------------------------------
+# Structural Alignment Logic
+# ----------------------------------
+
+def _is_structurally_aligned(sweep, smt):
+
+    # Determine which market swept
+    sweep_side = None
+
+    if sweep["NQ"]["sweep_detected"]:
+        sweep_side = sweep["NQ"]["side"]
+    elif sweep["ES"]["sweep_detected"]:
+        sweep_side = sweep["ES"]["side"]
+
+    if sweep_side is None:
+        return False
+
+    # Alignment rule
+    if sweep_side == "buy_side" and smt["type"] == "bearish":
+        return True
+
+    if sweep_side == "sell_side" and smt["type"] == "bullish":
+        return True
+
+    return False
+
+
+def _result(stage: str, **kwargs):
     return {
         "stage": stage,
         "daily_bias": kwargs.get("daily_bias"),

@@ -5,55 +5,54 @@ def detect_dual_sweep(
     nq_30m: list[dict],
     es_30m: list[dict],
     seven_hour_open_ts: str,
-    window_minutes: int = 60
+    wick_window_minutes: int
 ) -> dict:
-    """
-    Detect sweep on BOTH NQ and ES during 7H wick window.
-    """
+
+    seven_open = datetime.fromisoformat(seven_hour_open_ts)
+    seven_close = seven_open + timedelta(hours=7)
+    prev_close = seven_open
+
+    prev_wick_start = prev_close - timedelta(minutes=wick_window_minutes)
+    curr_wick_end = seven_open + timedelta(minutes=wick_window_minutes)
 
     nq_sweep = _detect_single_sweep(
         nq_30m,
-        seven_hour_open_ts,
-        window_minutes
+        prev_wick_start,
+        prev_close,
+        seven_open,
+        curr_wick_end
     )
 
     es_sweep = _detect_single_sweep(
         es_30m,
-        seven_hour_open_ts,
-        window_minutes
+        prev_wick_start,
+        prev_close,
+        seven_open,
+        curr_wick_end
     )
 
-    at_least_one = nq_sweep["sweep_detected"] or es_sweep["sweep_detected"]
-
     return {
-        "sweep_exists": at_least_one,
+        "sweep_exists": nq_sweep["sweep_detected"] or es_sweep["sweep_detected"],
         "NQ": nq_sweep,
         "ES": es_sweep
     }
 
 
 def _detect_single_sweep(
-    candles_30m: list[dict],
-    seven_hour_open_ts: str,
-    window_minutes: int
-) -> dict:
-    """
-    Detect sweep for a single market.
-    """
+    candles,
+    prev_wick_start,
+    prev_close,
+    curr_open,
+    curr_wick_end
+):
 
-    if len(candles_30m) < 4:
+    if len(candles) < 4:
         return _no_sweep()
 
-    seven_open = datetime.fromisoformat(seven_hour_open_ts)
-    seven_close = seven_open + timedelta(hours=7)
-
-    early_end = seven_open + timedelta(minutes=window_minutes)
-    late_start = seven_close - timedelta(minutes=window_minutes)
-
-    # Prior candles before 7H open
+    # Prior candles before current 7H open
     prior = [
-        c for c in candles_30m
-        if datetime.fromisoformat(c["timestamp"]) < seven_open
+        c for c in candles
+        if datetime.fromisoformat(c["timestamp"]) < curr_open
     ]
 
     if not prior:
@@ -62,33 +61,26 @@ def _detect_single_sweep(
     prior_high = max(c["high"] for c in prior)
     prior_low = min(c["low"] for c in prior)
 
-    # Check wick windows
-    for candle in candles_30m:
+    for candle in candles:
         ts = datetime.fromisoformat(candle["timestamp"])
 
-        in_early = seven_open <= ts < early_end
-        in_late = late_start <= ts < seven_close
+        in_prev_wick = prev_wick_start <= ts <= prev_close
+        in_curr_wick = curr_open <= ts <= curr_wick_end
 
-        if not (in_early or in_late):
+        if not (in_prev_wick or in_curr_wick):
             continue
 
-        # Buy-side sweep
         if candle["high"] > prior_high:
             return {
                 "sweep_detected": True,
                 "side": "buy_side",
-                "level": prior_high,
-                "window": "early" if in_early else "late",
                 "timestamp": candle["timestamp"]
             }
 
-        # Sell-side sweep
         if candle["low"] < prior_low:
             return {
                 "sweep_detected": True,
                 "side": "sell_side",
-                "level": prior_low,
-                "window": "early" if in_early else "late",
                 "timestamp": candle["timestamp"]
             }
 
@@ -99,7 +91,5 @@ def _no_sweep():
     return {
         "sweep_detected": False,
         "side": None,
-        "level": None,
-        "window": None,
         "timestamp": None
     }

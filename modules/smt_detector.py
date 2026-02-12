@@ -4,110 +4,135 @@
 # Does NOT yet restrict strictly to wick window timestamps
 # Does NOT check invalidation
 # We should tighten that next.
-from datetime import datetime
+
+from datetime import datetime, timedelta
 
 
 def detect_smt_dual(
-    nq_30m: list[dict],
-    es_30m: list[dict],
-    nq_1h: list[dict],
-    es_1h: list[dict],
+    nq_30m,
+    es_30m,
+    nq_1h,
+    es_1h,
     seven_hour_open_ts: str,
-    window_minutes: int = 60
-) -> dict:
-    """
-    Detect SMT on 30m OR 1H.
-    At least one timeframe must confirm.
-    """
+    wick_window_minutes: int
+):
 
-    # 30m first
-    result_30m = _check_tf(nq_30m, es_30m, "30m")
-    if result_30m["smt_confirmed"]:
-        return result_30m
+    seven_open = datetime.fromisoformat(seven_hour_open_ts)
+    prev_close = seven_open
+    prev_wick_start = prev_close - timedelta(minutes=wick_window_minutes)
+    curr_wick_end = seven_open + timedelta(minutes=wick_window_minutes)
+
+    # Check 30m first
+    result = _check_tf(
+        nq_30m,
+        es_30m,
+        prev_wick_start,
+        prev_close,
+        seven_open,
+        curr_wick_end,
+        "30m"
+    )
+
+    if result["smt_confirmed"]:
+        return result
 
     # Then 1H
-    result_1h = _check_tf(nq_1h, es_1h, "1h")
-    if result_1h["smt_confirmed"]:
-        return result_1h
+    result = _check_tf(
+        nq_1h,
+        es_1h,
+        prev_wick_start,
+        prev_close,
+        seven_open,
+        curr_wick_end,
+        "1h"
+    )
 
-    return _no_smt()
+    return result
 
 
-def _check_tf(nq, es, tf_name):
-    nq_highs = _find_swing_highs(nq)
-    nq_lows = _find_swing_lows(nq)
+def _check_tf(nq, es, prev_wick_start, prev_close, curr_open, curr_wick_end, tf_name):
 
-    es_highs = _find_swing_highs(es)
-    es_lows = _find_swing_lows(es)
+    nq_swings_high = _find_swing_highs(nq)
+    nq_swings_low = _find_swing_lows(nq)
 
-    if not nq_highs or not es_highs or not nq_lows or not es_lows:
-        return _no_smt()
+    es_swings_high = _find_swing_highs(es)
+    es_swings_low = _find_swing_lows(es)
 
-    last_nq_high = nq_highs[-1]
-    last_es_high = es_highs[-1]
-    last_nq_low = nq_lows[-1]
-    last_es_low = es_lows[-1]
+    # Bearish SMT (high sweep divergence)
+    for nq_h in nq_swings_high:
+        ts = datetime.fromisoformat(nq_h["timestamp"])
+        if not _in_wick(ts, prev_wick_start, prev_close, curr_open, curr_wick_end):
+            continue
 
-    # ------------------------
-    # Bearish SMT (High sweep)
-    # ------------------------
-    if last_nq_high["high"] > last_es_high["high"]:
-        return {
-            "smt_confirmed": True,
-            "type": "bearish",
-            "sweeper": "NQ",
-            "non_sweeper": "ES",
-            "trade_symbol": "NQ",
-            "trade_direction": "SHORT",
-            "tf": tf_name
-        }
+        for es_h in es_swings_high:
+            if nq_h["high"] > es_h["high"]:
+                return {
+                    "smt_confirmed": True,
+                    "type": "bearish",
+                    "sweeper": "NQ",
+                    "trade_symbol": "NQ",
+                    "trade_direction": "SHORT",
+                    "tf": tf_name,
+                    "timestamp": nq_h["timestamp"]
+                }
 
-    if last_es_high["high"] > last_nq_high["high"]:
-        return {
-            "smt_confirmed": True,
-            "type": "bearish",
-            "sweeper": "ES",
-            "non_sweeper": "NQ",
-            "trade_symbol": "ES",
-            "trade_direction": "SHORT",
-            "tf": tf_name
-        }
+            if es_h["high"] > nq_h["high"]:
+                return {
+                    "smt_confirmed": True,
+                    "type": "bearish",
+                    "sweeper": "ES",
+                    "trade_symbol": "ES",
+                    "trade_direction": "SHORT",
+                    "tf": tf_name,
+                    "timestamp": nq_h["timestamp"]
+                }
 
-    # ------------------------
-    # Bullish SMT (Low sweep)
-    # ------------------------
-    if last_nq_low["low"] < last_es_low["low"]:
-        return {
-            "smt_confirmed": True,
-            "type": "bullish",
-            "sweeper": "NQ",
-            "non_sweeper": "ES",
-            "trade_symbol": "ES",
-            "trade_direction": "LONG",
-            "tf": tf_name
-        }
+    # Bullish SMT (low sweep divergence)
+    for nq_l in nq_swings_low:
+        ts = datetime.fromisoformat(nq_l["timestamp"])
+        if not _in_wick(ts, prev_wick_start, prev_close, curr_open, curr_wick_end):
+            continue
 
-    if last_es_low["low"] < last_nq_low["low"]:
-        return {
-            "smt_confirmed": True,
-            "type": "bullish",
-            "sweeper": "ES",
-            "non_sweeper": "NQ",
-            "trade_symbol": "NQ",
-            "trade_direction": "LONG",
-            "tf": tf_name
-        }
+        for es_l in es_swings_low:
+            if nq_l["low"] < es_l["low"]:
+                return {
+                    "smt_confirmed": True,
+                    "type": "bullish",
+                    "sweeper": "NQ",
+                    "trade_symbol": "ES",
+                    "trade_direction": "LONG",
+                    "tf": tf_name,
+                    "timestamp": nq_l["timestamp"]
+                }
 
-    return _no_smt()
+            if es_l["low"] < nq_l["low"]:
+                return {
+                    "smt_confirmed": True,
+                    "type": "bullish",
+                    "sweeper": "ES",
+                    "trade_symbol": "NQ",
+                    "trade_direction": "LONG",
+                    "tf": tf_name,
+                    "timestamp": nq_l["timestamp"]
+                }
+
+    return {
+        "smt_confirmed": False
+    }
+
+
+def _in_wick(ts, prev_wick_start, prev_close, curr_open, curr_wick_end):
+    return (
+        prev_wick_start <= ts <= prev_close
+        or
+        curr_open <= ts <= curr_wick_end
+    )
 
 
 def _find_swing_highs(candles):
     swings = []
     for i in range(1, len(candles) - 1):
-        if (
-            candles[i]["high"] > candles[i - 1]["high"]
-            and candles[i]["high"] > candles[i + 1]["high"]
-        ):
+        if candles[i]["high"] > candles[i-1]["high"] and candles[i]["high"] > candles[i+1]["high"]:
             swings.append(candles[i])
     return swings
 
@@ -115,21 +140,6 @@ def _find_swing_highs(candles):
 def _find_swing_lows(candles):
     swings = []
     for i in range(1, len(candles) - 1):
-        if (
-            candles[i]["low"] < candles[i - 1]["low"]
-            and candles[i]["low"] < candles[i + 1]["low"]
-        ):
+        if candles[i]["low"] < candles[i-1]["low"] and candles[i]["low"] < candles[i+1]["low"]:
             swings.append(candles[i])
     return swings
-
-
-def _no_smt():
-    return {
-        "smt_confirmed": False,
-        "type": None,
-        "sweeper": None,
-        "non_sweeper": None,
-        "trade_symbol": None,
-        "trade_direction": None,
-        "tf": None
-    }
