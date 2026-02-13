@@ -8,6 +8,7 @@ from data.market_data import fetch_market_data
 from modules.orchestrator import evaluate_7h_setup
 from alerts.alert_engine import handle_stage
 from state.state_cache import reset_cycle
+from helpers.zones import get_current_7h_open
 
 from command_handlers.subscribe import subscribe
 from command_handlers.unsubscribe import unsubscribe
