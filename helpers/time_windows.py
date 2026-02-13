@@ -5,6 +5,7 @@ from helpers.additional_windows import REVERSAL_WINDOWS
 from helpers.zones import get_previous_7h_open
 
 
+# Unified Helper
 def get_reversal_windows(current_7h_open_iso: str, wick_window_minutes: int):
 
     ny = pytz.timezone("America/New_York")
@@ -52,3 +53,18 @@ def get_reversal_windows(current_7h_open_iso: str, wick_window_minutes: int):
         )
 
     return windows
+
+# Timestamp Validation Helper
+def is_in_reversal_window(timestamp_iso: str, windows: dict):
+
+    ts = datetime.fromisoformat(timestamp_iso)
+
+    for name, (start_iso, end_iso) in windows.items():
+
+        start = datetime.fromisoformat(start_iso)
+        end = datetime.fromisoformat(end_iso)
+
+        if start <= ts <= end:
+            return True, name
+
+    return False, None

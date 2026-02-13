@@ -16,16 +16,26 @@ def save_state(state):
         json.dump(state, f)
 
 
-def should_alert(stage_key: str):
+def update_active_window(window_key):
     state = load_state()
 
-    if state.get(stage_key):
+    if state.get("active_window") != window_key:
+        # Reset all flags for new window
+        state = {
+            "active_window": window_key,
+            "flags": {}
+        }
+        save_state(state)
+
+    return state
+
+
+def should_alert(stage_key):
+    state = load_state()
+
+    if stage_key in state.get("flags", {}):
         return False
 
-    state[stage_key] = True
+    state["flags"][stage_key] = True
     save_state(state)
     return True
-
-
-def reset_cycle():
-    save_state({})

@@ -1,48 +1,70 @@
-from helpers.time_windows import (
-    get_reversal_windows,
-    is_in_reversal_window
-)
+# Important Note (Next Refinement Needed)
+# This version:
+# Compares last swing highs/lows
+# Does NOT yet restrict strictly to wick window timestamps
+# Does NOT check invalidation
+# We should tighten that next.
+
+from datetime import datetime, timedelta
+
 
 def detect_smt_dual(
     nq_30m,
     es_30m,
     nq_1h,
     es_1h,
-    current_7h_open_iso,
-    wick_window_minutes
+    seven_hour_open_ts: str,
+    wick_window_minutes: int
 ):
 
-    windows = get_reversal_windows(
-        current_7h_open_iso,
-        wick_window_minutes
+    seven_open = datetime.fromisoformat(seven_hour_open_ts)
+    prev_close = seven_open
+    prev_wick_start = prev_close - timedelta(minutes=wick_window_minutes)
+    curr_wick_end = seven_open + timedelta(minutes=wick_window_minutes)
+
+    # Check 30m first
+    result = _check_tf(
+        nq_30m,
+        es_30m,
+        prev_wick_start,
+        prev_close,
+        seven_open,
+        curr_wick_end,
+        "30m"
     )
 
-    result = _check_tf(nq_30m, es_30m, windows, "30m")
     if result["smt_confirmed"]:
         return result
 
-    result = _check_tf(nq_1h, es_1h, windows, "1h")
+    # Then 1H
+    result = _check_tf(
+        nq_1h,
+        es_1h,
+        prev_wick_start,
+        prev_close,
+        seven_open,
+        curr_wick_end,
+        "1h"
+    )
+
     return result
 
 
-def _check_tf(nq, es, windows, tf_name):
+def _check_tf(nq, es, prev_wick_start, prev_close, curr_open, curr_wick_end, tf_name):
 
-    nq_highs = _find_swing_highs(nq)
-    nq_lows = _find_swing_lows(nq)
-    es_highs = _find_swing_highs(es)
-    es_lows = _find_swing_lows(es)
+    nq_swings_high = _find_swing_highs(nq)
+    nq_swings_low = _find_swing_lows(nq)
 
-    # -------- Bearish SMT (High divergence) --------
-    for nq_h in nq_highs:
-        valid, window_name = is_in_reversal_window(
-            nq_h["timestamp"],
-            windows
-        )
-        if not valid:
+    es_swings_high = _find_swing_highs(es)
+    es_swings_low = _find_swing_lows(es)
+
+    # Bearish SMT (high sweep divergence)
+    for nq_h in nq_swings_high:
+        ts = datetime.fromisoformat(nq_h["timestamp"])
+        if not _in_wick(ts, prev_wick_start, prev_close, curr_open, curr_wick_end):
             continue
 
-        for es_h in es_highs:
-
+        for es_h in es_swings_high:
             if nq_h["high"] > es_h["high"]:
                 return {
                     "smt_confirmed": True,
@@ -51,7 +73,6 @@ def _check_tf(nq, es, windows, tf_name):
                     "trade_symbol": "NQ",
                     "trade_direction": "SHORT",
                     "tf": tf_name,
-                    "window": window_name,
                     "timestamp": nq_h["timestamp"]
                 }
 
@@ -63,21 +84,16 @@ def _check_tf(nq, es, windows, tf_name):
                     "trade_symbol": "ES",
                     "trade_direction": "SHORT",
                     "tf": tf_name,
-                    "window": window_name,
                     "timestamp": nq_h["timestamp"]
                 }
 
-    # -------- Bullish SMT (Low divergence) --------
-    for nq_l in nq_lows:
-        valid, window_name = is_in_reversal_window(
-            nq_l["timestamp"],
-            windows
-        )
-        if not valid:
+    # Bullish SMT (low sweep divergence)
+    for nq_l in nq_swings_low:
+        ts = datetime.fromisoformat(nq_l["timestamp"])
+        if not _in_wick(ts, prev_wick_start, prev_close, curr_open, curr_wick_end):
             continue
 
-        for es_l in es_lows:
-
+        for es_l in es_swings_low:
             if nq_l["low"] < es_l["low"]:
                 return {
                     "smt_confirmed": True,
@@ -86,7 +102,6 @@ def _check_tf(nq, es, windows, tf_name):
                     "trade_symbol": "ES",
                     "trade_direction": "LONG",
                     "tf": tf_name,
-                    "window": window_name,
                     "timestamp": nq_l["timestamp"]
                 }
 
@@ -98,11 +113,20 @@ def _check_tf(nq, es, windows, tf_name):
                     "trade_symbol": "NQ",
                     "trade_direction": "LONG",
                     "tf": tf_name,
-                    "window": window_name,
                     "timestamp": nq_l["timestamp"]
                 }
 
-    return {"smt_confirmed": False}
+    return {
+        "smt_confirmed": False
+    }
+
+
+def _in_wick(ts, prev_wick_start, prev_close, curr_open, curr_wick_end):
+    return (
+        prev_wick_start <= ts <= prev_close
+        or
+        curr_open <= ts <= curr_wick_end
+    )
 
 
 def _find_swing_highs(candles):
