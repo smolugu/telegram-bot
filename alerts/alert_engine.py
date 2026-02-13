@@ -1,16 +1,21 @@
-from state.state_cache import should_alert
-
+from state.state_cache import should_alert, update_active_window
+from utils.time_utils import today_string
 
 def handle_stage(result: dict, bot):
 
-    stage = result["stage"]
-
-    if stage == "NONE":
+    if result["stage"] == "NONE":
         return
 
-    key = f"{stage}_{result.get('smt', {}).get('trade_symbol')}"
+    window_name = result.get("smt", {}).get("window") \
+        or result.get("sweep", {}).get("NQ", {}).get("window")
 
-    if not should_alert(key):
+    window_key = f"{window_name}_{today_string()}"
+
+    update_active_window(window_key)
+
+    stage_key = f"{result['stage']}_{result.get('smt', {}).get('trade_symbol')}"
+
+    if not should_alert(stage_key):
         return
 
     message = build_message(result)
