@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 import pytz
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from engine.trading_engine import trading_engine_loop
+from bot.handlers import register_handlers
 from dotenv import load_dotenv
 import os
 
@@ -41,6 +44,10 @@ def wait_until_next_3m_close():
     
 
 
+async def on_startup(application):
+    print("Bot started. Launching trading engine...")
+    asyncio.create_task(trading_engine_loop(application))
+
 def run(bot):
     while True:
         wait_until_next_3m_close()
@@ -68,17 +75,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 def main():
-    token = os.getenv("BOT_TOKEN")
-    if not token:
-        raise RuntimeError("BOT_TOKEN not found in .env")
+    token= os.getenv("BOT_TOKEN")
+    application = ApplicationBuilder().token(token).build()
 
-    app = ApplicationBuilder().token(token).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("subscribe", subscribe))
-    app.add_handler(CommandHandler("unsubscribe", unsubscribe))
-    app.add_handler(CommandHandler("testalert", testalert))
+    register_handlers(application)
+
+    application.post_init = on_startup
     print("Chartless bot is running...")
-    app.run_polling()
+    application.run_polling()
+    # token = os.getenv("BOT_TOKEN")
+    # if not token:
+    #     raise RuntimeError("BOT_TOKEN not found in .env")
+
+    # app = ApplicationBuilder().token(token).build()
+    # app.add_handler(CommandHandler("start", start))
+    # app.add_handler(CommandHandler("subscribe", subscribe))
+    # app.add_handler(CommandHandler("unsubscribe", unsubscribe))
+    # app.add_handler(CommandHandler("testalert", testalert))
+    # print("Chartless bot is running...")
+    # app.run_polling()
 
 if __name__ == "__main__":
     main()

@@ -1,13 +1,18 @@
-from state.state_cache import should_alert, update_active_window
+from state.state_cache import update_active_window, should_alert
+from bot.broadcast import broadcast_message
 from utils.time_utils import today_string
 
-def handle_stage(result: dict, bot):
+
+async def handle_stage(result, application):
 
     if result["stage"] == "NONE":
         return
 
-    window_name = result.get("smt", {}).get("window") \
+    window_name = (
+        result.get("smt", {}).get("window")
         or result.get("sweep", {}).get("NQ", {}).get("window")
+        or "unknown"
+    )
 
     window_key = f"{window_name}_{today_string()}"
 
@@ -20,7 +25,7 @@ def handle_stage(result: dict, bot):
 
     message = build_message(result)
 
-    send_alert(bot, message)
+    await broadcast_message(application, message)
 
 
 def build_message(result):
@@ -29,7 +34,7 @@ def build_message(result):
         return "⚠ Sweep + SMT detected."
 
     if result["stage"] == "CONFIRMED":
-        return "✅ OB Confirmed. Waiting for imbalance."
+        return "✅ OB confirmed. Waiting for imbalance."
 
     if result["stage"] == "EXECUTION":
         ex = result["execution"]
@@ -41,8 +46,3 @@ def build_message(result):
             f"Stop: {ex['stop']}\n"
             f"Target: {ex['target']}"
         )
-
-
-def send_alert(bot, message):
-    # integrate with your Telegram broadcast logic
-    bot.broadcast(message)
