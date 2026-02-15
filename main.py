@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+import pytz
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from dotenv import load_dotenv
@@ -15,10 +17,37 @@ from command_handlers.unsubscribe import unsubscribe
 from command_handlers.testalert import testalert
 load_dotenv()
 WICK_WINDOW_MINUTES = 60
-CHECK_INTERVAL_SECONDS = 120
+CHECK_INTERVAL_SECONDS = 180
+GRACE_SECONDS = 10
+NY = pytz.timezone("America/New_York")
+
+def wait_until_next_3m_close():
+    now = datetime.now(NY)
+    minute = now.minute
+    second = now.second
+
+    # Find next multiple of 3
+    next_minute = minute + (3 - minute % 3)
+
+    if next_minute >= 60:
+        next_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    else:
+        next_time = now.replace(minute=next_minute, second=0, microsecond=0)
+
+    sleep_seconds = (next_time - now).total_seconds()
+
+    if sleep_seconds > 0:
+        time.sleep(sleep_seconds)
+    
+
 
 def run(bot):
     while True:
+        wait_until_next_3m_close()
+
+        # Grace delay after candle close
+        time.sleep(GRACE_SECONDS)
+        
         try:
             market_data = fetch_market_data()
             result = evaluate_7h_setup(
@@ -31,8 +60,6 @@ def run(bot):
 
         except Exception as e:
             print("Error:", e)
-
-        time.sleep(CHECK_INTERVAL_SECONDS)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(

@@ -28,8 +28,10 @@ def fetch_market_data():
 
 
 def _format(df):
+
     df = df.reset_index()
-    return [
+
+    candles = [
         {
             "timestamp": row["Datetime"].isoformat(),
             "open": row["Open"],
@@ -39,3 +41,9 @@ def _format(df):
         }
         for _, row in df.iterrows()
     ]
+
+    # 🔒 Remove last candle (likely incomplete)
+    if len(candles) > 0:
+        candles = candles[:-1]
+
+    return candles
