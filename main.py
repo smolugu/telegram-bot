@@ -12,17 +12,17 @@ import time
 from data.market_data import fetch_market_data
 from modules.orchestrator import evaluate_7h_setup
 from alerts.alert_engine import handle_stage
-from state.state_cache import reset_cycle
 from helpers.zones import get_current_7h_open
 
-from command_handlers.subscribe import subscribe
-from command_handlers.unsubscribe import unsubscribe
-from command_handlers.testalert import testalert
+from backtest.quick_backtest import run_quick_backtest
+
+
 load_dotenv()
 WICK_WINDOW_MINUTES = 60
 CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
 NY = pytz.timezone("America/New_York")
+MODE = "BACKTEST"   # change to "LIVE" when done
 
 def wait_until_next_3m_close():
     now = datetime.now(NY)
@@ -75,6 +75,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 def main():
+    if MODE == "BACKTEST":
+        run_quick_backtest("2026-02-13")
+        return
     token= os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(token).build()
 

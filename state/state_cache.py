@@ -33,9 +33,11 @@ def update_active_window(window_key):
 def should_alert(stage_key):
     state = load_state()
 
-    if stage_key in state.get("flags", {}):
+    flags = state.setdefault("flags", {})
+
+    if stage_key in flags:
         return False
 
-    state["flags"][stage_key] = True
+    flags[stage_key] = True
     save_state(state)
     return True

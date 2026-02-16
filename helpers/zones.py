@@ -105,3 +105,31 @@ def get_current_7h_open():
     return ny.localize(
         datetime.combine(yesterday, datetime.min.time()).replace(hour=18)
     ).isoformat()
+
+
+from datetime import datetime, timedelta
+import pytz
+
+
+def get_7h_open_from_timestamp(timestamp_iso: str):
+
+    ny = pytz.timezone("America/New_York")
+    ts = datetime.fromisoformat(timestamp_iso).astimezone(ny)
+
+    hour = ts.hour
+
+    if 1 <= hour < 8:
+        open_hour = 1
+    elif 8 <= hour < 15:
+        open_hour = 8
+    elif 15 <= hour < 18:
+        open_hour = 15
+    else:
+        # 18:00–23:59 or 00:00–00:59
+        open_hour = 18
+        if hour < 1:
+            ts = ts - timedelta(days=1)
+
+    seven_open = ts.replace(hour=open_hour, minute=0, second=0, microsecond=0)
+
+    return seven_open.isoformat()

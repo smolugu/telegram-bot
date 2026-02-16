@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import pytz
 
-from helpers.additional_windows import REVERSAL_WINDOWS
+from helpers.additional_windows import ADDITIONAL_WINDOWS
 from helpers.zones import get_previous_7h_open
 
 
@@ -35,7 +35,7 @@ def get_reversal_windows(current_7h_open_iso: str, wick_window_minutes: int):
     # Custom configurable windows
     today = current_open.date()
 
-    for window in REVERSAL_WINDOWS:
+    for window in ADDITIONAL_WINDOWS:
 
         start = ny.localize(datetime.combine(today, datetime.min.time())).replace(
             hour=window["start"]["hour"],

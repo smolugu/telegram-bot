@@ -11,7 +11,7 @@ def detect_smt_dual(
     current_7h_open_iso,
     wick_window_minutes
 ):
-
+    print("SMT module called")
     windows = get_reversal_windows(
         current_7h_open_iso,
         wick_window_minutes
@@ -31,6 +31,9 @@ def _check_tf(nq, es, windows, tf_name):
     nq_lows = _find_swing_lows(nq)
     es_highs = _find_swing_highs(es)
     es_lows = _find_swing_lows(es)
+    # print("Swing High Count NQ:", len(nq_highs))
+    # print("Swing High Count ES:", len(es_highs))
+
 
     # -------- Bearish SMT (High divergence) --------
     for nq_h in nq_highs:
@@ -44,6 +47,7 @@ def _check_tf(nq, es, windows, tf_name):
         for es_h in es_highs:
 
             if nq_h["high"] > es_h["high"]:
+                # print("Bearish SMT FOUND at", nq_h["timestamp"])
                 return {
                     "smt_confirmed": True,
                     "type": "bearish",

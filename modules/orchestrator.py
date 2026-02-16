@@ -1,9 +1,15 @@
-from daily_bias import get_daily_bias
+from modules.daily_bias import get_daily_bias
 from modules.sweep_detector import detect_dual_sweep
 from modules.smt_detector import detect_smt_dual
-from ob_detector import detect_30m_order_block
-from imbalance_detector import detect_3m_fvg
-from execution_model import build_execution_plan
+from modules.ob_detector import detect_30m_order_block
+from modules.imbalance_detector import detect_3m_fvg
+from modules.execution_model import build_execution_plan
+from datetime import datetime
+
+def timestamps_close(ts1, ts2, minutes=60):
+    t1 = datetime.fromisoformat(ts1)
+    t2 = datetime.fromisoformat(ts2)
+    return abs((t1 - t2).total_seconds()) <= minutes * 60
 
 
 def evaluate_7h_setup(
@@ -29,9 +35,10 @@ def evaluate_7h_setup(
     sweep = detect_dual_sweep(
         nq_30m=market_data["NQ"]["30m"],
         es_30m=market_data["ES"]["30m"],
-        seven_hour_open_ts=seven_hour_open_ts,
+        current_7h_open_iso=seven_hour_open_ts,
         wick_window_minutes=wick_window_minutes
     )
+    print("Sweep result:", sweep)
 
     if not sweep["sweep_exists"]:
         return _result("NONE", daily_bias=daily_bias)
@@ -44,12 +51,21 @@ def evaluate_7h_setup(
         es_30m=market_data["ES"]["30m"],
         nq_1h=market_data["NQ"]["1h"],
         es_1h=market_data["ES"]["1h"],
-        seven_hour_open_ts=seven_hour_open_ts,
+        current_7h_open_iso=seven_hour_open_ts,
         wick_window_minutes=wick_window_minutes
     )
 
     if not smt.get("smt_confirmed"):
         return _result("NONE", daily_bias=daily_bias, sweep=sweep)
+    
+    if smt["smt_confirmed"]:
+        sweep_ts = (
+            sweep["NQ"]["timestamp"]
+            or sweep["ES"]["timestamp"]
+        )
+        smt_ts = smt["timestamp"]
+        if not timestamps_close(sweep_ts, smt_ts, minutes=90):
+            return {"stage": "NONE"}
 
     # -------------------------
     # 4️⃣ Structural Alignment Check
@@ -61,6 +77,13 @@ def evaluate_7h_setup(
             sweep=sweep,
             smt=smt
         )
+    # second structural alignment check - if NQ swept buy side, we want a bearish SMT and vice versa
+    if sweep["NQ"]["side"] == "sell_side" and smt["type"] != "bullish":
+        return {"stage": "NONE"}
+
+    if sweep["NQ"]["side"] == "buy_side" and smt["type"] != "bearish":
+        return {"stage": "NONE"}
+
 
     trade_symbol = smt["trade_symbol"]
     trade_direction = smt["trade_direction"]
