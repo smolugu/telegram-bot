@@ -38,7 +38,7 @@ def evaluate_7h_setup(
         current_7h_open_iso=seven_hour_open_ts,
         wick_window_minutes=wick_window_minutes
     )
-    print("Sweep result:", sweep)
+    # print("Sweep result:", sweep)
 
     if not sweep["sweep_exists"]:
         return _result("NONE", daily_bias=daily_bias)

@@ -22,7 +22,7 @@ WICK_WINDOW_MINUTES = 60
 CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
 NY = pytz.timezone("America/New_York")
-MODE = "BACKTEST"   # change to "LIVE" when done
+MODE = "LIVE"   # change to "LIVE" when done
 
 def wait_until_next_3m_close():
     now = datetime.now(NY)
