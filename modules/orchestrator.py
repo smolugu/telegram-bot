@@ -32,8 +32,11 @@ def evaluate_7h_setup(
     # -------------------------
     # 2️⃣ Dual Sweep
     # -------------------------
+
+
     sweep = detect_dual_sweep(
         nq_30m=market_data["NQ"]["30m"],
+        nq_3m=market_data["NQ"]["3m"],
         es_30m=market_data["ES"]["30m"],
         current_7h_open_iso=seven_hour_open_ts,
         wick_window_minutes=wick_window_minutes

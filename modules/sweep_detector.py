@@ -36,6 +36,7 @@ def filter_valid_swing_lows(swings):
 
 def detect_dual_sweep(
     nq_30m,
+    nq_3m,
     es_30m,
     current_7h_open_iso,
     wick_window_minutes
@@ -45,6 +46,10 @@ def detect_dual_sweep(
         current_7h_open_iso,
         wick_window_minutes
     )
+    print("Last 30m candle timestamp:",
+      nq_30m[-1]["timestamp"])
+    print("Last 3m candle timestamp:",
+      nq_3m[-1]["timestamp"])
 
     nq_result = detect_swing_sweep(nq_30m, windows)
     # print("NQ sweep result:", nq_result)
@@ -71,6 +76,10 @@ def detect_swing_sweep(candles, windows):
     raw_swings_low = find_swing_lows(candles[:-1])
     valid_swings_high = filter_valid_swing_highs(raw_swings_high)
     valid_swings_low = filter_valid_swing_lows(raw_swings_low)
+    print(f"Raw swings high: {raw_swings_high}")
+    print(f"Raw swings low: {raw_swings_low}")
+    print(f"Valid swings high: {valid_swings_high}")
+    print(f"Valid swings low: {valid_swings_low}")
 
     # Last closed 30m candle (just completed)
     last_closed = candles[-1]
@@ -79,9 +88,9 @@ def detect_swing_sweep(candles, windows):
         last_closed["timestamp"],
         windows
     )
-    # print(f"valid: {valid}, window_name: {window_name} for timestamp {last_closed['timestamp']} in windows {windows}")
-    # if not valid:
-    #     return _no_sweep()
+    print(f"valid: {valid}, window_name: {window_name} for timestamp {last_closed['timestamp']} in windows {windows}")
+    if not valid:
+        return _no_sweep()
     
     # -------------------------
     # Bearish sweep (buy-side taken)
@@ -96,10 +105,10 @@ def detect_swing_sweep(candles, windows):
     swept_levels = []
 
     for swing in valid_swings_high:
-        # print(f"Comparing last closed high {last_closed['high']} with swing high {swing['high']}")
+        print(f"Comparing last closed high {last_closed['high']} with swing high {swing['high']}")
         if last_closed["high"] > swing["high"]:
             swept_levels.append(swing)
-    # print(f"Swept levels: {swept_levels}")
+    print(f"Swept levels: {swept_levels}")
     # print("---------------------------")
     if swept_levels:
         print("Swept highs:", swept_levels)
@@ -142,6 +151,8 @@ def detect_swing_sweep(candles, windows):
 
 def find_swing_highs(candles):
     swings = []
+    # print("Last 30m candle timestamp:",
+    #   candles[-1]["timestamp"])
 
     for i in range(1, len(candles) - 1):
         if (

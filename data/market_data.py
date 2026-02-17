@@ -37,19 +37,22 @@ def fetch_symbol_data(symbol: str):
     ticker = yf.Ticker(symbol)
 
     # 30m
-    df_30m = ticker.history(interval="30m", period="7d")
+    # df_30m = ticker.history(interval="30m", period="7d")
 
     # 1h
     df_1h = ticker.history(interval="60m", period="14d")
 
     # 1m → aggregate to 3m
-    df_1m = ticker.history(interval="1m", period="2d")
+    df_1m = ticker.history(interval="1m", period="7d")
+    # 5m → aggregate to 30m
+    df_5m = ticker.history(interval="5m", period="7d")
 
-    if df_30m.empty or df_1h.empty or df_1m.empty:
+    if df_1h.empty or df_1m.empty or df_5m.empty:
         print(f"No intraday data for {symbol}. Possibly weekend.")
         return None
 
     df_3m = resample_to_3m(df_1m)
+    df_30m = resample_to_30m(df_5m)
 
     return {
         "30m": format_df(df_30m),
@@ -87,6 +90,24 @@ def resample_to_3m(df):
     if not isinstance(df.index, pd.DatetimeIndex):
         df.index = pd.to_datetime(df.index)
     df = df.resample("3min").agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    df = df.dropna()
+
+    return df
+
+def resample_to_30m(df):
+
+    df = df.copy()
+    # Ensure datetime index
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+    df = df.resample("30min").agg({
         "Open": "first",
         "High": "max",
         "Low": "min",
