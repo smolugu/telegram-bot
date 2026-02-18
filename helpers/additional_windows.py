@@ -15,3 +15,9 @@ ADDITIONAL_WINDOWS = [
     }
 
 ]
+
+SPECIFIC_WINDOWS = {
+    "current_wick": [],
+    "ny_lunch": ("12:00", "13:30"),
+    "london_reversal": ("03:00", "05:00"),
+}

@@ -1,4 +1,6 @@
-from data.market_data import fetch_symbol_data
+from data.market_data import fetch_symbol_data_safe
+from data.models.setup_candidate import SetupCandidate
+from helpers.time_windows import get_active_window
 from modules.imbalance_detector import detect_3m_fvg
 from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_7h_open_from_timestamp
@@ -7,6 +9,7 @@ from datetime import datetime
 from modules.smt_detector import detect_smt_dual
 from modules.ob_detector import detect_30m_order_block
 from modules.sweep_detector import find_swing_highs, find_swing_lows
+
 def filter_valid_swing_lows(swings, candles):
 
     valid = []
@@ -16,8 +19,11 @@ def filter_valid_swing_lows(swings, candles):
         swing_ts = swing["timestamp"]
         swing_low = swing["low"]
 
-        swept = False
+        # 1️⃣ Remove structurally dominated lows
+        valid = [v for v in valid if v["low"] < swing_low]
 
+        # 2️⃣ Check if swept after forming
+        swept = False
         for c in candles:
             if c["timestamp"] > swing_ts:
                 if c["low"] < swing_low:
@@ -29,6 +35,7 @@ def filter_valid_swing_lows(swings, candles):
 
     return valid
 
+
 def filter_valid_swing_highs(swings, candles):
 
     valid = []
@@ -37,6 +44,8 @@ def filter_valid_swing_highs(swings, candles):
 
         swing_ts = swing["timestamp"]
         swing_high = swing["high"]
+        # 1️⃣ Remove structurally dominated highs
+        valid = [v for v in valid if v["high"] > swing_high]
 
         swept = False
 
@@ -114,8 +123,8 @@ def run_quick_backtest(test_date: str):
 
     print(f"Backtesting {test_date}")
 
-    nq = fetch_symbol_data("NQ=F")
-    es = fetch_symbol_data("ES=F")
+    nq = fetch_symbol_data_safe("NQ=F")
+    es = fetch_symbol_data_safe("ES=F")
     # Filter only Feb 13
     nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
     nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
@@ -134,15 +143,34 @@ def run_quick_backtest(test_date: str):
     if not nq or not es:
         print("No data available.")
         return
+    nq_buy_candidate = SetupCandidate("buy_side")
+    nq_sell_candidate = SetupCandidate("sell_side")
+    es_buy_candidate = SetupCandidate("buy_side")
+    es_sell_candidate = SetupCandidate("sell_side")
+    current_window = None
 
     for i in range(3, len(nq_30m)):
         print("\n---------------------------")
+        # reset setup candidates at the start of each 7h window
+        current_30m_start = nq_30m[i]["timestamp"]
+        window_name = get_active_window(current_30m_start)
+
+        if window_name != current_window:
+            print("🔄 New window detected:", window_name)
+
+            nq_buy_candidate.reset()
+            nq_sell_candidate.reset()
+            es_buy_candidate.reset()
+            es_sell_candidate.reset()
+
+            current_window = window_name
+        print("Current window:", current_window)
         # previous 30m candle just closed
         last_closed_nq = nq_30m[i - 1]
         last_closed_es = es_30m[i - 1]
         print("i =", i)
         print("Last closed:", last_closed_nq["timestamp"])
-        current_30m_start = nq_30m[i]["timestamp"]
+        # current_30m_start = nq_30m[i]["timestamp"]
         print("current 30m boundary at:", current_30m_start)
         
         # ts_dt = datetime.fromisoformat(current_ts)
@@ -152,21 +180,31 @@ def run_quick_backtest(test_date: str):
         historical_nq = nq_30m[:i - 1]
         historical_es = es_30m[:i - 1]
         print("Historical count:", len(historical_nq))
+        print("Historical count:", len(historical_es))
 
         raw_swings_high_nq = find_swing_highs(historical_nq)
         raw_swings_low_nq  = find_swing_lows(historical_nq)
         print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_nq])
         print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_nq])
+        raw_swings_high_es = find_swing_highs(historical_es)
+        raw_swings_low_es  = find_swing_lows(historical_es)
+        print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
+        print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
         valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq, nq_30m[i:])
         valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
+        valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
+        valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
 
-        print("Valid swing highs:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
-        print("Valid swing lows:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
-        sweep = None
+        print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
+        print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
+        print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
+        print("Valid swing lows ES:", [(s["timestamp"], s["low"]) for s in valid_lows_es])
+        sweep_nq = None
+        sweep_es = None
 
         for swing in valid_highs_nq:
             if last_closed_nq["high"] > swing["high"]:
-                sweep = {
+                sweep_nq = {
                     "side": "buy_side",
                     "timestamp": last_closed_nq["timestamp"]
                 }
@@ -174,16 +212,61 @@ def run_quick_backtest(test_date: str):
 
         for swing in valid_lows_nq:
             if last_closed_nq["low"] < swing["low"]:
-                sweep = {
+                sweep_nq = {
                     "side": "sell_side",
                     "timestamp": last_closed_nq["timestamp"]
                 }
                 break
+        
+        for swing in valid_highs_es:
+            if last_closed_es["high"] > swing["high"]:
+                sweep_es = {
+                    "side": "buy_side",
+                    "timestamp": last_closed_es["timestamp"]
+                }
+                break
 
-        if not sweep:
+        for swing in valid_lows_es:
+            if last_closed_es["low"] < swing["low"]:
+                sweep_es = {
+                    "side": "sell_side",
+                    "timestamp": last_closed_es["timestamp"]
+                }
+                break
+        if not sweep_nq and not sweep_es:
             continue
+        
+        if sweep_nq:
+            print("SWEEP DETECTED NQ:", sweep_nq)
 
-        print("SWEEP DETECTED:", sweep)
+            if sweep_nq["side"] == "buy_side":
+                nq_buy_candidate.register_sweep(sweep_nq["timestamp"])
+
+            if sweep_nq["side"] == "sell_side":
+                nq_sell_candidate.register_sweep(sweep_nq["timestamp"])
+        
+        if sweep_es:
+            print("SWEEP DETECTED ES:", sweep_es)
+
+            if sweep_es["side"] == "buy_side":
+                es_buy_candidate.register_sweep(sweep_es["timestamp"])
+
+            if sweep_es["side"] == "sell_side":
+                es_sell_candidate.register_sweep(sweep_es["timestamp"])
+        
+        # print for debug
+        print("Nq Buy candidate active:", nq_buy_candidate.active,
+            "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
+
+        print("Nq Sell candidate active:", nq_sell_candidate.active,
+            "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
+
+        print("Es Buy candidate active:", es_buy_candidate.active,
+            "| ES sweep at:", es_buy_candidate.sweep_timestamp)
+
+        print("Es Sell candidate active:", es_sell_candidate.active,
+            "| ES sweep at:", es_sell_candidate.sweep_timestamp)
+
         # smt = detect_smt_dual(
         # nq_30m[:i],
         # es_30m[:i])

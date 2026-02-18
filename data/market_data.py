@@ -144,3 +144,12 @@ def format_df(df):
         candles = candles[:-1]
 
     return candles
+
+
+
+def fetch_symbol_data_safe(symbol):
+    try:
+        return fetch_symbol_data(symbol)
+    except Exception as e:
+        print(f"Data fetch failed for {symbol}: {e}")
+        return None
