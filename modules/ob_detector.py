@@ -1,86 +1,69 @@
 from datetime import datetime
 
 
-def detect_30m_order_block(
-    candles_30m: list[dict],
-    sweep_info: dict
-) -> dict:
-    """
-    Detects a 30m Order Block AFTER a sweep using OPEN-violation logic.
+def detect_30m_order_block(candles, candidate):
 
-    Bearish OB:
-    - Find last bullish 30m candle after sweep
-    - Any later candle closes BELOW its OPEN
+    if not candidate.active:
+        return None
 
-    Bullish OB:
-    - Find last bearish 30m candle after sweep
-    - Any later candle closes ABOVE its OPEN
-    """
+    direction = candidate.side  # "buy_side" or "sell_side"
 
-    if not sweep_info.get("sweep_detected"):
-        return _no_ob()
+    if len(candles) < 2:
+        return None
 
-    sweep_ts = datetime.fromisoformat(sweep_info["timestamp"])
-    sweep_side = sweep_info["side"]  # buy_side or sell_side
+    # We evaluate the last closed candle
+    last_closed = candles[-1]
 
-    # Filter candles AFTER sweep
-    post_sweep = [
-        c for c in candles_30m
-        if datetime.fromisoformat(c["timestamp"]) >= sweep_ts
-    ]
+    # ---------------------------------------
+    # Bearish Setup (buy-side sweep first)
+    # ---------------------------------------
+    if direction == "buy_side":
 
-    if len(post_sweep) < 2:
-        return _no_ob()
+        # find most recent bullish candle
+        for i in range(len(candles) - 2, -1, -1):
 
-    # Directional intent
-    looking_for = "BEARISH_OB" if sweep_side == "buy_side" else "BULLISH_OB"
+            c = candles[i]
 
-    last_opposing_candle = None
+            if c["close"] > c["open"]:  # bullish candle
 
-    for candle in post_sweep:
-        is_bullish = candle["close"] > candle["open"]
-        is_bearish = candle["close"] < candle["open"]
+                # OB confirmed if last_closed closes below bullish open
+                if last_closed["close"] < c["open"]:
 
-        # Track last opposing candle
-        if looking_for == "BEARISH_OB" and is_bullish:
-            last_opposing_candle = candle
+                    return {
+                        "type": "bearish_ob",
+                        "confirmation_timestamp": last_closed["timestamp"],
+                        "ob_candle_timestamp": c["timestamp"],
+                        "ob_high": c["high"],
+                        "ob_low": c["open"],
+                        "source_index": i
+                    }
 
-        if looking_for == "BULLISH_OB" and is_bearish:
-            last_opposing_candle = candle
+                break
 
-        # No opposing candle yet
-        if last_opposing_candle is None:
-            continue
+    # ---------------------------------------
+    # Bullish Setup (sell-side sweep first)
+    # ---------------------------------------
+    if direction == "sell_side":
 
-        # Check OPEN violation
-        if looking_for == "BEARISH_OB":
-            if candle["close"] < last_opposing_candle["open"]:
-                return {
-                    "ob_found": True,
-                    "direction": "SHORT",
-                    "high": last_opposing_candle["high"],
-                    "low": last_opposing_candle["low"],
-                    "formed_at": last_opposing_candle["timestamp"]
-                }
+        # find most recent bearish candle
+        for i in range(len(candles) - 2, -1, -1):
 
-        if looking_for == "BULLISH_OB":
-            if candle["close"] > last_opposing_candle["open"]:
-                return {
-                    "ob_found": True,
-                    "direction": "LONG",
-                    "high": last_opposing_candle["high"],
-                    "low": last_opposing_candle["low"],
-                    "formed_at": last_opposing_candle["timestamp"]
-                }
+            c = candles[i]
 
-    return _no_ob()
+            if c["close"] < c["open"]:  # bearish candle
 
+                # OB confirmed if last_closed closes above bearish open
+                if last_closed["close"] > c["open"]:
 
-def _no_ob():
-    return {
-        "ob_found": False,
-        "direction": None,
-        "high": None,
-        "low": None,
-        "formed_at": None
-    }
+                    return {
+                        "type": "bullish_ob",
+                        "confirmation_timestamp": last_closed["timestamp"],
+                        "ob_candle_timestamp": c["timestamp"],
+                        "ob_low": c["low"],
+                        "ob_high": c["open"],
+                        "source_index": i
+                    }
+
+                break
+
+    return None

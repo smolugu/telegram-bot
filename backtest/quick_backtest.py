@@ -134,8 +134,8 @@ def run_quick_backtest(test_date: str):
     es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
     es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
 
-    print("Total 30m candles:", len(nq_30m))
-    print("Total 3m candles:", len(nq_3m))
+    # print("Total 30m candles:", len(nq_30m))
+    # print("Total 3m candles:", len(nq_3m))
 
     
     # debug_print_30m_swings(nq_30m, test_date)
@@ -143,10 +143,10 @@ def run_quick_backtest(test_date: str):
     if not nq or not es:
         print("No data available.")
         return
-    nq_buy_candidate = SetupCandidate("buy_side")
-    nq_sell_candidate = SetupCandidate("sell_side")
-    es_buy_candidate = SetupCandidate("buy_side")
-    es_sell_candidate = SetupCandidate("sell_side")
+    nq_sell_candidate = SetupCandidate("buy_side")
+    nq_buy_candidate = SetupCandidate("sell_side")
+    es_sell_candidate = SetupCandidate("buy_side")
+    es_buy_candidate = SetupCandidate("sell_side")
     current_window = None
 
     for i in range(3, len(nq_30m)):
@@ -179,26 +179,26 @@ def run_quick_backtest(test_date: str):
         #     continue
         historical_nq = nq_30m[:i - 1]
         historical_es = es_30m[:i - 1]
-        print("Historical count:", len(historical_nq))
-        print("Historical count:", len(historical_es))
+        # print("Historical count:", len(historical_nq))
+        # print("Historical count:", len(historical_es))
 
         raw_swings_high_nq = find_swing_highs(historical_nq)
         raw_swings_low_nq  = find_swing_lows(historical_nq)
-        print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_nq])
-        print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_nq])
+        # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_nq])
+        # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_nq])
         raw_swings_high_es = find_swing_highs(historical_es)
         raw_swings_low_es  = find_swing_lows(historical_es)
-        print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
-        print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
+        # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
+        # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
         valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq, nq_30m[i:])
         valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
         valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
         valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
 
-        print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
-        print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
-        print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
-        print("Valid swing lows ES:", [(s["timestamp"], s["low"]) for s in valid_lows_es])
+        # print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
+        # print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
+        # print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
+        # print("Valid swing lows ES:", [(s["timestamp"], s["low"]) for s in valid_lows_es])
         sweep_nq = None
         sweep_es = None
 
@@ -240,19 +240,18 @@ def run_quick_backtest(test_date: str):
             print("SWEEP DETECTED NQ:", sweep_nq)
 
             if sweep_nq["side"] == "buy_side":
-                nq_buy_candidate.register_sweep(sweep_nq["timestamp"])
+                nq_sell_candidate.register_sweep(sweep_nq["timestamp"])
 
             if sweep_nq["side"] == "sell_side":
-                nq_sell_candidate.register_sweep(sweep_nq["timestamp"])
+                nq_buy_candidate.register_sweep(sweep_nq["timestamp"])
         
         if sweep_es:
             print("SWEEP DETECTED ES:", sweep_es)
-
             if sweep_es["side"] == "buy_side":
-                es_buy_candidate.register_sweep(sweep_es["timestamp"])
+                es_sell_candidate.register_sweep(sweep_es["timestamp"])
 
             if sweep_es["side"] == "sell_side":
-                es_sell_candidate.register_sweep(sweep_es["timestamp"])
+                es_buy_candidate.register_sweep(sweep_es["timestamp"])
         
         # print for debug
         print("Nq Buy candidate active:", nq_buy_candidate.active,
@@ -280,11 +279,49 @@ def run_quick_backtest(test_date: str):
         # nq_30m[:i],
         # direction="SHORT" if sweep["side"] == "buy_side" else "LONG"
         # )
+        # --- NQ OB detection ---
+        # call OB detector for both candidates if either is active
+        if nq_buy_candidate.active or es_buy_candidate.active:
 
-        # if not ob["ob_found"]:
-        #     continue
+            nq_ob = detect_30m_order_block(nq_30m[:i], nq_buy_candidate)
+            if nq_ob:
+                nq_buy_candidate.register_ob(nq_ob)
 
-        # print("30M OB CONFIRMED:", ob)
+            es_ob = detect_30m_order_block(es_30m[:i], es_buy_candidate)
+            if es_ob:
+                es_buy_candidate.register_ob(es_ob)
+
+        if nq_sell_candidate.active or es_sell_candidate.active:
+
+            nq_ob = detect_30m_order_block(nq_30m[:i], nq_sell_candidate)
+            if nq_ob:
+                nq_sell_candidate.register_ob(nq_ob)
+
+            es_ob = detect_30m_order_block(es_30m[:i], es_sell_candidate)
+            if es_ob:
+                es_sell_candidate.register_ob(es_ob)
+
+        # we can continue if no OBs found for active candidates
+        should_continue = False
+        if (nq_buy_candidate.active and not nq_buy_candidate.ob_confirmed) and (es_buy_candidate.active and not es_buy_candidate.ob_confirmed):
+            should_continue = True
+        if (nq_sell_candidate.active and not nq_sell_candidate.ob_confirmed) and (es_sell_candidate.active and not es_sell_candidate.ob_confirmed):
+            should_continue = True
+        if should_continue:
+            continue
+
+        # print for debug
+        print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
+            "| OB data:", nq_buy_candidate.ob_data)
+
+        print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
+            "| OB data:", nq_sell_candidate.ob_data)
+
+        print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
+            "| OB data:", es_buy_candidate.ob_data)
+
+        print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
+            "| OB data:", es_sell_candidate.ob_data)
 
         # current_ts = last_closed_nq["timestamp"]
 
