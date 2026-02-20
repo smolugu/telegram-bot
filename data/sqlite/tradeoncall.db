@@ -1,0 +1,28 @@
+import sqlite3
+
+DB_FILE = "chartless.db"
+
+
+def init_db():
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS trades (
+        trade_id TEXT PRIMARY KEY,
+        timestamp TEXT,
+        instrument TEXT,
+        side TEXT,
+        entry REAL,
+        stop REAL,
+        tp REAL,
+        risk REAL,
+        imbalance_type TEXT,
+        status TEXT,
+        r_multiple REAL
+    )
+    """)
+
+    conn.commit()
+    conn.close()

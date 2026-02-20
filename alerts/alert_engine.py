@@ -1,6 +1,15 @@
+import time as time_module
+
+from dotenv import load_dotenv
+
+from helpers.escape_char import escape_markdown_v2
 from state.state_cache import update_active_window, should_alert
-from bot.broadcast import broadcast_message
+from bot.broadcast import broadcast_message, load_subscribers
 from utils.time_utils import today_string
+import requests, os
+
+load_dotenv()
+token = os.getenv("BOT_TOKEN")
 
 
 async def handle_stage(result, application):
@@ -46,3 +55,45 @@ def build_message(result):
             f"Stop: {ex['stop']}\n"
             f"Target: {ex['target']}"
         )
+
+
+
+def send_telegram_alert_to_all(message):
+
+    subscribers = load_subscribers()
+
+    if not subscribers:
+        print("No subscribers found.")
+        return
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+    active_subscribers = []
+
+    for chat_id in subscribers:
+
+        payload = {
+            "chat_id": chat_id,
+            "text": message,
+            # "text": escape_markdown_v2(message),
+            # "parse_mode": "Markdown"
+            # "parse_mode": "MarkdownV2"
+        }
+
+        try:
+            response = requests.post(url, data=payload, timeout=5)
+
+            if response.status_code == 200:
+                active_subscribers.append(chat_id)
+            else:
+                print("Telegram Error for", chat_id)
+                print("Status:", response.status_code)
+                print("Response:", response.text)
+
+        except Exception as e:
+            print(f"Error sending to {chat_id}: {e}")
+
+        time_module.sleep(0.05)  # avoid Telegram rate limits
+
+    # Save only active subscribers
+    # save_subscribers(active_subscribers)

@@ -90,7 +90,7 @@ from datetime import timedelta, datetime
 
 def detect_3m_imbalance_inside_ob_candle(
     candles_3m,
-    candidate
+    candidate, instrument
 ):
 
     if not candidate.ob_confirmed:
@@ -156,7 +156,8 @@ def detect_3m_imbalance_inside_ob_candle(
                         "entry": vi_low,
                         "timestamp": curr["timestamp"],
                         "distance": distance,
-                        "type": "bearish_vi"
+                        "type": "bearish_vi",
+                        "instrument": instrument
                     })
             
             # ---------------------------
@@ -179,7 +180,8 @@ def detect_3m_imbalance_inside_ob_candle(
                             "entry": fvg_low,
                             "timestamp": c3["timestamp"],
                             "distance": distance,
-                            "type": "bearish_fvg"
+                            "type": "bearish_fvg",
+                            "instrument": instrument
                         })
 
         # ==========================================================
@@ -212,7 +214,8 @@ def detect_3m_imbalance_inside_ob_candle(
                         "entry": vi_high,
                         "timestamp": curr["timestamp"],
                         "distance": distance,
-                        "type": "bullish_vi"
+                        "type": "bullish_vi",
+                        "instrument": instrument
                     })
 
             # ---------------------------
@@ -235,7 +238,8 @@ def detect_3m_imbalance_inside_ob_candle(
                             "entry": fvg_high,
                             "timestamp": c3["timestamp"],
                             "distance": distance,
-                            "type": "bullish_fvg"
+                            "type": "bullish_fvg",
+                            "instrument": instrument
                         })
 
     if not candidates:

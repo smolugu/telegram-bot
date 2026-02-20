@@ -9,6 +9,7 @@ class SetupCandidate:
         self.active = False
 
         self.sweep_timestamp = None
+        self.sweep_candle_extreme = None
 
         self.smt_confirmed = False
         self.smt_timestamp = None
@@ -23,10 +24,11 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-    def register_sweep(self, timestamp):
+    def register_sweep(self, timestamp, sweep_candle_extreme):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
+        self.sweep_candle_extreme = sweep_candle_extreme
 
     # --------------------------------------------------
 

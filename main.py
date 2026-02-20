@@ -18,6 +18,7 @@ from backtest.quick_backtest import run_quick_backtest
 
 
 load_dotenv()
+token = os.getenv("BOT_TOKEN")
 WICK_WINDOW_MINUTES = 60
 CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
@@ -78,7 +79,7 @@ def main():
     if MODE == "BACKTEST":
         run_quick_backtest("2026-02-13")
         return
-    token= os.getenv("BOT_TOKEN")
+    token = os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(token).build()
 
     register_handlers(application)

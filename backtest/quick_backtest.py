@@ -10,6 +10,9 @@ from modules.smt_detector import detect_smt_dual
 from modules.ob_detector import detect_30m_order_block
 from modules.sweep_detector import find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
+from alerts.alert_engine import send_telegram_alert_to_all
+from alerts.alert_payload import build_trade_alert
+
 
 def filter_valid_swing_lows(swings, candles):
 
@@ -207,7 +210,8 @@ def run_quick_backtest(test_date: str):
             if last_closed_nq["high"] > swing["high"]:
                 sweep_nq = {
                     "side": "buy_side",
-                    "timestamp": last_closed_nq["timestamp"]
+                    "timestamp": last_closed_nq["timestamp"],
+                    "sweep candle high": last_closed_nq["high"]
                 }
                 break
 
@@ -215,7 +219,8 @@ def run_quick_backtest(test_date: str):
             if last_closed_nq["low"] < swing["low"]:
                 sweep_nq = {
                     "side": "sell_side",
-                    "timestamp": last_closed_nq["timestamp"]
+                    "timestamp": last_closed_nq["timestamp"],
+                    "sweep candle low": last_closed_nq["low"]
                 }
                 break
         
@@ -223,7 +228,8 @@ def run_quick_backtest(test_date: str):
             if last_closed_es["high"] > swing["high"]:
                 sweep_es = {
                     "side": "buy_side",
-                    "timestamp": last_closed_es["timestamp"]
+                    "timestamp": last_closed_es["timestamp"],
+                    "sweep candle high": last_closed_es["high"]
                 }
                 break
 
@@ -231,7 +237,8 @@ def run_quick_backtest(test_date: str):
             if last_closed_es["low"] < swing["low"]:
                 sweep_es = {
                     "side": "sell_side",
-                    "timestamp": last_closed_es["timestamp"]
+                    "timestamp": last_closed_es["timestamp"],
+                    "sweep candle low": last_closed_es["low"]
                 }
                 break
         if not sweep_nq and not sweep_es:
@@ -241,18 +248,18 @@ def run_quick_backtest(test_date: str):
             print("SWEEP DETECTED NQ:", sweep_nq)
 
             if sweep_nq["side"] == "buy_side":
-                nq_sell_candidate.register_sweep(sweep_nq["timestamp"])
+                nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"])
 
             if sweep_nq["side"] == "sell_side":
-                nq_buy_candidate.register_sweep(sweep_nq["timestamp"])
+                nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"])
         
         if sweep_es:
             print("SWEEP DETECTED ES:", sweep_es)
             if sweep_es["side"] == "buy_side":
-                es_sell_candidate.register_sweep(sweep_es["timestamp"])
+                es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"])
 
             if sweep_es["side"] == "sell_side":
-                es_buy_candidate.register_sweep(sweep_es["timestamp"])
+                es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"])
         
         # print for debug
         print("Nq Buy candidate active:", nq_buy_candidate.active,
@@ -327,21 +334,53 @@ def run_quick_backtest(test_date: str):
         
         fvg = None
         if nq_buy_candidate.active and nq_buy_candidate.ob_confirmed:
+            print("Processing FVG for NQ Buy candidate")
             fvg = detect_3m_imbalance_inside_ob_candle(
                 nq_3m,
-                nq_buy_candidate
+                nq_buy_candidate,
+                "NQ"
             )
             if fvg:
                 nq_buy_candidate.register_fvg(fvg)
                 print("Bullish FVG detected:", fvg)
-        elif nq_sell_candidate.active and nq_sell_candidate.ob_confirmed:
+        
+        if nq_sell_candidate.active and nq_sell_candidate.ob_confirmed:
+            print("Processing FVG for NQ Sell candidate")
+
             fvg = detect_3m_imbalance_inside_ob_candle(
                 nq_3m,
-                nq_sell_candidate
+                nq_sell_candidate,
+                "NQ"
             )
             if fvg:
                 nq_sell_candidate.register_fvg(fvg)
                 print("Bearish FVG detected:", fvg)
+
+        # send alert if FVG confirmed and alert not sent for that candidate
+        if nq_sell_candidate.fvg_confirmed and not nq_sell_candidate.alert_sent:
+            # send alert for NQ sell candidate
+            message = build_trade_alert(nq_sell_candidate)
+            if message:
+                send_telegram_alert_to_all(message)
+                nq_sell_candidate.alert_sent = True
+        if nq_buy_candidate.fvg_confirmed and not nq_buy_candidate.alert_sent:
+            # send alert for NQ buy candidate
+            message = build_trade_alert(nq_buy_candidate)
+            if message:
+                send_telegram_alert_to_all(message)
+                nq_buy_candidate.alert_sent = True
+        if es_sell_candidate.fvg_confirmed and not es_sell_candidate.alert_sent:
+            # send alert for ES sell candidate
+            message = build_trade_alert(es_sell_candidate)
+            if message:
+                send_telegram_alert_to_all(message)
+                es_sell_candidate.alert_sent = True
+        if es_buy_candidate.fvg_confirmed and not es_buy_candidate.alert_sent:
+            # send alert for ES buy candidate
+            message = build_trade_alert(es_buy_candidate)
+            if message:
+                send_telegram_alert_to_all(message)
+                es_buy_candidate.alert_sent = True 
 
         
         # current_ts = last_closed_nq["timestamp"]
