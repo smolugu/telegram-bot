@@ -2,7 +2,7 @@ from modules.daily_bias import get_daily_bias
 from modules.sweep_detector import detect_dual_sweep
 from modules.smt_detector import detect_smt_dual
 from modules.ob_detector import detect_30m_order_block
-from modules.imbalance_detector import detect_3m_fvg
+from modules.imbalance_detector_old import detect_3m_fvg
 from modules.execution_model import build_execution_plan
 from datetime import datetime
 

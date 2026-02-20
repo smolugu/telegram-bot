@@ -1,111 +1,248 @@
-from datetime import datetime
+# from datetime import timedelta, datetime
 
+# def detect_3m_imbalance_inside_ob_candle(
+#     candles_3m,
+#     candidate
+# ):
 
-def detect_3m_fvg(
-    candles_3m: list[dict],
-    ob_high: float,
-    ob_low: float,
-    sweep_ts: str,
-    direction: str  # "SHORT" or "LONG"
-) -> dict:
-    """
-    Detect ALL 3m FVGs after sweep, inside OB.
-    Select the FVG whose ENTRY (first-tap boundary) is closest to OB boundary.
+#     if not candidate.ob_confirmed:
+#         return None
 
-    ENTRY RULE (LOCKED):
-    - SHORT → entry = fvg_low  (c3["high"])
-    - LONG  → entry = fvg_high (c3["low"])
+#     ob = candidate.ob_data
 
-    Midpoint is optional metadata.
-    """
+#     confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+#     ob_candle_start = confirmation_ts - timedelta(minutes=30)
+#     ob_candle_end = confirmation_ts
 
-    sweep_time = datetime.fromisoformat(sweep_ts)
+#     ob_high = ob["ob_high"]
+#     ob_low = ob["ob_low"]
 
-    post_sweep = [
+#     # 1️⃣ Extract 3m candles inside OB candle
+#     inside = [
+#         c for c in candles_3m
+#         if ob_candle_start <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
+#     ]
+
+#     if len(inside) < 3:
+#         return None
+
+#     direction = candidate.side
+
+#     candidates = []
+
+#     # 2️⃣ Detect FVGs inside that 30m window
+#     for i in range(2, len(inside)):
+
+#         c1 = inside[i - 2]
+#         c3 = inside[i]
+
+#         # ---------------------------
+#         # Bearish FVG (short setup)
+#         # ---------------------------
+#         if direction == "buy_side":
+
+#             if c1["low"] > c3["high"]:
+
+#                 fvg_high = c1["low"]
+#                 fvg_low = c3["high"]
+
+#                 if fvg_high <= ob_high and fvg_low >= ob_low:
+
+#                     distance = abs(ob_high - fvg_low)
+
+#                     candidates.append({
+#                         "entry": fvg_low,
+#                         "timestamp": c3["timestamp"],
+#                         "distance": distance,
+#                         "type": "bearish_fvg"
+#                     })
+
+#         # ---------------------------
+#         # Bullish FVG (long setup)
+#         # ---------------------------
+#         if direction == "sell_side":
+
+#             if c1["high"] < c3["low"]:
+
+#                 fvg_low = c1["high"]
+#                 fvg_high = c3["low"]
+
+#                 if fvg_low >= ob_low and fvg_high <= ob_high:
+
+#                     distance = abs(ob_low - fvg_high)
+
+#                     candidates.append({
+#                         "entry": fvg_high,
+#                         "timestamp": c3["timestamp"],
+#                         "distance": distance,
+#                         "type": "bullish_fvg"
+#                     })
+
+#     if not candidates:
+#         return None
+
+#     # 3️⃣ Pick closest imbalance to OB boundary
+#     best = min(candidates, key=lambda x: x["distance"])
+
+#     return best
+
+from datetime import timedelta, datetime
+
+def detect_3m_imbalance_inside_ob_candle(
+    candles_3m,
+    candidate
+):
+
+    if not candidate.ob_confirmed:
+        return None
+
+    ob = candidate.ob_data
+
+    confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+    ob_candle_start = confirmation_ts - timedelta(minutes=30)
+    ob_candle_end = confirmation_ts
+
+    ob_high = ob["ob_high"]
+    ob_low = ob["ob_low"]
+    print("Ob high/low:", ob_high, ob_low, "| OB candle window:", ob_candle_start, "to", ob_candle_end)
+
+    # 1️⃣ Extract 3m candles inside OB candle
+    inside = [
         c for c in candles_3m
-        if datetime.fromisoformat(c["timestamp"]) >= sweep_time
+        if ob_candle_start <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
     ]
 
-    if len(post_sweep) < 3:
-        return _no_imbalance()
+    if len(inside) < 2:
+        return None
 
+    direction = candidate.side
     candidates = []
 
-    for i in range(len(post_sweep) - 2):
-        c1 = post_sweep[i]
-        c3 = post_sweep[i + 2]
+    # 2️⃣ Detect Imbalances (FVG + Volume Imbalance)
+    for i in range(1, len(inside)):
 
-        # --- Bearish FVG ---
-        if direction == "SHORT" and c1["low"] > c3["high"]:
-            fvg_high = c1["low"]
-            fvg_low = c3["high"]
+        prev = inside[i - 1]
+        curr = inside[i]
 
-            if _inside_ob(fvg_high, fvg_low, ob_high, ob_low):
-                entry = fvg_low  # FIRST TAP on retrace (LOCKED)
-                distance = abs(ob_low - entry)  # closeness to OB low on retrace
-                candidates.append(
-                    _fvg_obj(
-                        direction="SHORT",
-                        entry=entry,
-                        fvg_high=fvg_high,
-                        fvg_low=fvg_low,
-                        midpoint=(fvg_high + fvg_low) / 2,
-                        distance=distance
-                    )
-                )
+        prev_close = prev["close"]
+        curr_open = curr["open"]
 
-        # --- Bullish FVG ---
-        if direction == "LONG" and c1["high"] < c3["low"]:
-            fvg_low = c1["high"]
-            fvg_high = c3["low"]
+        # ==========================================================
+        # 🔴 BEARISH SETUP (buy_side sweep → looking for short)
+        # ==========================================================
+        if direction == "buy_side":
 
-            if _inside_ob(fvg_high, fvg_low, ob_high, ob_low):
-                entry = fvg_high  # FIRST TAP on retrace (LOCKED)
-                distance = abs(entry - ob_high)  # closeness to OB high on retrace
-                candidates.append(
-                    _fvg_obj(
-                        direction="LONG",
-                        entry=entry,
-                        fvg_high=fvg_high,
-                        fvg_low=fvg_low,
-                        midpoint=(fvg_high + fvg_low) / 2,
-                        distance=distance
-                    )
-                )
+            # ---------------------------
+            # 1️⃣ Bearish Volume Imbalance (strict)
+            # ---------------------------
+            prev_open = prev["open"]
+            prev_close = prev["close"]
+            curr_open = curr["open"]
+            curr_close = curr["close"]
+
+            if (
+                prev_open > prev_close and      # previous bearish
+                curr_open > curr_close and      # current bearish
+                prev_close > curr_open          # body gap
+            ):
+                vi_high = prev_close
+                vi_low = curr_open
+
+                if vi_high <= ob_high and vi_low >= ob_low:  # allow small leeway beyond OB low
+
+                    distance = abs(ob_high - vi_low)
+
+                    candidates.append({
+                        "entry": vi_low,
+                        "timestamp": curr["timestamp"],
+                        "distance": distance,
+                        "type": "bearish_vi"
+                    })
+            
+            # ---------------------------
+            # 2️⃣ Bearish FVG (3 candle logic)
+            # ---------------------------
+            if i >= 2:
+                c1 = inside[i - 2]
+                c3 = inside[i]
+
+                if c1["low"] > c3["high"]:
+
+                    fvg_high = c1["low"]
+                    fvg_low = c3["high"]
+
+                    if fvg_high <= ob_high and fvg_low >= ob_low:
+
+                        distance = abs(ob_high - fvg_low)
+
+                        candidates.append({
+                            "entry": fvg_low,
+                            "timestamp": c3["timestamp"],
+                            "distance": distance,
+                            "type": "bearish_fvg"
+                        })
+
+        # ==========================================================
+        # 🟢 BULLISH SETUP (sell_side sweep → looking for long)
+        # ==========================================================
+        if direction == "sell_side":
+
+            # ---------------------------
+            # 1️⃣ Bullish Volume Imbalance (strict)
+            # ---------------------------
+            prev_open = prev["open"]
+            prev_close = prev["close"]
+            curr_open = curr["open"]
+            curr_close = curr["close"]
+
+            if (
+                prev_open < prev_close and      # previous bullish
+                curr_open < curr_close and      # current bullish
+                prev_close < curr_open          # body gap
+            ):
+
+                vi_low = prev_close
+                vi_high = curr_open
+
+                if vi_low >= ob_low and vi_high <= ob_high:  # allow small leeway beyond OB high
+
+                    distance = abs(ob_low - vi_high)
+
+                    candidates.append({
+                        "entry": vi_high,
+                        "timestamp": curr["timestamp"],
+                        "distance": distance,
+                        "type": "bullish_vi"
+                    })
+
+            # ---------------------------
+            # 2️⃣ Bullish FVG
+            # ---------------------------
+            if i >= 2:
+                c1 = inside[i - 2]
+                c3 = inside[i]
+
+                if c1["high"] < c3["low"]:
+
+                    fvg_low = c1["high"]
+                    fvg_high = c3["low"]
+
+                    if fvg_low >= ob_low and fvg_high <= ob_high:
+
+                        distance = abs(ob_low - fvg_high)
+
+                        candidates.append({
+                            "entry": fvg_high,
+                            "timestamp": c3["timestamp"],
+                            "distance": distance,
+                            "type": "bullish_fvg"
+                        })
 
     if not candidates:
-        return _no_imbalance()
+        return None
+    print("Imbalance candidates:", candidates)
 
-    # Choose the FVG whose ENTRY is closest to the OB retrace boundary
-    selected = min(candidates, key=lambda x: x["distance"])
-    return selected
+    # 3️⃣ Pick closest imbalance to OB boundary
+    best = min(candidates, key=lambda x: x["distance"])
 
-
-def _inside_ob(fvg_high, fvg_low, ob_high, ob_low) -> bool:
-    return fvg_high <= ob_high and fvg_low >= ob_low
-
-
-def _fvg_obj(direction, entry, fvg_high, fvg_low, midpoint, distance):
-    return {
-        "imbalance_found": True,
-        "type": "FVG",
-        "direction": direction,
-        "entry": entry,          # 🔴 ACTUAL LIMIT ENTRY (LOCKED)
-        "fvg_high": fvg_high,
-        "fvg_low": fvg_low,
-        "midpoint": midpoint,    # optional metadata
-        "distance": distance
-    }
-
-
-def _no_imbalance():
-    return {
-        "imbalance_found": False,
-        "type": None,
-        "direction": None,
-        "entry": None,
-        "fvg_high": None,
-        "fvg_low": None,
-        "midpoint": None,
-        "distance": None
-    }
+    return best

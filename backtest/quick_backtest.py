@@ -1,7 +1,7 @@
 from data.market_data import fetch_symbol_data_safe
 from data.models.setup_candidate import SetupCandidate
 from helpers.time_windows import get_active_window
-from modules.imbalance_detector import detect_3m_fvg
+from modules.imbalance_detector_old import detect_3m_fvg
 from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_7h_open_from_timestamp
 
@@ -9,6 +9,7 @@ from datetime import datetime
 from modules.smt_detector import detect_smt_dual
 from modules.ob_detector import detect_30m_order_block
 from modules.sweep_detector import find_swing_highs, find_swing_lows
+from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 
 def filter_valid_swing_lows(swings, candles):
 
@@ -323,6 +324,26 @@ def run_quick_backtest(test_date: str):
         print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
             "| OB data:", es_sell_candidate.ob_data)
 
+        
+        fvg = None
+        if nq_buy_candidate.active and nq_buy_candidate.ob_confirmed:
+            fvg = detect_3m_imbalance_inside_ob_candle(
+                nq_3m,
+                nq_buy_candidate
+            )
+            if fvg:
+                nq_buy_candidate.register_fvg(fvg)
+                print("Bullish FVG detected:", fvg)
+        elif nq_sell_candidate.active and nq_sell_candidate.ob_confirmed:
+            fvg = detect_3m_imbalance_inside_ob_candle(
+                nq_3m,
+                nq_sell_candidate
+            )
+            if fvg:
+                nq_sell_candidate.register_fvg(fvg)
+                print("Bearish FVG detected:", fvg)
+
+        
         # current_ts = last_closed_nq["timestamp"]
 
         # nq_3m_partial = [
