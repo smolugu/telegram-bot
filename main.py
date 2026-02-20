@@ -1,18 +1,25 @@
-from datetime import datetime, timedelta
+import sqlite3
+import time
+import os
 import pytz
 import asyncio
+
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+
+from data.sqlite.db import init_db
+from data.market_data import fetch_market_data
+
+from datetime import datetime, timedelta
+
 from engine.trading_engine import trading_engine_loop
 from bot.handlers import register_handlers
 from dotenv import load_dotenv
-import os
 
-import time
-from data.market_data import fetch_market_data
 from modules.orchestrator import evaluate_7h_setup
-from alerts.alert_engine import handle_stage
 from helpers.zones import get_current_7h_open
+from alerts.alert_engine import handle_stage
+
 
 from backtest.quick_backtest import run_quick_backtest
 
@@ -76,6 +83,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 def main():
+    init_db()  # initialize database if needed
+    
     if MODE == "BACKTEST":
         run_quick_backtest("2026-02-13")
         return

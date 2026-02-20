@@ -1,5 +1,10 @@
+import os
+import sqlite3
+from data.sqlite.db import DB_FILE
+
 from data.market_data import fetch_symbol_data_safe
 from data.models.setup_candidate import SetupCandidate
+from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.time_windows import get_active_window
 from modules.imbalance_detector_old import detect_3m_fvg
 from modules.orchestrator import evaluate_7h_setup
@@ -147,264 +152,284 @@ def run_quick_backtest(test_date: str):
     if not nq or not es:
         print("No data available.")
         return
+    nq_30m_closes = {
+        nq_30m[i]["timestamp"]: i
+        for i in range(len(nq_30m))
+    }
     nq_sell_candidate = SetupCandidate("buy_side")
     nq_buy_candidate = SetupCandidate("sell_side")
     es_sell_candidate = SetupCandidate("buy_side")
     es_buy_candidate = SetupCandidate("sell_side")
     current_window = None
+    for candle_3m in nq_3m:
+        ts = candle_3m["timestamp"]
+        if ts in nq_30m_closes:
+            i = nq_30m_closes[ts]
+            print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
+            if i >= 3:
+                print("\n---------------------------")
+                # reset setup candidates at the start of each 7h window
+                current_30m_start = nq_30m[i]["timestamp"]
+                window_name = get_active_window(current_30m_start)
 
-    for i in range(3, len(nq_30m)):
-        print("\n---------------------------")
-        # reset setup candidates at the start of each 7h window
-        current_30m_start = nq_30m[i]["timestamp"]
-        window_name = get_active_window(current_30m_start)
+                if window_name != current_window:
+                    print("🔄 New window detected:", window_name)
 
-        if window_name != current_window:
-            print("🔄 New window detected:", window_name)
+                    nq_buy_candidate.reset()
+                    nq_sell_candidate.reset()
+                    es_buy_candidate.reset()
+                    es_sell_candidate.reset()
 
-            nq_buy_candidate.reset()
-            nq_sell_candidate.reset()
-            es_buy_candidate.reset()
-            es_sell_candidate.reset()
+                    current_window = window_name
+                print("Current window:", current_window)
+                # previous 30m candle just closed
+                last_closed_nq = nq_30m[i - 1]
+                last_closed_es = es_30m[i - 1]
+                print("i =", i)
+                print("Last closed:", last_closed_nq["timestamp"])
+                # current_30m_start = nq_30m[i]["timestamp"]
+                print("current 30m boundary at:", current_30m_start)
+                
+                # ts_dt = datetime.fromisoformat(current_ts)
+                # print("Current TS:", current_ts)
+                # if ts_dt.minute % 30 != 0:
+                #     continue
+                historical_nq = nq_30m[:i - 1]
+                historical_es = es_30m[:i - 1]
+                # print("Historical count:", len(historical_nq))
+                # print("Historical count:", len(historical_es))
 
-            current_window = window_name
-        print("Current window:", current_window)
-        # previous 30m candle just closed
-        last_closed_nq = nq_30m[i - 1]
-        last_closed_es = es_30m[i - 1]
-        print("i =", i)
-        print("Last closed:", last_closed_nq["timestamp"])
-        # current_30m_start = nq_30m[i]["timestamp"]
-        print("current 30m boundary at:", current_30m_start)
-        
-        # ts_dt = datetime.fromisoformat(current_ts)
-        # print("Current TS:", current_ts)
-        # if ts_dt.minute % 30 != 0:
-        #     continue
-        historical_nq = nq_30m[:i - 1]
-        historical_es = es_30m[:i - 1]
-        # print("Historical count:", len(historical_nq))
-        # print("Historical count:", len(historical_es))
+                raw_swings_high_nq = find_swing_highs(historical_nq)
+                raw_swings_low_nq  = find_swing_lows(historical_nq)
+                # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_nq])
+                # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_nq])
+                raw_swings_high_es = find_swing_highs(historical_es)
+                raw_swings_low_es  = find_swing_lows(historical_es)
+                # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
+                # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
+                valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq, nq_30m[i:])
+                valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
+                valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
+                valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
 
-        raw_swings_high_nq = find_swing_highs(historical_nq)
-        raw_swings_low_nq  = find_swing_lows(historical_nq)
-        # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_nq])
-        # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_nq])
-        raw_swings_high_es = find_swing_highs(historical_es)
-        raw_swings_low_es  = find_swing_lows(historical_es)
-        # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
-        # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
-        valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq, nq_30m[i:])
-        valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
-        valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
-        valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
+                # print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
+                # print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
+                # print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
+                # print("Valid swing lows ES:", [(s["timestamp"], s["low"]) for s in valid_lows_es])
+                sweep_nq = None
+                sweep_es = None
 
-        # print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
-        # print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
-        # print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
-        # print("Valid swing lows ES:", [(s["timestamp"], s["low"]) for s in valid_lows_es])
-        sweep_nq = None
-        sweep_es = None
+                for swing in valid_highs_nq:
+                    if last_closed_nq["high"] > swing["high"]:
+                        sweep_nq = {
+                            "side": "buy_side",
+                            "timestamp": last_closed_nq["timestamp"],
+                            "sweep candle high": last_closed_nq["high"]
+                        }
+                        break
 
-        for swing in valid_highs_nq:
-            if last_closed_nq["high"] > swing["high"]:
-                sweep_nq = {
-                    "side": "buy_side",
-                    "timestamp": last_closed_nq["timestamp"],
-                    "sweep candle high": last_closed_nq["high"]
-                }
-                break
+                for swing in valid_lows_nq:
+                    if last_closed_nq["low"] < swing["low"]:
+                        sweep_nq = {
+                            "side": "sell_side",
+                            "timestamp": last_closed_nq["timestamp"],
+                            "sweep candle low": last_closed_nq["low"]
+                        }
+                        break
+                
+                for swing in valid_highs_es:
+                    if last_closed_es["high"] > swing["high"]:
+                        sweep_es = {
+                            "side": "buy_side",
+                            "timestamp": last_closed_es["timestamp"],
+                            "sweep candle high": last_closed_es["high"]
+                        }
+                        break
 
-        for swing in valid_lows_nq:
-            if last_closed_nq["low"] < swing["low"]:
-                sweep_nq = {
-                    "side": "sell_side",
-                    "timestamp": last_closed_nq["timestamp"],
-                    "sweep candle low": last_closed_nq["low"]
-                }
-                break
-        
-        for swing in valid_highs_es:
-            if last_closed_es["high"] > swing["high"]:
-                sweep_es = {
-                    "side": "buy_side",
-                    "timestamp": last_closed_es["timestamp"],
-                    "sweep candle high": last_closed_es["high"]
-                }
-                break
+                for swing in valid_lows_es:
+                    if last_closed_es["low"] < swing["low"]:
+                        sweep_es = {
+                            "side": "sell_side",
+                            "timestamp": last_closed_es["timestamp"],
+                            "sweep candle low": last_closed_es["low"]
+                        }
+                        break
+                if not sweep_nq and not sweep_es:
+                    continue
+                
+                if sweep_nq:
+                    print("SWEEP DETECTED NQ:", sweep_nq)
 
-        for swing in valid_lows_es:
-            if last_closed_es["low"] < swing["low"]:
-                sweep_es = {
-                    "side": "sell_side",
-                    "timestamp": last_closed_es["timestamp"],
-                    "sweep candle low": last_closed_es["low"]
-                }
-                break
-        if not sweep_nq and not sweep_es:
-            continue
-        
-        if sweep_nq:
-            print("SWEEP DETECTED NQ:", sweep_nq)
+                    if sweep_nq["side"] == "buy_side":
+                        nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"])
 
-            if sweep_nq["side"] == "buy_side":
-                nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"])
+                    if sweep_nq["side"] == "sell_side":
+                        nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"])
+                
+                if sweep_es:
+                    print("SWEEP DETECTED ES:", sweep_es)
+                    if sweep_es["side"] == "buy_side":
+                        es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"])
 
-            if sweep_nq["side"] == "sell_side":
-                nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"])
-        
-        if sweep_es:
-            print("SWEEP DETECTED ES:", sweep_es)
-            if sweep_es["side"] == "buy_side":
-                es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"])
+                    if sweep_es["side"] == "sell_side":
+                        es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"])
+                
+                # print for debug
+                print("Nq Buy candidate active:", nq_buy_candidate.active,
+                    "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
 
-            if sweep_es["side"] == "sell_side":
-                es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"])
-        
-        # print for debug
-        print("Nq Buy candidate active:", nq_buy_candidate.active,
-            "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
+                print("Nq Sell candidate active:", nq_sell_candidate.active,
+                    "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
 
-        print("Nq Sell candidate active:", nq_sell_candidate.active,
-            "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
+                print("Es Buy candidate active:", es_buy_candidate.active,
+                    "| ES sweep at:", es_buy_candidate.sweep_timestamp)
 
-        print("Es Buy candidate active:", es_buy_candidate.active,
-            "| ES sweep at:", es_buy_candidate.sweep_timestamp)
+                print("Es Sell candidate active:", es_sell_candidate.active,
+                    "| ES sweep at:", es_sell_candidate.sweep_timestamp)
 
-        print("Es Sell candidate active:", es_sell_candidate.active,
-            "| ES sweep at:", es_sell_candidate.sweep_timestamp)
+                # smt = detect_smt_dual(
+                # nq_30m[:i],
+                # es_30m[:i])
 
-        # smt = detect_smt_dual(
-        # nq_30m[:i],
-        # es_30m[:i])
+                # if not smt["smt_confirmed"]:
+                #     continue
 
-        # if not smt["smt_confirmed"]:
-        #     continue
+                # print("SMT CONFIRMED:", smt)
 
-        # print("SMT CONFIRMED:", smt)
+                # ob = detect_30m_order_block(
+                # nq_30m[:i],
+                # direction="SHORT" if sweep["side"] == "buy_side" else "LONG"
+                # )
+                # --- NQ OB detection ---
+                # call OB detector for both candidates if either is active
+                if nq_buy_candidate.active or es_buy_candidate.active:
 
-        # ob = detect_30m_order_block(
-        # nq_30m[:i],
-        # direction="SHORT" if sweep["side"] == "buy_side" else "LONG"
-        # )
-        # --- NQ OB detection ---
-        # call OB detector for both candidates if either is active
-        if nq_buy_candidate.active or es_buy_candidate.active:
+                    nq_ob = detect_30m_order_block(nq_30m[:i], nq_buy_candidate)
+                    if nq_ob:
+                        nq_buy_candidate.register_ob(nq_ob)
 
-            nq_ob = detect_30m_order_block(nq_30m[:i], nq_buy_candidate)
-            if nq_ob:
-                nq_buy_candidate.register_ob(nq_ob)
+                    es_ob = detect_30m_order_block(es_30m[:i], es_buy_candidate)
+                    if es_ob:
+                        es_buy_candidate.register_ob(es_ob)
 
-            es_ob = detect_30m_order_block(es_30m[:i], es_buy_candidate)
-            if es_ob:
-                es_buy_candidate.register_ob(es_ob)
+                if nq_sell_candidate.active or es_sell_candidate.active:
 
-        if nq_sell_candidate.active or es_sell_candidate.active:
+                    nq_ob = detect_30m_order_block(nq_30m[:i], nq_sell_candidate)
+                    if nq_ob:
+                        nq_sell_candidate.register_ob(nq_ob)
 
-            nq_ob = detect_30m_order_block(nq_30m[:i], nq_sell_candidate)
-            if nq_ob:
-                nq_sell_candidate.register_ob(nq_ob)
+                    es_ob = detect_30m_order_block(es_30m[:i], es_sell_candidate)
+                    if es_ob:
+                        es_sell_candidate.register_ob(es_ob)
 
-            es_ob = detect_30m_order_block(es_30m[:i], es_sell_candidate)
-            if es_ob:
-                es_sell_candidate.register_ob(es_ob)
+                # we can continue if no OBs found for active candidates
+                should_continue = False
+                if (nq_buy_candidate.active and not nq_buy_candidate.ob_confirmed) and (es_buy_candidate.active and not es_buy_candidate.ob_confirmed):
+                    should_continue = True
+                if (nq_sell_candidate.active and not nq_sell_candidate.ob_confirmed) and (es_sell_candidate.active and not es_sell_candidate.ob_confirmed):
+                    should_continue = True
+                if should_continue:
+                    continue
 
-        # we can continue if no OBs found for active candidates
-        should_continue = False
-        if (nq_buy_candidate.active and not nq_buy_candidate.ob_confirmed) and (es_buy_candidate.active and not es_buy_candidate.ob_confirmed):
-            should_continue = True
-        if (nq_sell_candidate.active and not nq_sell_candidate.ob_confirmed) and (es_sell_candidate.active and not es_sell_candidate.ob_confirmed):
-            should_continue = True
-        if should_continue:
-            continue
+                # print for debug
+                print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
+                    "| OB data:", nq_buy_candidate.ob_data)
 
-        # print for debug
-        print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
-            "| OB data:", nq_buy_candidate.ob_data)
+                print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
+                    "| OB data:", nq_sell_candidate.ob_data)
 
-        print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
-            "| OB data:", nq_sell_candidate.ob_data)
+                print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
+                    "| OB data:", es_buy_candidate.ob_data)
 
-        print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
-            "| OB data:", es_buy_candidate.ob_data)
+                print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
+                    "| OB data:", es_sell_candidate.ob_data)
 
-        print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
-            "| OB data:", es_sell_candidate.ob_data)
+                
+                fvg = None
+                if nq_buy_candidate.active and nq_buy_candidate.ob_confirmed:
+                    print("Processing FVG for NQ Buy candidate")
+                    fvg = detect_3m_imbalance_inside_ob_candle(
+                        nq_3m,
+                        nq_buy_candidate,
+                        "NQ"
+                    )
+                    if fvg:
+                        nq_buy_candidate.register_fvg(fvg)
+                        print("Bullish FVG detected:", fvg)
+                
+                if nq_sell_candidate.active and nq_sell_candidate.ob_confirmed:
+                    print("Processing FVG for NQ Sell candidate")
 
-        
-        fvg = None
-        if nq_buy_candidate.active and nq_buy_candidate.ob_confirmed:
-            print("Processing FVG for NQ Buy candidate")
-            fvg = detect_3m_imbalance_inside_ob_candle(
-                nq_3m,
-                nq_buy_candidate,
-                "NQ"
-            )
-            if fvg:
-                nq_buy_candidate.register_fvg(fvg)
-                print("Bullish FVG detected:", fvg)
-        
-        if nq_sell_candidate.active and nq_sell_candidate.ob_confirmed:
-            print("Processing FVG for NQ Sell candidate")
+                    fvg = detect_3m_imbalance_inside_ob_candle(
+                        nq_3m,
+                        nq_sell_candidate,
+                        "NQ"
+                    )
+                    if fvg:
+                        nq_sell_candidate.register_fvg(fvg)
+                        print("Bearish FVG detected:", fvg)
 
-            fvg = detect_3m_imbalance_inside_ob_candle(
-                nq_3m,
-                nq_sell_candidate,
-                "NQ"
-            )
-            if fvg:
-                nq_sell_candidate.register_fvg(fvg)
-                print("Bearish FVG detected:", fvg)
+                # send alert if FVG confirmed and alert not sent for that candidate
+                if nq_sell_candidate.fvg_confirmed and not nq_sell_candidate.alert_sent:
+                    # send alert for NQ sell candidate
+                    message = build_trade_alert(nq_sell_candidate)
+                    if message:
+                        send_telegram_alert_to_all(message)
+                        nq_sell_candidate.alert_sent = True
+                        insert_trade(nq_sell_candidate)
 
-        # send alert if FVG confirmed and alert not sent for that candidate
-        if nq_sell_candidate.fvg_confirmed and not nq_sell_candidate.alert_sent:
-            # send alert for NQ sell candidate
-            message = build_trade_alert(nq_sell_candidate)
-            if message:
-                send_telegram_alert_to_all(message)
-                nq_sell_candidate.alert_sent = True
-        if nq_buy_candidate.fvg_confirmed and not nq_buy_candidate.alert_sent:
-            # send alert for NQ buy candidate
-            message = build_trade_alert(nq_buy_candidate)
-            if message:
-                send_telegram_alert_to_all(message)
-                nq_buy_candidate.alert_sent = True
-        if es_sell_candidate.fvg_confirmed and not es_sell_candidate.alert_sent:
-            # send alert for ES sell candidate
-            message = build_trade_alert(es_sell_candidate)
-            if message:
-                send_telegram_alert_to_all(message)
-                es_sell_candidate.alert_sent = True
-        if es_buy_candidate.fvg_confirmed and not es_buy_candidate.alert_sent:
-            # send alert for ES buy candidate
-            message = build_trade_alert(es_buy_candidate)
-            if message:
-                send_telegram_alert_to_all(message)
-                es_buy_candidate.alert_sent = True 
+                        conn = sqlite3.connect(DB_FILE)
+                        cursor = conn.cursor()
 
-        
-        # current_ts = last_closed_nq["timestamp"]
+                        cursor.execute("SELECT COUNT(*) FROM trades")
+                        print("Total trades:", cursor.fetchone())
 
-        # nq_3m_partial = [
-        # c for c in nq_3m
-        # if c["timestamp"] <= current_ts
-        # ]
+                        conn.close()
+                if nq_buy_candidate.fvg_confirmed and not nq_buy_candidate.alert_sent:
+                    # send alert for NQ buy candidate
+                    message = build_trade_alert(nq_buy_candidate)
+                    if message:
+                        send_telegram_alert_to_all(message)
+                        nq_buy_candidate.alert_sent = True
+                        insert_trade(nq_buy_candidate)
+                if es_sell_candidate.fvg_confirmed and not es_sell_candidate.alert_sent:
+                    # send alert for ES sell candidate
+                    message = build_trade_alert(es_sell_candidate)
+                    if message:
+                        send_telegram_alert_to_all(message)
+                        es_sell_candidate.alert_sent = True
+                        insert_trade(es_sell_candidate)
+                if es_buy_candidate.fvg_confirmed and not es_buy_candidate.alert_sent:
+                    # send alert for ES buy candidate
+                    message = build_trade_alert(es_buy_candidate)
+                    if message:
+                        send_telegram_alert_to_all(message)
+                        es_buy_candidate.alert_sent = True
+                        insert_trade(es_buy_candidate)
 
-        # fvg = detect_3m_fvg(
-        # nq_3m_partial,
-        # ob
-        # )
+                
+                # current_ts = last_closed_nq["timestamp"]
 
-        # if not fvg:
-        #     continue
+                # nq_3m_partial = [
+                # c for c in nq_3m
+                # if c["timestamp"] <= current_ts
+                # ]
 
-        # print("3M FVG FOUND:", fvg)
+                # fvg = detect_3m_fvg(
+                # nq_3m_partial,
+                # ob
+                # )
 
-        # # alert
-        # print("🚨 ALERT 🚨")
-        # print("Entry:", fvg["entry"])
-        # print("Stop:", ob["protected_high"])
-        # print("Target:", fvg["entry"] - 2 * (ob["protected_high"] - fvg["entry"]))
+                # if not fvg:
+                #     continue
+
+                # print("3M FVG FOUND:", fvg)
+
+                # # alert
+                # print("🚨 ALERT 🚨")
+                # print("Entry:", fvg["entry"])
+                # print("Stop:", ob["protected_high"])
+                # print("Target:", fvg["entry"] - 2 * (ob["protected_high"] - fvg["entry"]))
 
 
 
@@ -412,37 +437,38 @@ def run_quick_backtest(test_date: str):
 
 
 
-        
+                
 
-        # partial_market_data = {
-        #     "NQ": {
-        #         "30m": nq["30m"],
-        #         "1h": nq["1h"],
-        #         "3m": nq_3m[:i],
-        #         "protected_high": None,
-        #         "protected_low": None
-        #     },
-        #     "ES": {
-        #         "30m": es["30m"],
-        #         "1h": es["1h"],
-        #         "3m": es_3m[:i],
-        #         "protected_high": None,
-        #         "protected_low": None
-        #     },
-        #     "daily": nq["30m"],
-        #     "current_price": nq_3m[i]["close"]
-        # }
-        
-        # result = evaluate_7h_setup(
-        #     market_data=partial_market_data,
-        #     seven_hour_open_ts=seven_open,
-        #     wick_window_minutes=60
-        # )
+                # partial_market_data = {
+                #     "NQ": {
+                #         "30m": nq["30m"],
+                #         "1h": nq["1h"],
+                #         "3m": nq_3m[:i],
+                #         "protected_high": None,
+                #         "protected_low": None
+                #     },
+                #     "ES": {
+                #         "30m": es["30m"],
+                #         "1h": es["1h"],
+                #         "3m": es_3m[:i],
+                #         "protected_high": None,
+                #         "protected_low": None
+                #     },
+                #     "daily": nq["30m"],
+                #     "current_price": nq_3m[i]["close"]
+                # }
+                
+                # result = evaluate_7h_setup(
+                #     market_data=partial_market_data,
+                #     seven_hour_open_ts=seven_open,
+                #     wick_window_minutes=60
+                # )
 
-        # if result["stage"] != "NONE":
-        #     print(
-        #         current_ts,
-        #         result["stage"],
-        #         result.get("smt")
-        #     )
-        
+                # if result["stage"] != "NONE":
+                #     print(
+                #         current_ts,
+                #         result["stage"],
+                #         result.get("smt")
+                #     )
+        # Always monitor open trades
+        monitor_open_trades(candle_3m)
