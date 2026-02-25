@@ -8,16 +8,23 @@ ADDITIONAL_WINDOWS = [
     },
 
     # NY Lunch reversal window
+    # {
+    #     "name": "ny_lunch",
+    #     "start": {"hour": 12, "minute": 0},
+    #     "end": {"hour": 13, "minute": 30}
+    # },
+
+    # NY Lunch reversal window
     {
-        "name": "ny_lunch",
-        "start": {"hour": 12, "minute": 0},
-        "end": {"hour": 13, "minute": 30}
+        "name": "ny_am",
+        "start": {"hour": 10, "minute": 0},
+        "end": {"hour": 13, "minute": 45}
     }
 
 ]
 
 SPECIFIC_WINDOWS = {
     "current_wick": [],
-    "ny_lunch": ("12:00", "13:30"),
+    "ny_am_lunch": ("10:00", "13:00"),
     "london_reversal": ("03:00", "05:00"),
 }

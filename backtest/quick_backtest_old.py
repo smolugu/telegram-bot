@@ -140,7 +140,6 @@ def run_quick_backtest(test_date: str):
 
     # print("Total 30m candles:", len(nq_30m))
     # print("Total 3m candles:", len(nq_3m))
-
     
     # debug_print_30m_swings(nq_30m, test_date)
     
@@ -160,7 +159,7 @@ def run_quick_backtest(test_date: str):
         window_name = get_active_window(current_30m_start)
 
         if window_name != current_window:
-            print("🔄 New window detected:", window_name)
+            print("🔄 New window detected resetting:", window_name)
 
             nq_buy_candidate.reset()
             nq_sell_candidate.reset()

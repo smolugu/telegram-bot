@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 import os
 
@@ -30,7 +31,7 @@ def insert_trade(candidate):
 
     cursor.execute("""
     INSERT OR IGNORE INTO trades
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
     """, (
         trade_id,
         candidate.sweep_timestamp,
@@ -52,6 +53,7 @@ def update_trade_result(trade_id, outcome):
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
+    
 
     if outcome == "TP":
         cursor.execute("""

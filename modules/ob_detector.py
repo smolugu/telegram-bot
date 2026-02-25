@@ -35,6 +35,8 @@ def detect_30m_order_block(candles, candidate):
                         "ob_candle_timestamp": c["timestamp"],
                         "ob_high": c["high"],
                         "ob_low": c["open"],
+                        "confirmation_high": last_closed["high"],
+                        "confirmation_low": last_closed["low"],
                         "source_index": i
                     }
 
@@ -61,6 +63,8 @@ def detect_30m_order_block(candles, candidate):
                         "ob_candle_timestamp": c["timestamp"],
                         "ob_low": c["low"],
                         "ob_high": c["open"],
+                        "confirmation_high": last_closed["high"],
+                        "confirmation_low": last_closed["low"],
                         "source_index": i
                     }
 

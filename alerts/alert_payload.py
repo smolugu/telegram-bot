@@ -6,6 +6,13 @@ def build_trade_alert(candidate):
     instrument = candidate.fvg_data["instrument"]
     side = candidate.side
     entry = candidate.fvg_data["entry"]
+    risk = candidate.fvg_data["distance"]
+    ce_ob = candidate.fvg_data["ce_ob"]
+    ce_confirmation_candle_price = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
+    if side == "buy_side" and entry < ce_confirmation_candle_price and risk > 50:
+        entry = ce_confirmation_candle_price
+    elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > 50:
+        entry = ce_confirmation_candle_price
 
     sweep_candle_extreme = candidate.sweep_candle_extreme
 
@@ -14,6 +21,7 @@ def build_trade_alert(candidate):
     # -----------------------------------
     if side == "buy_side":
         # bearish trade
+        print("ce entry: ", entry, "ce_ob: ", ce_ob)
         stop = sweep_candle_extreme
         bias = "Bearish"
         risk = stop - entry

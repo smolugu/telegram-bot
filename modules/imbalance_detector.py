@@ -99,18 +99,22 @@ def detect_3m_imbalance_inside_ob_candle(
     ob = candidate.ob_data
 
     confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
-    ob_candle_start = confirmation_ts - timedelta(minutes=30)
-    ob_candle_end = confirmation_ts
-
+    ob_candle_start = confirmation_ts
+    ob_candle_end = confirmation_ts + timedelta(minutes=30)  # look for imbalances in the 30m window after OB confirmation, not just before
+    sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
     ob_high = ob["ob_high"]
     ob_low = ob["ob_low"]
+    ce_ob = (ob_high + ob_low) / 2
     print("Ob high/low:", ob_high, ob_low, "| OB candle window:", ob_candle_start, "to", ob_candle_end)
+    print("Sweep timestamp:", sweep_time)
+    print("On end time: ", ob_candle_end)
 
     # 1️⃣ Extract 3m candles inside OB candle
     inside = [
         c for c in candles_3m
-        if ob_candle_start <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
+        if sweep_time <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
     ]
+    print("inside candles:", inside)
 
     if len(inside) < 2:
         return None
@@ -148,7 +152,8 @@ def detect_3m_imbalance_inside_ob_candle(
                 vi_high = prev_close
                 vi_low = curr_open
 
-                if vi_high <= ob_high and vi_low >= ob_low:  # allow small leeway beyond OB low
+                # if vi_high <= ob_high and vi_low >= ob_low:  # Vi should be inside OB, so vi_low >= ob_low is not required
+                if vi_high <= ob_high:
 
                     distance = abs(ob_high - vi_low)
 
@@ -157,7 +162,8 @@ def detect_3m_imbalance_inside_ob_candle(
                         "timestamp": curr["timestamp"],
                         "distance": distance,
                         "type": "bearish_vi",
-                        "instrument": instrument
+                        "instrument": instrument,
+                        "ce_ob": ce_ob
                     })
             
             # ---------------------------
@@ -171,8 +177,9 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     fvg_high = c1["low"]
                     fvg_low = c3["high"]
-
-                    if fvg_high <= ob_high and fvg_low >= ob_low:
+                    print(f"Found bearish FVG candidate - FVG High: {fvg_high}, FVG Low: {fvg_low}")
+                    # if fvg_high <= ob_high and fvg_low >= ob_low:
+                    if fvg_high <= ob_high:
 
                         distance = abs(ob_high - fvg_low)
 
@@ -181,7 +188,8 @@ def detect_3m_imbalance_inside_ob_candle(
                             "timestamp": c3["timestamp"],
                             "distance": distance,
                             "type": "bearish_fvg",
-                            "instrument": instrument
+                            "instrument": instrument,
+                            "ce_ob": ce_ob  
                         })
 
         # ==========================================================
@@ -206,7 +214,7 @@ def detect_3m_imbalance_inside_ob_candle(
                 vi_low = prev_close
                 vi_high = curr_open
 
-                if vi_low >= ob_low and vi_high <= ob_high:  # allow small leeway beyond OB high
+                if vi_low >= ob_low:
 
                     distance = abs(ob_low - vi_high)
 
@@ -215,7 +223,8 @@ def detect_3m_imbalance_inside_ob_candle(
                         "timestamp": curr["timestamp"],
                         "distance": distance,
                         "type": "bullish_vi",
-                        "instrument": instrument
+                        "instrument": instrument,
+                        "ce_ob": ce_ob
                     })
 
             # ---------------------------
@@ -230,7 +239,7 @@ def detect_3m_imbalance_inside_ob_candle(
                     fvg_low = c1["high"]
                     fvg_high = c3["low"]
 
-                    if fvg_low >= ob_low and fvg_high <= ob_high:
+                    if fvg_low >= ob_low:
 
                         distance = abs(ob_low - fvg_high)
 
@@ -239,7 +248,8 @@ def detect_3m_imbalance_inside_ob_candle(
                             "timestamp": c3["timestamp"],
                             "distance": distance,
                             "type": "bullish_fvg",
-                            "instrument": instrument
+                            "instrument": instrument,
+                            "ce_ob": ce_ob
                         })
 
     if not candidates:
@@ -247,6 +257,6 @@ def detect_3m_imbalance_inside_ob_candle(
     print("Imbalance candidates:", candidates)
 
     # 3️⃣ Pick closest imbalance to OB boundary
-    best = min(candidates, key=lambda x: x["distance"])
+    best = max(candidates, key=lambda x: x["distance"])
 
     return best
