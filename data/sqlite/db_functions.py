@@ -29,13 +29,14 @@ def insert_trade(candidate):
         trade_side = "long"
 
     trade_id = f"{candidate.fvg_data['instrument']}_{candidate.sweep_timestamp}"
+    confirmation_timestamp = candidate.insert_trade_data["confirmation_timestamp"]
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     cursor.execute("""
     INSERT OR IGNORE INTO trades
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         trade_id,
         candidate.sweep_timestamp,
@@ -47,6 +48,7 @@ def insert_trade(candidate):
         risk,
         candidate.fvg_data["type"],
         entry_type,
+        confirmation_timestamp,
         "OPEN",
         None
     ))

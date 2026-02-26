@@ -21,6 +21,7 @@ def init_db():
         risk REAL,
         imbalance_type TEXT,
         entry_type TEXT,
+        confirmation_timestamp TEXT,
         status TEXT,
         r_multiple REAL
     )
