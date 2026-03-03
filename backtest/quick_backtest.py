@@ -262,7 +262,6 @@ def run_quick_backtest(test_date: str):
                         break
                 
                 for swing in valid_highs_es:
-                    
                     if last_closed_es["high"] > swing["high"]:
                         sweep_candle_start = last_closed_es["timestamp"]
                         sweep_candle_end = (

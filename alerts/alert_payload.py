@@ -17,7 +17,7 @@ def build_trade_alert(candidate):
     ce_confirmation_candle_price = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
     sweep_candle_extreme = candidate.sweep_candle_extreme
     tp = None
-    if side == "buy_side" and entry < ce_confirmation_candle_price and risk > 50:
+    if side == "buy_side" and entry < ce_confirmation_candle_price and risk > 80:
         entry = ce_confirmation_candle_price
         tp = entry - (risk * 1.5)
         # candidate.insert_trade_data = {
@@ -29,7 +29,7 @@ def build_trade_alert(candidate):
         #     "entry_type": "CE_ADJUSTED",
         #     "tp": ce_confirmation_candle_price - (risk * 1.5)
         # }
-    elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > 50:
+    elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > 80:
         entry = ce_confirmation_candle_price
         tp = entry + (risk * 1.5)
         # candidate.insert_trade_data = {
