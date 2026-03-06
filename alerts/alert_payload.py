@@ -17,9 +17,25 @@ def build_trade_alert(candidate):
     ce_confirmation_candle_price = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
     sweep_candle_extreme = candidate.sweep_candle_extreme
     tp = None
-    if side == "buy_side" and entry < ce_confirmation_candle_price and risk > 80:
+    rr = 1
+    if side == "buy_side" and candidate.sweep_and_ob_confirmed:
+        if candidate.sweep_and_ob_ce_confirmed:
+            entry = candidate.sweep_and_ob_ce_entry
+            print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
+            rr = 2
+        else:
+            entry = candidate.sweep_and_ob_entry - 1
+            print("sweep and OB confirmed. Adjusting entry to:", entry)
+            rr = 4
+        risk = sweep_candle_extreme - entry
+        tp = entry - (risk * rr)
+
+    elif side == "buy_side" and entry < ce_confirmation_candle_price and risk > 80:
         entry = ce_confirmation_candle_price
-        tp = entry - (risk * 1.5)
+        print("Adjusting entry to CE confirmation candle price:", entry)
+        rr = 1.5
+        tp = entry - (risk * rr)
+        
         # candidate.insert_trade_data = {
         #     "entry": entry,
         #     "side": side,
@@ -29,9 +45,32 @@ def build_trade_alert(candidate):
         #     "entry_type": "CE_ADJUSTED",
         #     "tp": ce_confirmation_candle_price - (risk * 1.5)
         # }
+    elif side == "buy_side":
+        rr = 1.5
+        tp = entry - (risk * rr)
+        print("Using original imbalance entry. TP adjusted to:", entry)
+    elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
+        if candidate.sweep_and_ob_ce_confirmed:
+            entry = candidate.sweep_and_ob_ce_entry
+            print("CE OB confirmed. Adjusting entry to:", entry)
+            rr = 2
+        else:
+            entry = candidate.sweep_and_ob_entry + 1
+            print("sweep and OB confirmed. Adjusting entry to:", entry)
+            rr = 4
+        risk = entry - sweep_candle_extreme
+        tp = entry + (risk * rr)
+        
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > 80:
         entry = ce_confirmation_candle_price
-        tp = entry + (risk * 1.5)
+        print("Adjusting entry to CE confirmation candle price:", entry)
+        rr = 1.5
+        tp = entry + (risk * rr)
+    elif side == "sell_side":
+        rr = 1.5
+        tp = entry + (risk * rr)
+        print("Using original imbalance entry. TP adjusted to:", entry)
+        
         # candidate.insert_trade_data = {
         #     "entry": entry,
         #     "side": side,
@@ -61,20 +100,20 @@ def build_trade_alert(candidate):
         print("ce entry: ", entry)
         stop = sweep_candle_extreme
         bias = "Bearish"
-        risk = stop - entry
-        tp = entry - (risk * 1.5)
+        # risk = stop - entry
+        # tp = entry - (risk * 1.5)
 
     elif side == "sell_side":
         # bullish trade
         stop = sweep_candle_extreme
         bias = "Bullish"
-        risk = entry - stop
-        tp = entry + (risk * 1.5)
+        # risk = entry - stop
+        # tp = entry + (risk * 1.5)
 
     else:
         return None
 
-    rr = 1.5
+    # rr = 1.5
 
     alert_message = f"""
 📍 TradeOnCall A++ Time
@@ -85,7 +124,7 @@ Time: {time_formatted}
 
 Entry: {round(entry, 2)}
 Stop Loss: {round(stop, 2)}
-Take Profit (1.5R): {round(tp, 2)}
+Take Profit - {rr} RR: {round(tp, 2)}
 
 Risk: {round(risk, 2)}
 RR: {rr}

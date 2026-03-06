@@ -10,7 +10,7 @@ from modules.imbalance_detector_old import detect_3m_fvg
 from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_7h_open_from_timestamp
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from modules.smt_detector import detect_smt_dual
 from modules.ob_detector import detect_30m_order_block
 from modules.sweep_detector import find_swing_highs, find_swing_lows
@@ -137,6 +137,11 @@ def run_quick_backtest(test_date: str):
     # print("NQ: ", nq)
     # print("ES: ", es)
     # Filter only Feb 13
+    test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
+    start_dt = test_dt - timedelta(days=2)
+    end_dt = test_dt + timedelta(days=1)
+    # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
     nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     # nq_30m = nq["30m"]
@@ -146,6 +151,8 @@ def run_quick_backtest(test_date: str):
 
     es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
     es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
+    # es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
     # es_3m = es["3m"]
     print("Sample 30m timestamp:", es["30m"][0]["timestamp"])
@@ -234,13 +241,30 @@ def run_quick_backtest(test_date: str):
                             datetime.fromisoformat(sweep_candle_start)
                             + timedelta(minutes=30)
                         ).isoformat()
+                        nq_sweep_and_ob_entry = None
+                        nq_sweep_and_ob_ce_entry = None
+                        nq_sweep_and_ob_confirmed = False
+                        nq_sweep_and_ob_ce_confirmed = False
+                        nq_sweep_and_ob_confirmed = last_closed_nq["close"] < last_closed_nq["open"]
+                        nq_sweep_and_ob_entry = last_closed_nq["open"]
+                        # if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 60:
+                        #     nq_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
+                        #     nq_sweep_and_ob_ce_confirmed = True
+                        if last_closed_nq["close"] < last_closed_nq["open"] and last_closed_nq["open"] - last_closed_nq["close"] > 60:
+                            nq_sweep_and_ob_ce_entry = (last_closed_nq["open"] + last_closed_nq["close"]) / 2
+                            nq_sweep_and_ob_ce_confirmed = True
+
                         inside_3m_candles = [c for c in nq_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["high"], "buy_side")
                         sweep_nq = {
                             "side": "buy_side",
                             "timestamp": last_closed_nq["timestamp"],
                             "sweep candle high": last_closed_nq["high"],
-                            "sweep_time": sweep_time
+                            "sweep_time": sweep_time,
+                            "sweep_and_ob_confirmed": nq_sweep_and_ob_confirmed,
+                            "sweep_and_ob_entry": nq_sweep_and_ob_entry,
+                            "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
+                            "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry
                         }
                         break
 
@@ -251,13 +275,26 @@ def run_quick_backtest(test_date: str):
                             datetime.fromisoformat(sweep_candle_start)
                             + timedelta(minutes=30)
                         ).isoformat()
+                        nq_sweep_and_ob_confirmed = False
+                        nq_sweep_and_ob_ce_confirmed = False
+                        nq_sweep_and_ob_entry = None
+                        nq_sweep_and_ob_ce_entry = None
+                        nq_sweep_and_ob_confirmed = last_closed_nq["close"] > last_closed_nq["open"]
+                        nq_sweep_and_ob_entry = last_closed_nq["open"]
+                        if last_closed_nq["close"] > last_closed_nq["open"] and last_closed_nq["close"] - last_closed_nq["open"] > 60:
+                            nq_sweep_and_ob_ce_entry = (last_closed_nq["open"] + last_closed_nq["close"]) / 2
+                            nq_sweep_and_ob_ce_confirmed = True
                         inside_3m_candles = [c for c in nq_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["low"], "sell_side")
                         sweep_nq = {
                             "side": "sell_side",
                             "timestamp": last_closed_nq["timestamp"],
                             "sweep candle low": last_closed_nq["low"],
-                            "sweep_time": sweep_time
+                            "sweep_time": sweep_time,
+                            "sweep_and_ob_confirmed": nq_sweep_and_ob_confirmed,
+                            "sweep_and_ob_entry": nq_sweep_and_ob_entry,
+                            "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
+                            "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry
                         }
                         break
                 
@@ -268,13 +305,26 @@ def run_quick_backtest(test_date: str):
                             datetime.fromisoformat(sweep_candle_start)
                             + timedelta(minutes=30)
                         ).isoformat()
+                        es_sweep_and_ob_confirmed = False
+                        es_sweep_and_ob_ce_confirmed = False
+                        es_sweep_and_ob_entry = None
+                        es_sweep_and_ob_ce_entry = None
+                        es_sweep_and_ob_confirmed = last_closed_es["close"] < last_closed_es["open"]
+                        es_sweep_and_ob_entry = last_closed_es["open"]
+                        if last_closed_es["close"] < last_closed_es["open"] and last_closed_es["open"] - last_closed_es["close"] > 5:
+                            es_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
+                            es_sweep_and_ob_ce_confirmed = True
                         inside_3m_candles = [c for c in es_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["high"], "buy_side")
                         sweep_es = {
                             "side": "buy_side",
                             "timestamp": last_closed_es["timestamp"],
                             "sweep candle high": last_closed_es["high"],
-                            "sweep_time": sweep_time
+                            "sweep_time": sweep_time,
+                            "sweep_and_ob_confirmed": es_sweep_and_ob_confirmed,
+                            "sweep_and_ob_entry": es_sweep_and_ob_entry,
+                            "sweep_and_ob_ce_confirmed": es_sweep_and_ob_ce_confirmed,
+                            "sweep_and_ob_ce_entry": es_sweep_and_ob_ce_entry
                         }
                         break
 
@@ -285,13 +335,26 @@ def run_quick_backtest(test_date: str):
                             datetime.fromisoformat(sweep_candle_start)
                             + timedelta(minutes=30)
                         ).isoformat()
+                        es_sweep_and_ob_entry = None
+                        es_sweep_and_ob_ce_entry = None
+                        es_sweep_and_ob_confirmed = False
+                        es_sweep_and_ob_ce_confirmed = False
+                        es_sweep_and_ob_confirmed = last_closed_es["close"] > last_closed_es["open"]
+                        es_sweep_and_ob_entry = last_closed_es["open"]
+                        if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 5:
+                            es_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
+                            es_sweep_and_ob_ce_confirmed = True
                         inside_3m_candles = [c for c in es_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["low"], "sell_side")
                         sweep_es = {
                             "side": "sell_side",
                             "timestamp": last_closed_es["timestamp"],
                             "sweep candle low": last_closed_es["low"],
-                            "sweep_time": sweep_time
+                            "sweep_time": sweep_time,
+                            "sweep_and_ob_confirmed": es_sweep_and_ob_confirmed,
+                            "sweep_and_ob_ce_confirmed": es_sweep_and_ob_ce_confirmed,
+                            "sweep_and_ob_entry": es_sweep_and_ob_entry,
+                            "sweep_and_ob_ce_entry": es_sweep_and_ob_ce_entry
                         }
                         break
                 # if not sweep_nq and not sweep_es:
@@ -300,19 +363,19 @@ def run_quick_backtest(test_date: str):
                 if sweep_nq:
                     print("SWEEP DETECTED NQ:", sweep_nq)
                     if sweep_nq["side"] == "buy_side":
-                        nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"], sweep_nq["sweep_time"])
+                        nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"], sweep_nq["sweep_time"], sweep_nq["sweep_and_ob_confirmed"], sweep_nq["sweep_and_ob_entry"], sweep_nq["sweep_and_ob_ce_confirmed"], sweep_nq["sweep_and_ob_ce_entry"])
                     
                     if sweep_nq["side"] == "sell_side":
-                        nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"], sweep_nq["sweep_time"])
-                
+                        nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"], sweep_nq["sweep_time"], sweep_nq["sweep_and_ob_confirmed"], sweep_nq["sweep_and_ob_entry"], sweep_nq["sweep_and_ob_ce_confirmed"], sweep_nq["sweep_and_ob_ce_entry"])
+
                 if sweep_es:
                     print("SWEEP DETECTED ES:", sweep_es)
                     if sweep_es["side"] == "buy_side":
-                        es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"], sweep_es["sweep_time"])
+                        es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"], sweep_es["sweep_time"], sweep_es["sweep_and_ob_confirmed"], sweep_es["sweep_and_ob_entry"], sweep_es["sweep_and_ob_ce_confirmed"], sweep_es["sweep_and_ob_ce_entry"])
 
                     if sweep_es["side"] == "sell_side":
-                        es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"], sweep_es["sweep_time"])
-                
+                        es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"], sweep_es["sweep_time"], sweep_es["sweep_and_ob_confirmed"], sweep_es["sweep_and_ob_entry"], sweep_es["sweep_and_ob_ce_confirmed"], sweep_es["sweep_and_ob_ce_entry"])
+
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
                     continue
                 # print for debug
@@ -369,6 +432,8 @@ def run_quick_backtest(test_date: str):
                     should_continue = True
                 if (nq_sell_candidate.active and not nq_sell_candidate.ob_confirmed) and (es_sell_candidate.active and not es_sell_candidate.ob_confirmed):
                     should_continue = True
+                
+
                 if should_continue:
                     continue
 
@@ -411,6 +476,30 @@ def run_quick_backtest(test_date: str):
                     if fvg:
                         nq_sell_candidate.register_fvg(fvg)
                         print("Bearish FVG detected:", fvg)
+                
+                if es_buy_candidate.active and es_buy_candidate.ob_confirmed:
+                    print("Processing FVG for ES Buy candidate")
+
+                    fvg = detect_3m_imbalance_inside_ob_candle(
+                        es_3m,
+                        es_buy_candidate,
+                        "ES"
+                    )
+                    if fvg:
+                        es_buy_candidate.register_fvg(fvg)
+                        print("Bullish FVG detected:", fvg)
+
+                if es_sell_candidate.active and es_sell_candidate.ob_confirmed:
+                    print("Processing FVG for ES Sell candidate")
+
+                    fvg = detect_3m_imbalance_inside_ob_candle(
+                        es_3m,
+                        es_sell_candidate,
+                        "ES"
+                    )
+                    if fvg:
+                        es_sell_candidate.register_fvg(fvg)
+                        print("Bearish FVG detected:", fvg)
 
                 # send alert if FVG confirmed and alert not sent for that candidate
                 if nq_sell_candidate.fvg_confirmed and not nq_sell_candidate.alert_sent:
@@ -437,20 +526,24 @@ def run_quick_backtest(test_date: str):
                         # send_telegram_alert_to_all(message)
                         # nq_buy_candidate.alert_sent = True
                         # insert_trade(nq_buy_candidate)
-                # if es_sell_candidate.fvg_confirmed and not es_sell_candidate.alert_sent:
-                #     # send alert for ES sell candidate
-                #     message = build_trade_alert(es_sell_candidate)
-                #     if message:
-                #         send_telegram_alert_to_all(message)
-                #         es_sell_candidate.alert_sent = True
-                #         insert_trade(es_sell_candidate)
-                # if es_buy_candidate.fvg_confirmed and not es_buy_candidate.alert_sent:
-                #     # send alert for ES buy candidate
-                #     message = build_trade_alert(es_buy_candidate)
-                #     if message:
-                #         send_telegram_alert_to_all(message)
-                #         es_buy_candidate.alert_sent = True
-                #         insert_trade(es_buy_candidate)
+                
+                if es_sell_candidate.fvg_confirmed and not es_sell_candidate.alert_sent:
+                    # send alert for ES sell candidate
+                    message = build_trade_alert(es_sell_candidate)
+                    if message:
+                        execute_trade_and_log(es_sell_candidate, message)
+                        # send_telegram_alert_to_all(message)
+                        # es_sell_candidate.alert_sent = True
+                        # insert_trade(es_sell_candidate)
+                
+                if es_buy_candidate.fvg_confirmed and not es_buy_candidate.alert_sent:
+                    # send alert for ES buy candidate
+                    message = build_trade_alert(es_buy_candidate)
+                    if message:
+                        execute_trade_and_log(es_buy_candidate, message)
+                        # send_telegram_alert_to_all(message)
+                        # es_buy_candidate.alert_sent = True
+                        # insert_trade(es_buy_candidate)
 
                 
                 # current_ts = last_closed_nq["timestamp"]

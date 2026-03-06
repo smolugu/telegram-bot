@@ -180,7 +180,7 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     fvg_high = c1["low"]
                     fvg_low = c3["high"]
-                    print(f"Found bearish FVG candidate - FVG High: {fvg_high}, FVG Low: {fvg_low}")
+                    # print(f"Found bearish FVG candidate - FVG High: {fvg_high}, FVG Low: {fvg_low}")
                     # if fvg_high <= ob_high and fvg_low >= ob_low:
                     if fvg_high <= ob_high:
 

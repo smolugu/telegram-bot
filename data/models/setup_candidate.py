@@ -11,6 +11,10 @@ class SetupCandidate:
         self.sweep_timestamp = None
         self.sweep_candle_extreme = None
         self.sweep_3m_timestamp = None
+        self.sweep_and_ob_confirmed = False
+        self.sweep_and_ob_ce_confirmed = False
+        self.sweep_and_ob_entry = None
+        self.sweep_and_ob_ce_entry = None
 
         self.smt_confirmed = False
         self.smt_timestamp = None
@@ -26,12 +30,17 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time):
+    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
         self.sweep_candle_extreme = sweep_candle_extreme
         self.sweep_3m_timestamp = sweep_time
+        self.sweep_and_ob_confirmed = sweep_and_ob_confirmed
+        self.sweep_and_ob_entry = sweep_and_ob_entry
+        self.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
+        self.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
+        
 
     # --------------------------------------------------
 

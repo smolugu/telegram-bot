@@ -53,8 +53,10 @@ def fetch_symbol_data(symbol: str):
 
     df_3m = resample_to_3m(df_1m)
     df_30m = resample_to_30m(df_5m)
+    df_15m = resample_to_15m(df_5m)
 
     return {
+        "15m": format_df(df_15m),
         "30m": format_df(df_30m),
         "1h": format_df(df_1h),
         "3m": format_df(df_3m),
@@ -108,6 +110,24 @@ def resample_to_30m(df):
     if not isinstance(df.index, pd.DatetimeIndex):
         df.index = pd.to_datetime(df.index)
     df = df.resample("30min").agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    df = df.dropna()
+
+    return df
+
+def resample_to_15m(df):
+
+    df = df.copy()
+    # Ensure datetime index
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+    df = df.resample("15min").agg({
         "Open": "first",
         "High": "max",
         "Low": "min",
