@@ -7,6 +7,7 @@ import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+from backtest.quick_backtest_2 import run_quick_backtest2
 from data.sqlite.db import init_db
 from data.market_data import fetch_market_data
 
@@ -86,7 +87,7 @@ def main():
     init_db()  # initialize database if needed
     
     if MODE == "BACKTEST":
-        run_quick_backtest("2026-03-06")
+        run_quick_backtest2("2026-03-06")
         return
     token = os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(token).build()

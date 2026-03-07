@@ -140,19 +140,19 @@ def run_quick_backtest(test_date: str):
     test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
     start_dt = test_dt - timedelta(days=2)
     end_dt = test_dt + timedelta(days=1)
-    # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
-    nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
+    nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
+    # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     # nq_30m = nq["30m"]
     # nq_3m = nq["3m"]
     print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
     # print("Sample 3m timestamp:", nq_3m[0]["timestamp"])
 
-    es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
-    es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
-    # es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
+    # es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
+    es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
     # es_3m = es["3m"]
     print("Sample 30m timestamp:", es["30m"][0]["timestamp"])
@@ -225,7 +225,12 @@ def run_quick_backtest(test_date: str):
                 valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
                 valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
                 valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
-
+                # print("nq raw swing highs")
+                # for swing in raw_swings_high_nq:
+                #     print(swing["timestamp"], swing["high"])
+                print("nq valid highs")
+                for swing in valid_highs_nq:
+                    print(swing["timestamp"], swing["high"])
                 # print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
                 # print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
                 # print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
@@ -234,6 +239,8 @@ def run_quick_backtest(test_date: str):
                 sweep_es = None
 
                 for swing in valid_highs_nq:
+                    # print("valid nq highs: ", valid_highs_nq)
+                    # print("last closed nq high, swing high: ", last_closed_nq["high"], swing["high"])
                     if last_closed_nq["high"] > swing["high"]:
                         # last candle high and low
                         sweep_candle_start = last_closed_nq["timestamp"]
@@ -299,6 +306,7 @@ def run_quick_backtest(test_date: str):
                         break
                 
                 for swing in valid_highs_es:
+                    # print("last closed es high, swing high: ", last_closed_es["high"], swing["high"])
                     if last_closed_es["high"] > swing["high"]:
                         sweep_candle_start = last_closed_es["timestamp"]
                         sweep_candle_end = (
@@ -379,17 +387,17 @@ def run_quick_backtest(test_date: str):
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
                     continue
                 # print for debug
-                print("Nq Buy candidate active:", nq_buy_candidate.active,
-                    "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
+                # print("Nq Buy candidate active:", nq_buy_candidate.active,
+                #     "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
 
-                print("Nq Sell candidate active:", nq_sell_candidate.active,
-                    "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
+                # print("Nq Sell candidate active:", nq_sell_candidate.active,
+                #     "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
 
-                print("Es Buy candidate active:", es_buy_candidate.active,
-                    "| ES sweep at:", es_buy_candidate.sweep_timestamp)
+                # print("Es Buy candidate active:", es_buy_candidate.active,
+                #     "| ES sweep at:", es_buy_candidate.sweep_timestamp)
 
-                print("Es Sell candidate active:", es_sell_candidate.active,
-                    "| ES sweep at:", es_sell_candidate.sweep_timestamp)
+                # print("Es Sell candidate active:", es_sell_candidate.active,
+                #     "| ES sweep at:", es_sell_candidate.sweep_timestamp)
 
                 # smt = detect_smt_dual(
                 # nq_30m[:i],
@@ -438,17 +446,17 @@ def run_quick_backtest(test_date: str):
                     continue
 
                 # print for debug
-                print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
-                    "| OB data:", nq_buy_candidate.ob_data)
+                # print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
+                #     "| OB data:", nq_buy_candidate.ob_data)
 
-                print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
-                    "| OB data:", nq_sell_candidate.ob_data)
+                # print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
+                #     "| OB data:", nq_sell_candidate.ob_data)
 
-                print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
-                    "| OB data:", es_buy_candidate.ob_data)
+                # print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
+                #     "| OB data:", es_buy_candidate.ob_data)
 
-                print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
-                    "| OB data:", es_sell_candidate.ob_data)
+                # print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
+                #     "| OB data:", es_sell_candidate.ob_data)
 
                 
                 fvg = None
