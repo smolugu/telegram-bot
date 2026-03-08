@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import yfinance as yf
 import pandas as pd
 
@@ -64,10 +66,81 @@ def fetch_symbol_data(symbol: str):
         "protected_low": None
     }
 
+# ---------------------------
+# Session Data
+# ---------------------------
+# using pandas
+# def session_high_low(df, start, end):
+
+#     session = df.between_time(start, end)
+
+#     if session.empty:
+#         return None, None
+
+#     return session["High"].max(), session["Low"].min()
+
+def session_high_low(candles, start_hour, end_hour, last_closed_candle_ts):
+
+    session = []
+    last_closed_dt = datetime.fromisoformat(last_closed_candle_ts)
+    hour_last_closed = last_closed_dt.hour
+    if hour_last_closed < end_hour:
+        return None, None
+
+    for c in candles:
+
+        dt = datetime.fromisoformat(c["timestamp"])
+        hour = dt.hour
+
+        if start_hour <= hour < end_hour:
+            session.append(c)
+
+    if not session:
+        return None, None
+
+    high = max(c["high"] for c in session)
+    low = min(c["low"] for c in session)
+
+    return high, low
+
 
 # ---------------------------
 # Daily Data
 # ---------------------------
+
+def get_pdh_pdl_fixed_date(current_date, symbol="NQ=F"):
+    ticker = yf.Ticker(symbol)
+    df_1d = ticker.history(interval="1d", period="10d")
+
+    test_date = pd.Timestamp(current_date).tz_localize(df_1d.index.tz)
+
+    prev_day = df_1d.loc[df_1d.index < test_date].iloc[-1]
+
+    return float(prev_day["High"]), float(prev_day["Low"])
+
+def get_pdh_pdl_fixed_date2(current_date, symbol="NQ=F"):
+    ticker = yf.Ticker(symbol)
+    df_1d = ticker.history(interval="1d", period="10d")
+
+    prev_day = df_1d.loc[df_1d.index < pd.Timestamp(current_date)].iloc[-1]
+
+    pdh = prev_day["High"]
+    pdl = prev_day["Low"]
+
+    return pdh, pdl
+
+def get_pdh_pdl(symbol: str):
+    ticker = yf.Ticker(symbol)
+
+    df = ticker.history(interval="1d", period="3d")
+
+    if len(df) < 2:
+        return None, None
+
+    pdh = df.iloc[1]["High"]
+    pdl = df.iloc[1]["Low"]
+
+    return pdh, pdl
 
 def fetch_daily_data(symbol: str):
 

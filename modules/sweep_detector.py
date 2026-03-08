@@ -64,6 +64,56 @@ def detect_dual_sweep(
 
 
 # -------------------------------------------------------
+# Session-based liquidity levels
+# -------------------------------------------------------
+def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
+
+    sweep_at_key_level = False
+    swept_levels = []
+
+    high = last_candle["high"]
+    low = last_candle["low"]
+
+    for level_type, level_data in liquidity.items():
+
+        price = level_data["price"]
+        swept = level_data["swept"]
+
+        if price is None or swept:
+            continue
+
+        # Buy-side liquidity (price above level)
+        if level_type.endswith("high") or level_type == "pdh":
+
+            if high >= price - tolerance:
+
+                sweep_at_key_level = True
+                liquidity[level_type]["swept"] = True
+
+                swept_levels.append({
+                    "type": level_type,
+                    "price": price,
+                    "side": "buy_side"
+                })
+
+        # Sell-side liquidity (price below level)
+        elif level_type.endswith("low") or level_type == "pdl":
+
+            if low <= price + tolerance:
+
+                sweep_at_key_level = True
+                liquidity[level_type]["swept"] = True
+
+                swept_levels.append({
+                    "type": level_type,
+                    "price": price,
+                    "side": "sell_side"
+                })
+
+    return sweep_at_key_level, swept_levels
+
+
+# -------------------------------------------------------
 # Swing-based sweep logic
 # -------------------------------------------------------
 

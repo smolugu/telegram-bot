@@ -1,9 +1,10 @@
 from alerts.execute import execute_trade_and_log
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe
+from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date, session_high_low
 from data.models.setup_candidate import SetupCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
+from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
 from helpers.sweep_time import find_sweep_time_3m
 from helpers.time_windows import get_active_window
 from modules.imbalance_detector_old import detect_3m_fvg
@@ -13,59 +14,41 @@ from helpers.zones import get_7h_open_from_timestamp
 from datetime import datetime, timedelta, timezone
 from modules.smt_detector import detect_smt_dual
 from modules.ob_detector import detect_30m_order_block
-from modules.sweep_detector import find_swing_highs, find_swing_lows
+from modules.sweep_detector import detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
 from alerts.alert_payload import build_trade_alert
 
 
-def filter_valid_swing_lows(swings, candles):
+def filter_valid_swing_lows(swings):
 
     valid = []
 
     for swing in swings:
 
-        swing_ts = swing["timestamp"]
         swing_low = swing["low"]
 
-        # 1️⃣ Remove structurally dominated lows
+        # Remove previous lows that are higher than the current swing
         valid = [v for v in valid if v["low"] < swing_low]
 
-        # 2️⃣ Check if swept after forming
-        swept = False
-        for c in candles:
-            if c["timestamp"] > swing_ts:
-                if c["low"] < swing_low:
-                    swept = True
-                    break
-
-        if not swept:
-            valid.append(swing)
+        # Add the current swing
+        valid.append(swing)
 
     return valid
 
-
-def filter_valid_swing_highs(swings, candles):
+def filter_valid_swing_highs(swings):
 
     valid = []
 
     for swing in swings:
 
-        swing_ts = swing["timestamp"]
         swing_high = swing["high"]
-        # 1️⃣ Remove structurally dominated highs
+
+        # Remove previous highs that are lower than the current swing
         valid = [v for v in valid if v["high"] > swing_high]
 
-        swept = False
-
-        for c in candles:
-            if c["timestamp"] > swing_ts:
-                if c["high"] > swing_high:
-                    swept = True
-                    break
-
-        if not swept:
-            valid.append(swing)
+        # Add the current swing
+        valid.append(swing)
 
     return valid
 
@@ -140,19 +123,19 @@ def run_quick_backtest(test_date: str):
     test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
     start_dt = test_dt - timedelta(days=2)
     end_dt = test_dt + timedelta(days=1)
-    nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    # nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
-    # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
+    # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
+    nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     # nq_30m = nq["30m"]
     # nq_3m = nq["3m"]
     print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
     # print("Sample 3m timestamp:", nq_3m[0]["timestamp"])
 
-    # es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
-    # es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
-    es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
+    es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
+    # es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
     # es_3m = es["3m"]
     print("Sample 30m timestamp:", es["30m"][0]["timestamp"])
@@ -174,7 +157,11 @@ def run_quick_backtest(test_date: str):
     nq_buy_candidate = SetupCandidate("sell_side")
     es_sell_candidate = SetupCandidate("buy_side")
     es_buy_candidate = SetupCandidate("sell_side")
+    # nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
+    # print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
     current_window = None
+    liquidity_nq = reset_liquidity()
+    liquidity_es = reset_liquidity()
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
@@ -203,6 +190,10 @@ def run_quick_backtest(test_date: str):
                 print("Last closed:", last_closed_nq["timestamp"])
                 # current_30m_start = nq_30m[i]["timestamp"]
                 print("current 30m boundary at:", current_30m_start)
+                dt = datetime.fromisoformat(last_closed_nq["timestamp"])
+                if dt.hour == 18:
+                    liquidity_nq = reset_liquidity()
+                    liquidity_es = reset_liquidity()
                 
                 # ts_dt = datetime.fromisoformat(current_ts)
                 # print("Current TS:", current_ts)
@@ -210,6 +201,13 @@ def run_quick_backtest(test_date: str):
                 #     continue
                 historical_nq = nq_30m[:i - 1]
                 historical_es = es_30m[:i - 1]
+                #  gather session liquidity
+                
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m=historical_nq, test_date=test_date)
+                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m=historical_es, test_date=test_date)
+                
+                print("Liquidity levels:", liquidity_nq)
+                print("Liquidity levels:", liquidity_es)
                 # print("Historical count:", len(historical_nq))
                 # print("Historical count:", len(historical_es))
                 #  check if there is already a sweep
@@ -221,23 +219,25 @@ def run_quick_backtest(test_date: str):
                 raw_swings_low_es  = find_swing_lows(historical_es)
                 # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
                 # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
-                valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq, nq_30m[i:])
-                valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
-                valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
-                valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
-                # print("nq raw swing highs")
-                # for swing in raw_swings_high_nq:
-                #     print(swing["timestamp"], swing["high"])
-                print("nq valid highs")
-                for swing in valid_highs_nq:
-                    print(swing["timestamp"], swing["high"])
-                # print("Valid swing highs NQ:", [(s["timestamp"], s["high"]) for s in valid_highs_nq])
-                # print("Valid swing lows NQ:", [(s["timestamp"], s["low"]) for s in valid_lows_nq])
-                # print("Valid swing highs ES:", [(s["timestamp"], s["high"]) for s in valid_highs_es])
-                # print("Valid swing lows ES:", [(s["timestamp"], s["low"]) for s in valid_lows_es])
+                valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq)
+                valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq)
+                valid_highs_es = filter_valid_swing_highs(raw_swings_high_es)
+                valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es)
+                
                 sweep_nq = None
                 sweep_es = None
-
+                # print("nq valid swing highs")
+                # for swing in valid_highs_nq:
+                #     print(swing["high"], end=", ")
+                # print("\nnq valid swing lows")
+                # for swing in valid_lows_nq:
+                #     print(swing["low"], end=", ")
+                # print("\nes valid swing highs")
+                # for swing in valid_highs_es:
+                #     print(swing["high"], end=", ")
+                # print("\nes valid swing lows")
+                # for swing in valid_lows_es:
+                #     print(swing["low"], end=", ")
                 for swing in valid_highs_nq:
                     # print("valid nq highs: ", valid_highs_nq)
                     # print("last closed nq high, swing high: ", last_closed_nq["high"], swing["high"])
@@ -253,7 +253,8 @@ def run_quick_backtest(test_date: str):
                         nq_sweep_and_ob_confirmed = False
                         nq_sweep_and_ob_ce_confirmed = False
                         nq_sweep_and_ob_confirmed = last_closed_nq["close"] < last_closed_nq["open"]
-                        nq_sweep_and_ob_entry = last_closed_nq["open"]
+                        if nq_sweep_and_ob_confirmed:
+                            nq_sweep_and_ob_entry = last_closed_nq["open"]
                         # if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 60:
                         #     nq_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
                         #     nq_sweep_and_ob_ce_confirmed = True
@@ -263,11 +264,14 @@ def run_quick_backtest(test_date: str):
 
                         inside_3m_candles = [c for c in nq_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["high"], "buy_side")
+                        sweep, levels = detect_key_liquidity_sweep(last_closed_nq, liquidity_nq)
+                        print("Sweep, Swept levels:", sweep, levels)
                         sweep_nq = {
                             "side": "buy_side",
                             "timestamp": last_closed_nq["timestamp"],
                             "sweep candle high": last_closed_nq["high"],
                             "sweep_time": sweep_time,
+                            "sweep_key_level": sweep,
                             "sweep_and_ob_confirmed": nq_sweep_and_ob_confirmed,
                             "sweep_and_ob_entry": nq_sweep_and_ob_entry,
                             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
@@ -287,17 +291,21 @@ def run_quick_backtest(test_date: str):
                         nq_sweep_and_ob_entry = None
                         nq_sweep_and_ob_ce_entry = None
                         nq_sweep_and_ob_confirmed = last_closed_nq["close"] > last_closed_nq["open"]
-                        nq_sweep_and_ob_entry = last_closed_nq["open"]
+                        if nq_sweep_and_ob_confirmed:
+                            nq_sweep_and_ob_entry = last_closed_nq["open"]
                         if last_closed_nq["close"] > last_closed_nq["open"] and last_closed_nq["close"] - last_closed_nq["open"] > 60:
                             nq_sweep_and_ob_ce_entry = (last_closed_nq["open"] + last_closed_nq["close"]) / 2
                             nq_sweep_and_ob_ce_confirmed = True
                         inside_3m_candles = [c for c in nq_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["low"], "sell_side")
+                        sweep, levels = detect_key_liquidity_sweep(last_closed_nq, liquidity_nq)
+                        print("Sweep, Swept levels:", sweep, levels)
                         sweep_nq = {
                             "side": "sell_side",
                             "timestamp": last_closed_nq["timestamp"],
                             "sweep candle low": last_closed_nq["low"],
                             "sweep_time": sweep_time,
+                            "sweep_key_level": sweep,
                             "sweep_and_ob_confirmed": nq_sweep_and_ob_confirmed,
                             "sweep_and_ob_entry": nq_sweep_and_ob_entry,
                             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
@@ -318,17 +326,21 @@ def run_quick_backtest(test_date: str):
                         es_sweep_and_ob_entry = None
                         es_sweep_and_ob_ce_entry = None
                         es_sweep_and_ob_confirmed = last_closed_es["close"] < last_closed_es["open"]
-                        es_sweep_and_ob_entry = last_closed_es["open"]
+                        if es_sweep_and_ob_confirmed:
+                            es_sweep_and_ob_entry = last_closed_es["open"]
                         if last_closed_es["close"] < last_closed_es["open"] and last_closed_es["open"] - last_closed_es["close"] > 5:
                             es_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
                             es_sweep_and_ob_ce_confirmed = True
                         inside_3m_candles = [c for c in es_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["high"], "buy_side")
+                        sweep, levels = detect_key_liquidity_sweep(last_closed_es, liquidity_es)
+                        print("Sweep, Swept levels:", sweep, levels)
                         sweep_es = {
                             "side": "buy_side",
                             "timestamp": last_closed_es["timestamp"],
                             "sweep candle high": last_closed_es["high"],
                             "sweep_time": sweep_time,
+                            "sweep_key_level": sweep,
                             "sweep_and_ob_confirmed": es_sweep_and_ob_confirmed,
                             "sweep_and_ob_entry": es_sweep_and_ob_entry,
                             "sweep_and_ob_ce_confirmed": es_sweep_and_ob_ce_confirmed,
@@ -348,17 +360,21 @@ def run_quick_backtest(test_date: str):
                         es_sweep_and_ob_confirmed = False
                         es_sweep_and_ob_ce_confirmed = False
                         es_sweep_and_ob_confirmed = last_closed_es["close"] > last_closed_es["open"]
-                        es_sweep_and_ob_entry = last_closed_es["open"]
+                        if es_sweep_and_ob_confirmed:
+                            es_sweep_and_ob_entry = last_closed_es["open"]
                         if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 5:
                             es_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
                             es_sweep_and_ob_ce_confirmed = True
                         inside_3m_candles = [c for c in es_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["low"], "sell_side")
+                        sweep, levels = detect_key_liquidity_sweep(last_closed_es, liquidity_es)
+                        print("Sweep, Swept levels:", sweep, levels)
                         sweep_es = {
                             "side": "sell_side",
                             "timestamp": last_closed_es["timestamp"],
                             "sweep candle low": last_closed_es["low"],
                             "sweep_time": sweep_time,
+                            "sweep_key_level": sweep,
                             "sweep_and_ob_confirmed": es_sweep_and_ob_confirmed,
                             "sweep_and_ob_ce_confirmed": es_sweep_and_ob_ce_confirmed,
                             "sweep_and_ob_entry": es_sweep_and_ob_entry,
@@ -367,8 +383,9 @@ def run_quick_backtest(test_date: str):
                         break
                 # if not sweep_nq and not sweep_es:
                 #     continue
-                
-                if sweep_nq:
+                # if sweep_nq and not sweep_nq["sweep_key_level"]:
+                #     continue
+                if sweep_nq and sweep_nq["sweep_key_level"]:
                     print("SWEEP DETECTED NQ:", sweep_nq)
                     if sweep_nq["side"] == "buy_side":
                         nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"], sweep_nq["sweep_time"], sweep_nq["sweep_and_ob_confirmed"], sweep_nq["sweep_and_ob_entry"], sweep_nq["sweep_and_ob_ce_confirmed"], sweep_nq["sweep_and_ob_ce_entry"])
@@ -376,7 +393,7 @@ def run_quick_backtest(test_date: str):
                     if sweep_nq["side"] == "sell_side":
                         nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"], sweep_nq["sweep_time"], sweep_nq["sweep_and_ob_confirmed"], sweep_nq["sweep_and_ob_entry"], sweep_nq["sweep_and_ob_ce_confirmed"], sweep_nq["sweep_and_ob_ce_entry"])
 
-                if sweep_es:
+                if sweep_es and sweep_es["sweep_key_level"]:
                     print("SWEEP DETECTED ES:", sweep_es)
                     if sweep_es["side"] == "buy_side":
                         es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"], sweep_es["sweep_time"], sweep_es["sweep_and_ob_confirmed"], sweep_es["sweep_and_ob_entry"], sweep_es["sweep_and_ob_ce_confirmed"], sweep_es["sweep_and_ob_ce_entry"])
@@ -387,17 +404,17 @@ def run_quick_backtest(test_date: str):
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
                     continue
                 # print for debug
-                # print("Nq Buy candidate active:", nq_buy_candidate.active,
-                #     "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
+                print("Nq Buy candidate active:", nq_buy_candidate.active,
+                    "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
 
-                # print("Nq Sell candidate active:", nq_sell_candidate.active,
-                #     "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
+                print("Nq Sell candidate active:", nq_sell_candidate.active,
+                    "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
 
-                # print("Es Buy candidate active:", es_buy_candidate.active,
-                #     "| ES sweep at:", es_buy_candidate.sweep_timestamp)
+                print("Es Buy candidate active:", es_buy_candidate.active,
+                    "| ES sweep at:", es_buy_candidate.sweep_timestamp)
 
-                # print("Es Sell candidate active:", es_sell_candidate.active,
-                #     "| ES sweep at:", es_sell_candidate.sweep_timestamp)
+                print("Es Sell candidate active:", es_sell_candidate.active,
+                    "| ES sweep at:", es_sell_candidate.sweep_timestamp)
 
                 # smt = detect_smt_dual(
                 # nq_30m[:i],
@@ -446,17 +463,17 @@ def run_quick_backtest(test_date: str):
                     continue
 
                 # print for debug
-                # print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
-                #     "| OB data:", nq_buy_candidate.ob_data)
+                print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
+                    "| OB data:", nq_buy_candidate.ob_data)
 
-                # print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
-                #     "| OB data:", nq_sell_candidate.ob_data)
+                print("Nq Sell candidate OB:", nq_sell_candidate.ob_confirmed, "| NQ sweep at:", nq_sell_candidate.sweep_timestamp,
+                    "| OB data:", nq_sell_candidate.ob_data)
 
-                # print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
-                #     "| OB data:", es_buy_candidate.ob_data)
+                print("Es Buy candidate OB:", es_buy_candidate.ob_confirmed, "| ES sweep at:", es_buy_candidate.sweep_timestamp,
+                    "| OB data:", es_buy_candidate.ob_data)
 
-                # print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
-                #     "| OB data:", es_sell_candidate.ob_data)
+                print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
+                    "| OB data:", es_sell_candidate.ob_data)
 
                 
                 fvg = None

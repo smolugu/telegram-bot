@@ -1,7 +1,8 @@
 from alerts.execute import execute_trade_and_log
+from backtest.quick_backtest import get_liquidity_values
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe
+from data.market_data import fetch_symbol_data_safe, get_pdh_pdl, get_pdh_pdl_fixed_date, session_high_low
 from data.models.setup_candidate import SetupCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.sweep_time import find_sweep_time_3m
@@ -19,55 +20,22 @@ from alerts.alert_engine import send_telegram_alert_to_all
 from alerts.alert_payload import build_trade_alert
 
 
-def filter_valid_swing_lows(swings, candles):
+def filter_valid_swing_lows(swings):
 
     valid = []
 
     for swing in swings:
 
-        swing_ts = swing["timestamp"]
         swing_low = swing["low"]
 
-        # 1️⃣ Remove structurally dominated lows
+        # Remove previous lows that are higher than the current swing
         valid = [v for v in valid if v["low"] < swing_low]
 
-        # 2️⃣ Check if swept after forming
-        swept = False
-        for c in candles:
-            if c["timestamp"] > swing_ts:
-                if c["low"] < swing_low:
-                    swept = True
-                    break
-
-        if not swept:
-            valid.append(swing)
+        # Add the current swing
+        valid.append(swing)
 
     return valid
 
-
-# def filter_valid_swing_highs(swings, candles):
-
-#     valid = []
-
-#     for swing in swings:
-
-#         swing_ts = swing["timestamp"]
-#         swing_high = swing["high"]
-#         # 1️⃣ Remove structurally dominated highs
-#         valid = [v for v in valid if v["high"] > swing_high]
-
-#         swept = False
-
-#         for c in candles:
-#             if c["timestamp"] > swing_ts:
-#                 if c["high"] > swing_high:
-#                     swept = True
-#                     break
-
-#         if not swept:
-#             valid.append(swing)
-
-#     return valid
 def filter_valid_swing_highs(swings):
 
     valid = []
@@ -154,19 +122,19 @@ def run_quick_backtest2(test_date: str):
     test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
     start_dt = test_dt - timedelta(days=2)
     end_dt = test_dt + timedelta(days=1)
-    nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    # nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
-    # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
+    # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
+    nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     # nq_30m = nq["30m"]
     # nq_3m = nq["3m"]
     print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
     # print("Sample 3m timestamp:", nq_3m[0]["timestamp"])
 
-    # es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
-    # es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
-    es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
+    es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
+    # es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
+    # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
     # es_3m = es["3m"]
     print("Sample 30m timestamp:", es["30m"][0]["timestamp"])
@@ -188,14 +156,17 @@ def run_quick_backtest2(test_date: str):
     nq_buy_candidate = SetupCandidate("sell_side")
     es_sell_candidate = SetupCandidate("buy_side")
     es_buy_candidate = SetupCandidate("sell_side")
+    nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
+    print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
     current_window = None
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
+            print("---------------------------")
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
             if i >= 3:
-                print("\n---------------------------")
+                print("---------------------------")
                 # reset setup candidates at the start of each 7h window
                 current_30m_start = nq_30m[i]["timestamp"]
                 window_name = get_active_window(current_30m_start)
@@ -224,6 +195,13 @@ def run_quick_backtest2(test_date: str):
                 #     continue
                 historical_nq = nq_30m[:i - 1]
                 historical_es = es_30m[:i - 1]
+                #  gather session liquidity
+                df_day = historical_nq.copy()
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m=df_day, test_date=test_date)
+                print("Liquidity levels:", liquidity_nq)
+                # for session, levels in liquidity_nq.items():
+                #     print(f"{session}: High = {levels['price']}, Low = {levels['price']}")
+
                 # print("Historical count:", len(historical_nq))
                 # print("Historical count:", len(historical_es))
                 #  check if there is already a sweep
@@ -236,22 +214,35 @@ def run_quick_backtest2(test_date: str):
                 # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
                 # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
                 valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq)
-                # valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq, nq_30m[i:])
+                valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq)
                 # valid_highs_es = filter_valid_swing_highs(raw_swings_high_es, es_30m[i:])
                 # valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es, es_30m[i:])
-                print("nq raw swing highs")
-                for swing in raw_swings_high_nq:
-                    print(swing["high"], end=", ")
-                print("nq valid highs")
-                for swing in valid_highs_nq:
-                    print(swing["timestamp"], swing["high"])
+                # print("nq raw swing highs")
+                # for swing in raw_swings_high_nq:
+                #     print(swing["high"], end=", ")
+                # print("\nnq valid highs")
+                # for swing in valid_highs_nq:
+                #     print(swing["high"], end=", ")
+                # print("\n nq raw lows")
+                # for swing in raw_swings_low_nq:
+                #     print(swing["low"], end=", ")
+                # print("\n nq valid lows")
+                # for swing in valid_lows_nq:
+                #     print(swing["low"], end=", ")
+                # print("\nes raw highs")
+                # for swing in raw_swings_high_es:
+                #     print(swing["high"], end=", ")
+                # print("\nes valid highs")
+                # for swing in valid_highs_es:
+                #     print(swing["high"], end=", ")
+                # print("\n================================")
                 # print("es raw highs")
                 # for swing in raw_swings_high_es:
                 #     print(swing["timestamp"], swing["high"])
                 # print("es valid highs")
                 # for swing in valid_highs_es:
                 #     print(swing["timestamp"], swing["high"])
-                print("================================")
+                # print("================================")
                 # print("nq raw swings high: ", raw_swings_high_nq)
                 # print("nq valid swings high: ", valid_highs_nq)
                 # print("nq raw swings low: ", raw_swings_low_nq)
@@ -262,7 +253,7 @@ def run_quick_backtest2(test_date: str):
                 # print("es valid swings low: ", valid_lows_es)
                 # print("================================")
 
-
+    print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
 
 
 
