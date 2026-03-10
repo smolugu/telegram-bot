@@ -79,6 +79,40 @@ def fetch_symbol_data(symbol: str):
 
 #     return session["High"].max(), session["Low"].min()
 
+
+from datetime import datetime
+
+def asia_session_high_low(candles, last_closed_candle_ts):
+
+    last_closed_dt = datetime.fromisoformat(last_closed_candle_ts)
+    hour_last_closed = last_closed_dt.hour
+
+    # Asia session must be finished
+    if hour_last_closed < 2:
+        return None, None
+
+    # Do not use previous day's session after reset
+    if hour_last_closed >= 16:
+        return None, None
+
+    session = []
+
+    for c in candles:
+
+        dt = datetime.fromisoformat(c["timestamp"])
+        hour = dt.hour
+
+        if hour >= 20 or hour < 2:
+            session.append(c)
+
+    if not session:
+        return None, None
+
+    high = max(c["high"] for c in session)
+    low = min(c["low"] for c in session)
+
+    return high, low
+
 def session_high_low(candles, start_hour, end_hour, last_closed_candle_ts):
 
     session = []
@@ -86,7 +120,9 @@ def session_high_low(candles, start_hour, end_hour, last_closed_candle_ts):
     hour_last_closed = last_closed_dt.hour
     if hour_last_closed < end_hour:
         return None, None
-
+    # do not return session highs and lows after 18:00 reset
+    if hour_last_closed >= 16:
+        return None, None
     for c in candles:
 
         dt = datetime.fromisoformat(c["timestamp"])

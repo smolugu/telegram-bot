@@ -131,7 +131,7 @@ def get_active_window(timestamp_iso, wick_minutes=90):
     # ---- 15:00 ± wick_minutes ----
     center_15 = ts.replace(hour=15, minute=0, second=0, microsecond=0)
     start_15 = center_15 - wick_delta
-    end_15   = center_15 + wick_delta
+    end_15   = center_15 + timedelta(minutes=30)
 
     if start_15 <= ts <= end_15:
         return "7h_wick_1500"

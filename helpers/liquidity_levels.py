@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from data.market_data import get_pdh_pdl_fixed_date, session_high_low
+from data.market_data import asia_session_high_low, get_pdh_pdl_fixed_date, session_high_low
 
 def reset_liquidity():
 
@@ -27,29 +27,75 @@ def reset_liquidity():
         "or_low": {"price": None, "side": "sell_side", "swept": False}
     }
 
-def get_liquidity_values(symbol, candles_30m, test_date):
-    liquidity_levels = {}
+def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels):
+    
     pdh, pdl = get_pdh_pdl_fixed_date(test_date, symbol)
-    liquidity_levels["pdh"] = {"price": pdh, "swept": False}
-    liquidity_levels["pdl"] = {"price": pdl, "swept": False}
+    liquidity_levels["pdh"]["price"] = pdh
+    liquidity_levels["pdl"]["price"] = pdl
 
-    asia_high, asia_low = session_high_low(candles_30m, 20, 24, candles_30m[-1]["timestamp"])
-    liquidity_levels["asia_high"] = {"price": asia_high, "swept": False}
-    liquidity_levels["asia_low"] = {"price": asia_low, "swept": False}
+    # asia_high, asia_low = session_high_low(candles_30m, 20, 24, candles_30m[-1]["timestamp"])
+    asia_high, asia_low = asia_session_high_low(candles_30m, candles_30m[-1]["timestamp"])
+    liquidity_levels["asia_high"]["price"] = asia_high
+    liquidity_levels["asia_low"]["price"] = asia_low
     london_high, london_low = session_high_low(candles_30m, 2, 5, candles_30m[-1]["timestamp"])
-    liquidity_levels["london_high"] = {"price": london_high, "swept": False}
-    liquidity_levels["london_low"] = {"price": london_low, "swept": False}
+    liquidity_levels["london_high"]["price"] = london_high
+    liquidity_levels["london_low"]["price"] = london_low
     ny_am_high, ny_am_low = session_high_low(candles_30m, 9.5, 11, candles_30m[-1]["timestamp"])
-    liquidity_levels["ny_am_high"] = {"price": ny_am_high, "swept": False}
-    liquidity_levels["ny_am_low"] = {"price": ny_am_low, "swept": False}
+    liquidity_levels["ny_am_high"]["price"] = ny_am_high
+    liquidity_levels["ny_am_low"]["price"] = ny_am_low
     ny_lunch_high, ny_lunch_low = session_high_low(candles_30m, 12, 13, candles_30m[-1]["timestamp"])
-    liquidity_levels["ny_lunch_high"] = {"price": ny_lunch_high, "swept": False}
-    liquidity_levels["ny_lunch_low"] = {"price": ny_lunch_low, "swept": False}
+    liquidity_levels["ny_lunch_high"]["price"] = ny_lunch_high
+    liquidity_levels["ny_lunch_low"]["price"] = ny_lunch_low
     ny_pm_high, ny_pm_low = session_high_low(candles_30m, 13.5, 16, candles_30m[-1]["timestamp"])
-    liquidity_levels["ny_pm_high"] = {"price": ny_pm_high, "swept": False}
-    liquidity_levels["ny_pm_low"] = {"price": ny_pm_low, "swept": False}
+    liquidity_levels["ny_pm_high"]["price"] = ny_pm_high
+    liquidity_levels["ny_pm_low"]["price"] = ny_pm_low
     or_high, or_low = session_high_low(candles_30m, 9.5, 10.5, candles_30m[-1]["timestamp"])
-    liquidity_levels["or_high"] = {"price": or_high, "swept": False}
-    liquidity_levels["or_low"] = {"price": or_low, "swept": False}
+    liquidity_levels["or_high"]["price"] = or_high
+    liquidity_levels["or_low"]["price"] = or_low
 
     return liquidity_levels
+
+
+def detect_stacked_liquidity_fast(liquidity, tolerance):
+
+    # collect active levels
+    levels = [
+        {
+            "type": k,
+            "price": v["price"],
+            "side": v["side"]
+        }
+        for k, v in liquidity.items()
+        if v["price"] is not None and not v["swept"]
+    ]
+
+    # sort by price
+    levels.sort(key=lambda x: x["price"])
+
+    stacks = []
+    current_stack = [levels[0]] if levels else []
+
+    for i in range(1, len(levels)):
+
+        prev = current_stack[-1]
+        curr = levels[i]
+
+        # must be same side and within tolerance
+        if (
+            curr["side"] == prev["side"]
+            and abs(curr["price"] - prev["price"]) <= tolerance
+        ):
+            current_stack.append(curr)
+
+        else:
+
+            if len(current_stack) >= 2:
+                stacks.append(current_stack)
+
+            current_stack = [curr]
+
+    # check final stack
+    if len(current_stack) >= 2:
+        stacks.append(current_stack)
+
+    return stacks

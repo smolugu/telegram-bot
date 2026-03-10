@@ -191,7 +191,9 @@ def run_quick_backtest(test_date: str):
                 # current_30m_start = nq_30m[i]["timestamp"]
                 print("current 30m boundary at:", current_30m_start)
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
-                if dt.hour == 18:
+                print("current tix: ", dt.hour)
+                if dt.hour == 16:
+                    print("resetting liquidity at : ", dt.hour)
                     liquidity_nq = reset_liquidity()
                     liquidity_es = reset_liquidity()
                 
@@ -202,9 +204,11 @@ def run_quick_backtest(test_date: str):
                 historical_nq = nq_30m[:i - 1]
                 historical_es = es_30m[:i - 1]
                 #  gather session liquidity
+
+                # print("pre liquidity lows nq: ", liquidity_nq)
                 
-                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m=historical_nq, test_date=test_date)
-                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m=historical_es, test_date=test_date)
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m=historical_nq, test_date=test_date, liquidity_levels=liquidity_nq)
+                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m=historical_es, test_date=test_date, liquidity_levels=liquidity_es)
                 
                 print("Liquidity levels:", liquidity_nq)
                 print("Liquidity levels:", liquidity_es)

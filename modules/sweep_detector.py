@@ -73,6 +73,8 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
 
     high = last_candle["high"]
     low = last_candle["low"]
+    close = last_candle["close"]
+    
 
     for level_type, level_data in liquidity.items():
 
@@ -84,8 +86,11 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
 
         # Buy-side liquidity (price above level)
         if level_type.endswith("high") or level_type == "pdh":
-
+            # Check if high touches or exceeds the level (potential sweep) and set swept to True
             if high >= price - tolerance:
+                liquidity[level_type]["swept"] = True
+            # check for valid sweep (rejection off level)
+            if high >= price - tolerance and close < price:
 
                 sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
@@ -95,11 +100,17 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
                     "price": price,
                     "side": "buy_side"
                 })
+            elif high >= price - tolerance and close >= price:
+                # potential sweep but no rejection, still mark as swept
+                liquidity[level_type]["swept"] = True
 
         # Sell-side liquidity (price below level)
         elif level_type.endswith("low") or level_type == "pdl":
-
+            # Check if low touches or goes below the level (potential sweep) and set swept to True
             if low <= price + tolerance:
+                liquidity[level_type]["swept"] = True
+            #  check for valid sweep (rejection off level)
+            if low <= price + tolerance and close > price:
 
                 sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
@@ -109,6 +120,9 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
                     "price": price,
                     "side": "sell_side"
                 })
+            elif low <= price + tolerance and close <= price:
+                # potential sweep but no rejection, still mark as swept
+                liquidity[level_type]["swept"] = True
 
     return sweep_at_key_level, swept_levels
 
