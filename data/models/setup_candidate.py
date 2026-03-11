@@ -7,7 +7,7 @@ class SetupCandidate:
 
     def reset(self):
         self.active = False
-        
+        self.instrument = None
         self.sweep_timestamp = None
         self.sweep_candle_extreme = None
         self.sweep_3m_timestamp = None
@@ -15,11 +15,13 @@ class SetupCandidate:
         self.sweep_and_ob_ce_confirmed = False
         self.sweep_and_ob_entry = None
         self.sweep_and_ob_ce_entry = None
+        self.sweep_and_ob_confirmation_timestamp = None
 
         self.smt_confirmed = False
         self.smt_timestamp = None
 
         self.ob_confirmed = False
+        self.final_ob_confirmed = False
         self.ob_data = None
 
         self.fvg_confirmed = False
@@ -30,7 +32,7 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None):
+    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp=None, instrument=None):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
@@ -40,6 +42,9 @@ class SetupCandidate:
         self.sweep_and_ob_entry = sweep_and_ob_entry
         self.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
         self.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
+        self.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
+        self.instrument = instrument
+
         
 
     # --------------------------------------------------

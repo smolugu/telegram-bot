@@ -28,8 +28,12 @@ def insert_trade(candidate):
         tp = entry + (risk * 1.5)
         trade_side = "long"
 
-    trade_id = f"{candidate.fvg_data['instrument']}_{candidate.sweep_timestamp}"
+    trade_id = f"{candidate.instrument}_{candidate.sweep_timestamp}"
     confirmation_timestamp = candidate.insert_trade_data["confirmation_timestamp"]
+    imbalance_type = None
+    if candidate.fvg_data is not None:
+       imbalance_type  = candidate.fvg_data["type"]
+    
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -40,13 +44,13 @@ def insert_trade(candidate):
     """, (
         trade_id,
         candidate.sweep_timestamp,
-        candidate.fvg_data["instrument"],
+        candidate.instrument,
         trade_side,
         entry,
         stop,
         tp,
         risk,
-        candidate.fvg_data["type"],
+        imbalance_type,
         entry_type,
         confirmation_timestamp,
         "OPEN",

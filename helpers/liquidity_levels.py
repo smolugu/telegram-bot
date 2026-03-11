@@ -23,15 +23,17 @@ def reset_liquidity():
         "ny_pm_high": {"price": None, "side": "buy_side", "swept": False},
         "ny_pm_low": {"price": None, "side": "sell_side", "swept": False},
 
-        "or_high": {"price": None, "side": "buy_side", "swept": False},
-        "or_low": {"price": None, "side": "sell_side", "swept": False}
+        "ib_high": {"price": None, "side": "buy_side", "swept": False},
+        "ib_low": {"price": None, "side": "sell_side", "swept": False}
     }
 
-def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels):
+def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, current_start):
     
     pdh, pdl = get_pdh_pdl_fixed_date(test_date, symbol)
     liquidity_levels["pdh"]["price"] = pdh
     liquidity_levels["pdl"]["price"] = pdl
+    print("current_start: ", current_start)
+    print("last candle ts: ", candles_30m[-1]["timestamp"])
 
     # asia_high, asia_low = session_high_low(candles_30m, 20, 24, candles_30m[-1]["timestamp"])
     asia_high, asia_low = asia_session_high_low(candles_30m, candles_30m[-1]["timestamp"])
@@ -49,9 +51,9 @@ def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels):
     ny_pm_high, ny_pm_low = session_high_low(candles_30m, 13.5, 16, candles_30m[-1]["timestamp"])
     liquidity_levels["ny_pm_high"]["price"] = ny_pm_high
     liquidity_levels["ny_pm_low"]["price"] = ny_pm_low
-    or_high, or_low = session_high_low(candles_30m, 9.5, 10.5, candles_30m[-1]["timestamp"])
-    liquidity_levels["or_high"]["price"] = or_high
-    liquidity_levels["or_low"]["price"] = or_low
+    # or_high, or_low = session_high_low(candles_30m, 9.5, 10.5, candles_30m[-1]["timestamp"])
+    # liquidity_levels["or_high"]["price"] = or_high
+    # liquidity_levels["or_low"]["price"] = or_low
 
     return liquidity_levels
 
