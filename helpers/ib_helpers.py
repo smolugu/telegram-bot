@@ -9,6 +9,21 @@
 # ↓
 # 3m imbalance entry
 
+
+# IB level
+# ↓
+# compression detection
+# ↓
+# ladder structure
+# ↓
+# displacement
+# ↓
+# retest IB
+# ↓
+# 3m imbalance
+# ↓
+# entry
+
 # example
 # 8:00 IB formed
 # 9:30 open
@@ -23,6 +38,16 @@
 # if compression and detect_ib_displacement(candle, ib_high, ib_low, atr):
 
 #     ib_candidate.active = True
+
+
+# integrating compression, ladder structure 
+# recent_3m = candles_3m[-5:]
+
+# compression = detect_ib_compression(recent_3m, ib_high, atr)
+# ladder = detect_ladder_structure(recent_3m)
+
+# if compression and ladder == "bullish":
+#     ib_candidate.ready_for_breakout = True
 
 def is_liquidity_raid(candle, ib_high, ib_low, atr):
 
@@ -88,3 +113,30 @@ def detect_ib_compression(candles, ib_level, atr):
         return False
 
     return True
+
+def detect_ladder_structure(candles):
+
+    if len(candles) < 4:
+        return None
+
+    lows = [c["low"] for c in candles]
+    highs = [c["high"] for c in candles]
+
+    bullish = True
+    bearish = True
+
+    for i in range(1, len(candles)):
+
+        if lows[i] <= lows[i-1]:
+            bullish = False
+
+        if highs[i] >= highs[i-1]:
+            bearish = False
+
+    if bullish:
+        return "bullish"
+
+    if bearish:
+        return "bearish"
+
+    return None

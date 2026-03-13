@@ -3,6 +3,7 @@ from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date, session_high_low
 from data.models.setup_candidate import SetupCandidate
+from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
 from helpers.sweep_time import find_sweep_time_3m
@@ -158,6 +159,7 @@ def run_quick_backtest(test_date: str):
     nq_buy_candidate = SetupCandidate("sell_side", "NQ")
     es_sell_candidate = SetupCandidate("buy_side", "ES")
     es_buy_candidate = SetupCandidate("sell_side", "ES")
+    nq_ib_candidate = IBContinuationCandidate("NQ")
     # nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
     # print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
     current_window = None
