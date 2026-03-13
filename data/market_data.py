@@ -86,6 +86,7 @@ def asia_session_high_low(candles, last_closed_candle_ts):
 
     last_closed_dt = datetime.fromisoformat(last_closed_candle_ts)
     hour_last_closed = last_closed_dt.hour
+    print("hour last closed dt: ", hour_last_closed)
 
     # Asia session must be finished
     if hour_last_closed < 2:
@@ -101,6 +102,7 @@ def asia_session_high_low(candles, last_closed_candle_ts):
 
         dt = datetime.fromisoformat(c["timestamp"])
         hour = dt.hour
+        print("hour: ", hour, end= ",")
 
         if hour >= 20 or hour < 2:
             session.append(c)
@@ -136,6 +138,42 @@ def session_high_low(candles, start_hour, end_hour, last_closed_candle_ts):
 
     high = max(c["high"] for c in session)
     low = min(c["low"] for c in session)
+
+    return high, low
+
+def session_high_low_london(candles, start_hour, end_hour, last_closed_candle_ts):
+
+    session = []
+    last_closed_dt = datetime.fromisoformat(last_closed_candle_ts)
+    hour_last_closed = last_closed_dt.hour
+    # print("last_closed_candle_ts: ", last_closed_candle_ts)
+    # print("last_closed_dt: ", last_closed_dt)
+    # print("start_hour: ", start_hour)
+    # print("end_hour: ", end_hour)
+    # print("hour_last_closed: ", hour_last_closed)
+    if hour_last_closed < end_hour:
+        print("returning none error")
+        return None, None
+    # do not return session highs and lows after 18:00 reset
+    if hour_last_closed >= 16:
+        print("returning none error 16")
+        return None, None
+    
+    for c in candles:
+
+        dt = datetime.fromisoformat(c["timestamp"])
+        hour = dt.hour
+
+        if start_hour <= hour < end_hour:
+            session.append(c)
+
+    if not session:
+        print("not session error")
+        return None, None
+
+    high = max(c["high"] for c in session)
+    low = min(c["low"] for c in session)
+    print("london high low: ", high, low)
 
     return high, low
 

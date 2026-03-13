@@ -1,13 +1,14 @@
 class SetupCandidate:
 
-    def __init__(self, side):
+    def __init__(self, side, instrument):
         self.side = side  # "buy_side" or "sell_side"
-
+        self.instrument = instrument
         self.reset()
 
     def reset(self):
+        # if instrument:
+        #     self.instrument = instrument
         self.active = False
-        self.instrument = None
         self.sweep_timestamp = None
         self.sweep_candle_extreme = None
         self.sweep_3m_timestamp = None
@@ -58,16 +59,16 @@ class SetupCandidate:
     # --------------------------------------------------
 
     def register_ob(self, ob_data):
-        if not self.active:
-            return
+        # if not self.active:
+        #     return
         self.ob_confirmed = True
         self.ob_data = ob_data
 
     # --------------------------------------------------
 
     def register_fvg(self, fvg_data):
-        if not self.active:
-            return
+        # if not self.active:
+        #     return
         self.fvg_confirmed = True
         self.fvg_data = fvg_data
 

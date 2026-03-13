@@ -3,8 +3,8 @@ from datetime import datetime
 
 def detect_30m_order_block(candles, candidate):
 
-    if not candidate.active:
-        return None
+    # if not candidate.active:
+    #     return None
 
     direction = candidate.side  # "buy_side" or "sell_side"
 

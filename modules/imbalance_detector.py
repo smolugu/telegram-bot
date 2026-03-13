@@ -90,7 +90,7 @@ from datetime import timedelta, datetime
 
 def detect_3m_imbalance_inside_ob_candle(
     candles_3m,
-    candidate, instrument
+    candidate, instrument, last_closed_candle
 ):
 
     if not candidate.ob_confirmed:
@@ -101,7 +101,11 @@ def detect_3m_imbalance_inside_ob_candle(
     confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
     ob_candle_start = confirmation_ts
     ob_candle_end = confirmation_ts + timedelta(minutes=30)  # look for imbalances in the 30m window after OB confirmation, not just before
-    sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
+    sweep_time = None
+    if candidate.sweep_3m_timestamp == None:
+        sweep_time = datetime.fromisoformat(last_closed_candle["timestamp"])
+    else:
+        sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
     ob_high = ob["ob_high"]
     ob_low = ob["ob_low"]
     ce_ob = (ob_high + ob_low) / 2
@@ -122,6 +126,12 @@ def detect_3m_imbalance_inside_ob_candle(
         return None
 
     direction = candidate.side
+    if direction == "buy_side" and sweep_extreme_price == None:
+        sweep_extreme_price = last_closed_candle["high"]
+        candidate.sweep_candle_extreme = sweep_extreme_price
+    if direction == "sell_side" and sweep_extreme_price == None:
+        sweep_extreme_price = last_closed_candle["low"]
+        candidate.sweep_candle_extreme = sweep_extreme_price
     candidates = []
 
     # 2️⃣ Detect Imbalances (FVG + Volume Imbalance)
@@ -145,7 +155,7 @@ def detect_3m_imbalance_inside_ob_candle(
             prev_close = prev["close"]
             curr_open = curr["open"]
             curr_close = curr["close"]
-
+            
             if (
                 prev_open > prev_close and      # previous bearish
                 curr_open > curr_close and      # current bearish

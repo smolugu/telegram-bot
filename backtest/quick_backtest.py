@@ -154,15 +154,17 @@ def run_quick_backtest(test_date: str):
         nq_30m[i]["timestamp"]: i
         for i in range(len(nq_30m))
     }
-    nq_sell_candidate = SetupCandidate("buy_side")
-    nq_buy_candidate = SetupCandidate("sell_side")
-    es_sell_candidate = SetupCandidate("buy_side")
-    es_buy_candidate = SetupCandidate("sell_side")
+    nq_sell_candidate = SetupCandidate("buy_side", "NQ")
+    nq_buy_candidate = SetupCandidate("sell_side", "NQ")
+    es_sell_candidate = SetupCandidate("buy_side", "ES")
+    es_buy_candidate = SetupCandidate("sell_side", "ES")
     # nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
     # print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
     current_window = None
     liquidity_nq = reset_liquidity()
     liquidity_es = reset_liquidity()
+    ny_bias_nq = "neutral"
+    ny_bias_es = "neutral"
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
@@ -198,6 +200,7 @@ def run_quick_backtest(test_date: str):
                     print("resetting liquidity at : ", dt.hour)
                     liquidity_nq = reset_liquidity()
                     liquidity_es = reset_liquidity()
+                    ny_bias = "neutral"
                 nq_morning_context = None
                 es_morning_context = None
                 
@@ -206,24 +209,24 @@ def run_quick_backtest(test_date: str):
                 # print("Current TS:", current_ts)
                 # if ts_dt.minute % 30 != 0:
                 #     continue
-                historical_nq = nq_30m[:i - 1]
-                historical_es = es_30m[:i - 1]
+                historical_nq = nq_30m[:i]
+                historical_es = es_30m[:i]
                 #  gather session liquidity
                 # print("pre liquidity lows nq: ", liquidity_nq)
                 
-                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m=nq_30m[:i], test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
-                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m=es_30m[:1], test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start)
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
+                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start)
                 
-                print("Liquidity levels:", liquidity_nq)
-                print("Liquidity levels:", liquidity_es)
-                if dt.hour == 8 and dt.minute == 30:
-                    # get nyam context and 8AM IB of 7h candle
-                    nq_morning_context = get_morning_context(candles_1h=nq["1h"], candles_30m=nq["30m"])
-                    es_morning_context = get_morning_context(candles_1h=es["1h"], candles_30m=es["30m"])
-                    liquidity_nq["ib_high"]["price"] = nq_morning_context["ib_high"]
-                    liquidity_nq["ib_low"]["price"] = nq_morning_context["ib_low"]
-                    liquidity_es["ib_high"]["price"] = es_morning_context["ib_high"]
-                    liquidity_es["ib_low"]["price"] = es_morning_context["ib_low"]
+                # print("Liquidity levels NQ:", liquidity_nq)
+                # print("Liquidity levels ES:", liquidity_es)
+                # if dt.hour == 8 and dt.minute == 30:
+                #     # get nyam context and 8AM IB of 7h candle
+                #     nq_morning_context = get_morning_context(candles_1h=nq["1h"], candles_30m=nq["30m"])
+                #     es_morning_context = get_morning_context(candles_1h=es["1h"], candles_30m=es["30m"])
+                    # liquidity_nq["ib_high"]["price"] = nq_morning_context["ib_high"]
+                    # liquidity_nq["ib_low"]["price"] = nq_morning_context["ib_low"]
+                    # liquidity_es["ib_high"]["price"] = es_morning_context["ib_high"]
+                    # liquidity_es["ib_low"]["price"] = es_morning_context["ib_low"]
                 # print("Historical count:", len(historical_nq))
                 # print("Historical count:", len(historical_es))
                 #  check if there is already a sweep
@@ -284,6 +287,15 @@ def run_quick_backtest(test_date: str):
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["high"], "buy_side")
                         sweep, levels = detect_key_liquidity_sweep(last_closed_nq, liquidity_nq)
                         print("Sweep, Swept levels:", sweep, levels)
+                        if liquidity_nq["ib_high"]["price"] is not None:
+                            if last_closed_nq["close"] > liquidity_nq["ib_high"]["price"]:
+                                ny_bias_nq = "bullish"
+                            elif last_closed_nq["close"] < liquidity_nq["ib_high"]["price"]:
+                                ny_bias_nq = "neutral"
+                
+                        # ny_am bias = bullish
+                        # ny_lunch = bearish - reversal or retracement
+                        # ny_pm = 7h wick window - setup based on 30m sweep and ob or 3pm retest of 30m ob for continuation
                         sweep_nq = {
                             "side": "buy_side",
                             "timestamp": last_closed_nq["timestamp"],
@@ -321,6 +333,12 @@ def run_quick_backtest(test_date: str):
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["low"], "sell_side")
                         sweep, levels = detect_key_liquidity_sweep(last_closed_nq, liquidity_nq)
                         print("Sweep, Swept levels:", sweep, levels)
+                        if liquidity_nq["ib_low"]["price"] is not None:
+                            if last_closed_nq["close"] < liquidity_nq["ib_low"]["price"]:
+                                ny_bias_nq = "bearish"
+                            elif last_closed_nq["close"] > liquidity_nq["ib_low"]["price"]:
+                                ny_bias_nq = "neutral"
+                        
                         sweep_nq = {
                             "side": "sell_side",
                             "timestamp": last_closed_nq["timestamp"],
@@ -359,6 +377,11 @@ def run_quick_backtest(test_date: str):
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["high"], "buy_side")
                         sweep, levels = detect_key_liquidity_sweep(last_closed_es, liquidity_es)
                         print("Sweep, Swept levels:", sweep, levels)
+                        if liquidity_es["ib_high"]["price"] is not None:
+                            if last_closed_es["close"] > liquidity_es["ib_high"]["price"]:
+                                ny_bias_es = "bullish"
+                            elif last_closed_es["close"] < liquidity_es["ib_high"]["price"]:
+                                ny_bias_es = "neutral"
                         sweep_es = {
                             "side": "buy_side",
                             "timestamp": last_closed_es["timestamp"],
@@ -397,6 +420,11 @@ def run_quick_backtest(test_date: str):
                         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["low"], "sell_side")
                         sweep, levels = detect_key_liquidity_sweep(last_closed_es, liquidity_es)
                         print("Sweep, Swept levels:", sweep, levels)
+                        if liquidity_es["ib_low"]["price"] is not None:
+                            if last_closed_es["close"] < liquidity_es["ib_low"]["price"]:
+                                ny_bias_nq = "bearish"
+                            elif last_closed_es["close"] > liquidity_es["ib_low"]["price"]:
+                                ny_bias_es = "neutral"
                         sweep_es = {
                             "side": "sell_side",
                             "timestamp": last_closed_es["timestamp"],
@@ -414,6 +442,8 @@ def run_quick_backtest(test_date: str):
                 #     continue
                 # if sweep_nq and not sweep_nq["sweep_key_level"]:
                 #     continue
+                print("Liquidity levels NQ:", liquidity_nq)
+                # print("Liquidity levels ES:", liquidity_es)
                 if sweep_nq and sweep_nq["sweep_key_level"]:
                     print("SWEEP DETECTED NQ:", sweep_nq)
                     if sweep_nq["side"] == "buy_side":
@@ -429,7 +459,8 @@ def run_quick_backtest(test_date: str):
 
                     if sweep_es["side"] == "sell_side":
                         es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"], sweep_es["sweep_time"], sweep_es["sweep_and_ob_confirmed"], sweep_es["sweep_and_ob_entry"], sweep_es["sweep_and_ob_ce_confirmed"], sweep_es["sweep_and_ob_ce_entry"], sweep_es["sweep_and_ob_confirmation_timestamp"], "ES")
-
+                
+                #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
                     continue
                 # print for debug
@@ -460,7 +491,10 @@ def run_quick_backtest(test_date: str):
                 # )
                 # --- NQ OB detection ---
                 # call OB detector for both candidates if either is active
-                if nq_buy_candidate.active and not nq_buy_candidate.sweep_and_ob_confirmed or es_buy_candidate.active and not es_buy_candidate.sweep_and_ob_confirmed:
+                # we dont need to skip once sweep and ob is formed
+                # continue to detect OB, in case of smt if there is not sweep on ES but on NQ, and ES forms OB we can alert SMT signal
+                # if nq_buy_candidate.active and not nq_buy_candidate.sweep_and_ob_confirmed or es_buy_candidate.active and not es_buy_candidate.sweep_and_ob_confirmed:
+                if nq_buy_candidate.active or es_buy_candidate.active:
 
                     nq_ob = detect_30m_order_block(nq_30m[:i], nq_buy_candidate)
                     if nq_ob:
@@ -479,6 +513,9 @@ def run_quick_backtest(test_date: str):
                     es_ob = detect_30m_order_block(es_30m[:i], es_sell_candidate)
                     if es_ob:
                         es_sell_candidate.register_ob(es_ob)
+                        print("es sell candidate OB: ", es_sell_candidate.ob_data)
+                    else:
+                        print("no ob found")
                 #  confirmation of sweep on or actual ob detection
                 
                 if (nq_buy_candidate.sweep_and_ob_confirmed or nq_buy_candidate.ob_confirmed):
@@ -514,52 +551,58 @@ def run_quick_backtest(test_date: str):
                 print("Es Sell candidate OB:", es_sell_candidate.ob_confirmed, "| ES sweep at:", es_sell_candidate.sweep_timestamp,
                     "| OB data:", es_sell_candidate.ob_data, "| Final OB confirmed:", es_sell_candidate.final_ob_confirmed)
 
+
                 
                 fvg = None
-                if nq_buy_candidate.active and nq_buy_candidate.final_ob_confirmed:
+
+                if nq_buy_candidate.final_ob_confirmed:
                     print("Processing FVG for NQ Buy candidate")
                     #  imbalance should be present between sweep time and Ob time
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         nq_3m,
                         nq_buy_candidate,
-                        "NQ"
+                        "NQ",
+                        last_closed_nq
                     )
                     if fvg:
                         nq_buy_candidate.register_fvg(fvg)
                         print("Bullish FVG detected:", fvg)
                 
-                if nq_sell_candidate.active and nq_sell_candidate.final_ob_confirmed:
+                if nq_sell_candidate.final_ob_confirmed:
                     print("Processing FVG for NQ Sell candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         nq_3m,
                         nq_sell_candidate,
-                        "NQ"
+                        "NQ",
+                        last_closed_nq
                     )
                     if fvg:
                         nq_sell_candidate.register_fvg(fvg)
                         print("Bearish FVG detected:", fvg)
                 
-                if es_buy_candidate.active and es_buy_candidate.final_ob_confirmed:
+                if es_buy_candidate.final_ob_confirmed:
                     print("Processing FVG for ES Buy candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         es_3m,
                         es_buy_candidate,
-                        "ES"
+                        "ES",
+                        last_closed_es
                     )
                     if fvg:
                         es_buy_candidate.register_fvg(fvg)
                         print("Bullish FVG detected:", fvg)
 
-                if es_sell_candidate.active and es_sell_candidate.final_ob_confirmed:
+                if es_sell_candidate.final_ob_confirmed:
                     print("Processing FVG for ES Sell candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         es_3m,
                         es_sell_candidate,
-                        "ES"
+                        "ES",
+                        last_closed_es
                     )
                     if fvg:
                         es_sell_candidate.register_fvg(fvg)
@@ -637,14 +680,6 @@ def run_quick_backtest(test_date: str):
                 # print("Entry:", fvg["entry"])
                 # print("Stop:", ob["protected_high"])
                 # print("Target:", fvg["entry"] - 2 * (ob["protected_high"] - fvg["entry"]))
-
-
-
-
-
-
-
-                
 
                 # partial_market_data = {
                 #     "NQ": {

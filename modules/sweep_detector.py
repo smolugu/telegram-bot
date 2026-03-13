@@ -96,13 +96,21 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
                 liquidity[level_type]["swept"] = True
 
                 swept_levels.append({
-                    "type": level_type,
+                    "level_name": level_type,
                     "price": price,
-                    "side": "buy_side"
+                    "side": "buy_side",
+                    "type": "rejection"
                 })
             elif high >= price - tolerance and close >= price:
                 # potential sweep but no rejection, still mark as swept
                 liquidity[level_type]["swept"] = True
+                swept_levels.append({
+                    "level_name": level_type,
+                    "price": price,
+                    "side": "buy_side",
+                    "type": "displacement"
+                })
+
 
         # Sell-side liquidity (price below level)
         elif level_type.endswith("low") or level_type == "pdl":
@@ -116,13 +124,20 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
                 liquidity[level_type]["swept"] = True
 
                 swept_levels.append({
-                    "type": level_type,
+                    "level_name": level_type,
                     "price": price,
-                    "side": "sell_side"
+                    "side": "sell_side",
+                    "type": "rejection"
                 })
             elif low <= price + tolerance and close <= price:
                 # potential sweep but no rejection, still mark as swept
                 liquidity[level_type]["swept"] = True
+                swept_levels.append({
+                    "level_name": level_type,
+                    "price": price,
+                    "side": "sell_side",
+                    "type": "displacement"
+                })
 
     return sweep_at_key_level, swept_levels
 

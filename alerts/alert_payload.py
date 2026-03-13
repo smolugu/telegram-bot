@@ -36,6 +36,7 @@ def build_trade_alert(candidate):
         ce_confirmation_candle_price = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
     sweep_candle_extreme = candidate.sweep_candle_extreme
     tp = None
+    # get previous session context with bias, atr to calculate RR, entry levels
     rr = 1
     if side == "buy_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
