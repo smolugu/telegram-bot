@@ -29,9 +29,9 @@ def reset_liquidity():
 
 def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, current_start):
     
-    pdh, pdl = get_pdh_pdl_fixed_date(test_date, symbol)
-    liquidity_levels["pdh"]["price"] = pdh
-    liquidity_levels["pdl"]["price"] = pdl
+    # pdh, pdl = get_pdh_pdl_fixed_date(test_date, symbol)
+    # liquidity_levels["pdh"]["price"] = pdh
+    # liquidity_levels["pdl"]["price"] = pdl
     # print("current_start: ", current_start)
     # print("last candle ts: ", candles_30m[-1]["timestamp"])
 

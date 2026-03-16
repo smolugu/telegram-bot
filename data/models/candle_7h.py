@@ -20,9 +20,10 @@ def get_7h_label(timestamp):
 
 class SevenHourCandle:
 
-    def __init__(self, label):
+    def __init__(self, label, instrument):
 
         self.label = label
+        self.instrument = instrument
         self.reset()
 
     def reset(self):
@@ -42,7 +43,11 @@ class SevenHourCandle:
         self.ib_high = None
         self.ib_low = None
         self.ib_ce = None
+        self.ib_ready = False
 
+        # track first hour candles
+        self._candle_count = 0
+    
 
     def update(self, candle):
 
@@ -61,6 +66,22 @@ class SevenHourCandle:
             self.low = min(self.low, l)
 
         self.close = c
+
+        #  Ib detection
+        if self._candle_count <2:
+            if self.ib_high is None:
+                self.ib_high = h
+                self.ib_low = l
+            else:
+                self.ib_high = max(self.ib_high, h)
+                self.ib_low = min(self.ib_low, l)
+            
+            #  after second candle compute CE
+            if self._candle_count == 1:
+                self.ib_ce = (self.ib_high + self.ib_low) / 2
+                self.ib_ready = True
+        
+        self._candle_count += 1
 
 
     def compute_bias(self):
@@ -83,15 +104,31 @@ class SevenHourCandle:
         else:
             self.bias = "neutral"
 
+    def values(self):
+
+        return {
+            "instrument": self.instrument,
+            "ib_ready": self.ib_ready,
+            "label": self.label,
+            "open": self.open,
+            "high": self.high,
+            "low": self.low,
+            "close": self.close,
+            "bias": self.bias,
+            "ib_high": self.ib_high,
+            "ib_low": self.ib_low,
+            "ib_ce": self.ib_ce
+        }
 
 class SevenHourBuilder:
 
-    def __init__(self):
-
+    def __init__(self, instrument):
+        
+        self.instrument = instrument
         self.candles = {
-            "1AM": SevenHourCandle("1AM"),
-            "8AM": SevenHourCandle("8AM"),
-            "3PM": SevenHourCandle("3PM")
+            "1AM": SevenHourCandle("1AM", instrument),
+            "8AM": SevenHourCandle("8AM", instrument),
+            "3PM": SevenHourCandle("3PM", instrument)
         }
 
         self.current_label = None

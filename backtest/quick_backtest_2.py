@@ -2,7 +2,7 @@ from alerts.execute import execute_trade_and_log
 from backtest.quick_backtest import get_liquidity_values
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, get_pdh_pdl, get_pdh_pdl_fixed_date, session_high_low
+from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_old, get_pdh_pdl_fixed_date, session_high_low
 from data.models.setup_candidate import SetupCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.sweep_time import find_sweep_time_3m

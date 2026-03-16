@@ -1,5 +1,4 @@
-from datetime import datetime
-
+from datetime import datetime, timedelta
 import yfinance as yf
 import pandas as pd
 
@@ -86,8 +85,7 @@ def asia_session_high_low(candles, last_closed_candle_ts):
 
     last_closed_dt = datetime.fromisoformat(last_closed_candle_ts)
     hour_last_closed = last_closed_dt.hour
-    print("hour last closed dt: ", hour_last_closed)
-
+    
     # Asia session must be finished
     if hour_last_closed < 2:
         return None, None
@@ -102,8 +100,6 @@ def asia_session_high_low(candles, last_closed_candle_ts):
 
         dt = datetime.fromisoformat(c["timestamp"])
         hour = dt.hour
-        print("hour: ", hour, end= ",")
-
         if hour >= 20 or hour < 2:
             session.append(c)
 
@@ -203,7 +199,7 @@ def get_pdh_pdl_fixed_date2(current_date, symbol="NQ=F"):
 
     return pdh, pdl
 
-def get_pdh_pdl(symbol: str):
+def get_pdh_pdl_old(symbol: str):
     ticker = yf.Ticker(symbol)
 
     df = ticker.history(interval="1d", period="3d")
@@ -320,3 +316,21 @@ def fetch_symbol_data_safe(symbol):
     except Exception as e:
         print(f"Data fetch failed for {symbol}: {e}")
         return None
+
+
+def get_futures_session(candles, test_date):
+
+    test_dt = datetime.strptime(test_date, "%Y-%m-%d")
+
+    session_start = test_dt - timedelta(hours=6)
+    session_end = test_dt + timedelta(hours=16)
+
+    filtered = []
+
+    for c in candles:
+        ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+
+        if session_start <= ts <= session_end:
+            filtered.append(c)
+
+    return filtered

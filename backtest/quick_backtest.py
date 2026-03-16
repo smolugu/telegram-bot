@@ -1,10 +1,14 @@
 from alerts.execute import execute_trade_and_log
+from data.models.candle_7h import SevenHourBuilder
+from data.models.day_type_detector import DayTypeContext
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date, session_high_low
+from data.market_data import fetch_symbol_data_safe, get_futures_session, get_pdh_pdl_fixed_date, session_high_low
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
+from helpers.atr import calculate_daily_atr
+from helpers.daily_session import get_pdh_pdl
 from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
 from helpers.sweep_time import find_sweep_time_3m
 from helpers.time_windows import get_active_window
@@ -125,17 +129,28 @@ def run_quick_backtest(test_date: str):
     test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
     start_dt = test_dt - timedelta(days=2)
     end_dt = test_dt + timedelta(days=1)
+    nq_pdh, nq_pdl = get_pdh_pdl(nq["30m"], test_date)
+    es_pdh, es_pdl = get_pdh_pdl(es["30m"], test_date)
+    print("nq h,l:", nq_pdh, nq_pdl)
+    print("es h,l:", es_pdh, es_pdl)
+    nq_daily_atr = calculate_daily_atr(nq["30m"])
+    es_daily_atr = calculate_daily_atr(es["30m"])
+    
     # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
-    nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
-    nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
+    # nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
+    # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
+    nq_30m = get_futures_session(nq["30m"], test_date)
+    nq_3m = get_futures_session(nq["3m"], test_date)
     # nq_30m = nq["30m"]
     # nq_3m = nq["3m"]
     print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
     # print("Sample 3m timestamp:", nq_3m[0]["timestamp"])
 
-    es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
-    es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
+    # es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
+    # es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
+    es_30m = get_futures_session(es["30m"], test_date)
+    es_3m = get_futures_session(es["3m"], test_date)
     # es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
@@ -144,8 +159,6 @@ def run_quick_backtest(test_date: str):
 
     # print("Total 30m candles:", len(nq_30m))
     # print("Total 3m candles:", len(nq_3m))
-
-    
     # debug_print_30m_swings(nq_30m, test_date)
 
     if not nq or not es:
@@ -159,7 +172,10 @@ def run_quick_backtest(test_date: str):
     nq_buy_candidate = SetupCandidate("sell_side", "NQ")
     es_sell_candidate = SetupCandidate("buy_side", "ES")
     es_buy_candidate = SetupCandidate("sell_side", "ES")
+    nq_seven_hour_builder = SevenHourBuilder("NQ")
+    es_seven_hour_builder = SevenHourBuilder("ES")
     nq_ib_candidate = IBContinuationCandidate("NQ")
+    es_ib_candidate = IBContinuationCandidate("ES")
     # nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
     # print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
     current_window = None
@@ -167,6 +183,14 @@ def run_quick_backtest(test_date: str):
     liquidity_es = reset_liquidity()
     ny_bias_nq = "neutral"
     ny_bias_es = "neutral"
+    nq_day_type = DayTypeContext("NQ", nq_daily_atr)
+    print("nq_daily_atr: ", nq_daily_atr)
+    print("es_daily_atr: ", es_daily_atr)
+    es_day_type = DayTypeContext("ES", es_daily_atr)
+    nq_current_session_high = float("-inf")
+    nq_current_session_low = float("inf")
+    es_current_session_high = float("-inf")
+    es_current_session_low = float("inf")
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
@@ -196,7 +220,11 @@ def run_quick_backtest(test_date: str):
                 # current_30m_start = nq_30m[i]["timestamp"]
                 print("current 30m boundary at:", current_30m_start)
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
+                dt_current = datetime.fromisoformat(current_30m_start)
                 print("current tix: ", dt.hour)
+                # update 7hr candle through seven hour builder
+                nq_seven_hour_builder.update(last_closed_nq)
+                es_seven_hour_builder.update(last_closed_es)
                 
                 if dt.hour == 16:
                     print("resetting liquidity at : ", dt.hour)
@@ -205,8 +233,19 @@ def run_quick_backtest(test_date: str):
                     ny_bias = "neutral"
                 nq_morning_context = None
                 es_morning_context = None
-                
+                # populate IB for NQ and ES
+                if dt_current.hour == 9:
+                    print("updating nq_day_type")
 
+                    nq_ib_candidate.update(nq_seven_hour_builder.candles["8AM"].values())
+                    es_ib_candidate.update(es_seven_hour_builder.candles["8AM"].values())
+                    nq_day_type.ib_high = nq_ib_candidate.ib_high
+                    nq_day_type.ib_low = nq_ib_candidate.ib_low
+                    nq_day_type.ib_ce = nq_ib_candidate.ib_ce
+                    es_day_type.ib_high = es_ib_candidate.ib_high
+                    es_day_type.ib_low = es_ib_candidate.ib_low
+                    es_day_type.ib_ce = es_ib_candidate.ib_ce
+                
                 # ts_dt = datetime.fromisoformat(current_ts)
                 # print("Current TS:", current_ts)
                 # if ts_dt.minute % 30 != 0:
@@ -218,7 +257,29 @@ def run_quick_backtest(test_date: str):
                 
                 liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
                 liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start)
-                
+                print("nq_daily_atr: ", nq_daily_atr)
+                print("es_daily_atr: ", es_daily_atr)
+                liquidity_nq["pdh"]["price"] = nq_pdh
+                liquidity_nq["pdl"]["price"] = nq_pdl
+                liquidity_es["pdh"]["price"] = es_pdh
+                liquidity_es["pdl"]["price"] = es_pdl
+                #  track current sessio high and low
+                if last_closed_nq["high"] > nq_current_session_high:
+                    nq_current_session_high = last_closed_nq["high"]
+                if last_closed_nq["low"] < nq_current_session_low:
+                    nq_current_session_low = last_closed_nq["low"]
+
+                if last_closed_es["high"] > es_current_session_high:
+                    es_current_session_high = last_closed_es["high"]
+                if last_closed_es["low"] < es_current_session_low:
+                    es_current_session_low = last_closed_es["low"]
+                print("nq HOD:", nq_current_session_high, "nq LOD: ", nq_current_session_low)
+                print("es HOD:", es_current_session_high, "es LOD: ", es_current_session_low)
+                if dt_current.hour >=9 and dt_current.hour < 12:
+                    nq_day_type.update(last_closed_nq, day_high=nq_current_session_high, day_low=nq_current_session_low, daily_atr = nq_daily_atr)
+                    es_day_type.update(last_closed_es, day_high=es_current_session_high, day_low=es_current_session_low, daily_atr = es_daily_atr)
+                print("nq day type, bias: ", nq_day_type.day_type, nq_day_type.bias)
+                print("es day type, bias: ", es_day_type.day_type, es_day_type.bias)
                 # print("Liquidity levels NQ:", liquidity_nq)
                 # print("Liquidity levels ES:", liquidity_es)
                 # if dt.hour == 8 and dt.minute == 30:
@@ -445,6 +506,9 @@ def run_quick_backtest(test_date: str):
                 # if sweep_nq and not sweep_nq["sweep_key_level"]:
                 #     continue
                 print("Liquidity levels NQ:", liquidity_nq)
+                print("nq seven hour candle: ", nq_seven_hour_builder.candles["1AM"].values())
+                print("nq seven hour candle: ", nq_seven_hour_builder.candles["8AM"].values())
+                print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
                 # print("Liquidity levels ES:", liquidity_es)
                 if sweep_nq and sweep_nq["sweep_key_level"]:
                     print("SWEEP DETECTED NQ:", sweep_nq)

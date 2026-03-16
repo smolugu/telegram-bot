@@ -48,13 +48,30 @@
 
 # if compression and ladder == "bullish":
 #     ib_candidate.ready_for_breakout = True
+def calculate_atr_30m(candles, period=14):
+    
+    trs = []
+    
+    for i in range(1, len(candles)):
+        high = candles[i]["high"]
+        low = candles[i]["low"]
+        prev_close = candles[i-1]["close"]
+        tr = max(high-low,
+                 abs(high - prev_close), 
+                 abs(low-prev_close)
+            )
+        trs.append(tr)
+        
+    return sum(trs[-period:]) / period
 
-def is_liquidity_raid(candle, ib_high, ib_low, atr):
+
+def is_liquidity_raid(candles30m, candle, ib_high, ib_low, atr):
 
     open_ = candle["open"]
     close = candle["close"]
     high = candle["high"]
     low = candle["low"]
+    atr = calculate_atr_30m(candles30m)
 
     rng = high - low
     body = abs(close - open_)
@@ -114,6 +131,7 @@ def detect_ib_compression(candles, ib_level, atr):
 
     return True
 
+
 def detect_ladder_structure(candles):
 
     if len(candles) < 4:
@@ -140,3 +158,4 @@ def detect_ladder_structure(candles):
         return "bearish"
 
     return None
+
