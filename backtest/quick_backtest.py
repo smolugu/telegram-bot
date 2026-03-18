@@ -660,8 +660,28 @@ def run_quick_backtest(test_date: str):
                         print("Bearish FVG detected:", fvg)
                 if(nq_sell_candidate.fvg_confirmed or nq_sell_candidate.sweep_and_ob_confirmed):
                     print("NQ Sell candidate ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", nq_market_context.values())
                 else:
                     print("NQ Sell candidate NOT ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", nq_market_context.values())
+                if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed):
+                    print("NQ buy candidate ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", nq_market_context.values())
+                else:
+                    print("NQ buy candidate NOT ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", nq_market_context.values())
+                if(es_sell_candidate.fvg_confirmed or es_sell_candidate.sweep_and_ob_confirmed):
+                    print("es Sell candidate ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", es_market_context.values())
+                else:
+                    print("ES Sell candidate NOT ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", es_market_context.values())
+                if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed):
+                    print("ES buy candidate ready for alert. FVG confirmed:", es_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", es_market_context.values())
+                else:
+                    print("ES buy candidate NOT ready for alert. FVG confirmed:", es_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                    print("Market Context: ", es_market_context.values())
 
                 # filter alerts based on Market Context
                 # send alert if FVG confirmed and alert not sent for that candidate
