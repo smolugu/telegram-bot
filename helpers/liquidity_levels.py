@@ -28,15 +28,10 @@ def reset_liquidity():
         "ib_low": {"price": None, "side": "sell_side", "swept": False}
     }
 
-def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, current_start):
+def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, current_start, pdh, pdl):
     
-    # pdh, pdl = get_pdh_pdl_fixed_date(test_date, symbol)
-    # liquidity_levels["pdh"]["price"] = pdh
-    # liquidity_levels["pdl"]["price"] = pdl
-    # print("current_start: ", current_start)
-    # print("last candle ts: ", candles_30m[-1]["timestamp"])
-
-    # asia_high, asia_low = session_high_low(candles_30m, 20, 24, candles_30m[-1]["timestamp"])
+    liquidity_levels["pdh"]["price"] = pdh
+    liquidity_levels["pdl"]["price"] = pdl
     asia_high, asia_low = get_session_high_low(candles_30m, 20,0, 0,0, candles_30m[-1]["timestamp"], "Asia")
     liquidity_levels["asia_high"]["price"] = asia_high
     liquidity_levels["asia_low"]["price"] = asia_low

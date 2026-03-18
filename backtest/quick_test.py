@@ -1,6 +1,6 @@
 from alerts.execute import execute_trade_and_log
 from data.models.candle_7h import SevenHourBuilder
-from data.models.day_type_detector import DayTypeContext, MarketContext
+from data.models.market_context import DayTypeContext, MarketContext
 from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date
@@ -178,11 +178,9 @@ def run_quick_test(test_date: str):
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
-            print("\n---------------------------")
-            print("\n---------------------------")
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
             if i >= 3:
-                print("\n++++++++++++++++++")
+                print("\n---------------------------")
                 # reset setup candidates at the start of each 7h window
                 current_30m_start = nq_30m[i]["timestamp"]
                 
@@ -205,7 +203,6 @@ def run_quick_test(test_date: str):
                     liquidity_nq = reset_liquidity()
                     liquidity_es = reset_liquidity()
                     ny_bias = "neutral"
-                
                 
                 historical_nq = nq_30m[:i]
                 

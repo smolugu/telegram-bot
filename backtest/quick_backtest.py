@@ -1,6 +1,6 @@
 from alerts.execute import execute_trade_and_log
 from data.models.candle_7h import SevenHourBuilder
-from data.models.day_type_detector import DayTypeContext, MarketContext
+from data.models.market_context import MarketContext
 from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date
@@ -136,6 +136,7 @@ def run_quick_backtest(test_date: str):
     print("ES PDhigh, PDlow:", es_pdh, es_pdl)
     nq_daily_atr = calculate_daily_atr(nq["30m"])
     es_daily_atr = calculate_daily_atr(es["30m"])
+    print("nq daily atr: ", nq_daily_atr, "es daily atr: ", es_daily_atr)
     
     # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
@@ -158,10 +159,6 @@ def run_quick_backtest(test_date: str):
     # es_3m = es["3m"]
     print("Sample 30m timestamp:", es["30m"][0]["timestamp"])
 
-    # print("Total 30m candles:", len(nq_30m))
-    # print("Total 3m candles:", len(nq_3m))
-    # debug_print_30m_swings(nq_30m, test_date)
-
     if not nq or not es:
         print("No data available.")
         return
@@ -173,25 +170,26 @@ def run_quick_backtest(test_date: str):
     nq_buy_candidate = SetupCandidate("sell_side", "NQ")
     es_sell_candidate = SetupCandidate("buy_side", "ES")
     es_buy_candidate = SetupCandidate("sell_side", "ES")
+
     nq_seven_hour_builder = SevenHourBuilder("NQ")
     es_seven_hour_builder = SevenHourBuilder("ES")
     nq_ib_candidate = IBContinuationCandidate("NQ")
     es_ib_candidate = IBContinuationCandidate("ES")
+
     # nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
     # print(f"Previous Day High: {nq_pdh}, Previous Day Low: {nq_pdl}")
     current_window = None
     liquidity_nq = reset_liquidity()
     liquidity_es = reset_liquidity()
-    ny_bias_nq = "neutral"
-    ny_bias_es = "neutral"
+    
     nq_market_context = MarketContext("NQ", nq_daily_atr)
     es_market_context = MarketContext("ES", es_daily_atr)
-    print("nq_daily_atr: ", nq_daily_atr)
-    print("es_daily_atr: ", es_daily_atr)
+    
     nq_current_session_high = float("-inf")
     nq_current_session_low = float("inf")
     es_current_session_high = float("-inf")
     es_current_session_low = float("inf")
+    #  looping through 30m candles from 18:00 futures start
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
@@ -221,7 +219,6 @@ def run_quick_backtest(test_date: str):
                 print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])
                 print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])
                 
-                # current_30m_start = nq_30m[i]["timestamp"]
                 print("current 30m boundary at:", current_30m_start)
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
                 dt_current = datetime.fromisoformat(current_30m_start)
@@ -246,11 +243,11 @@ def run_quick_backtest(test_date: str):
                     print("resetting liquidity at : ", dt.hour)
                     liquidity_nq = reset_liquidity()
                     liquidity_es = reset_liquidity()
-                    ny_bias = "neutral"
                 
                 # update market context for NQ and ES
                 nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"])
                 es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"])
+                
                 if nq_market_context.ib_ready:
                     nq_market_context.update_ib_acceptance(last_closed_nq["close"])
                     es_market_context.update_ib_acceptance(last_closed_es["close"])
@@ -265,23 +262,20 @@ def run_quick_backtest(test_date: str):
                 # call set_ib towards the end so ib_ready is true for the next candle
                 # populate IB for NQ and ES
                 if dt_current.hour == 9:
+                    # update Ib setup 
                     nq_ib_candidate.update(nq_seven_hour_builder.candles["8AM"].values())
                     es_ib_candidate.update(es_seven_hour_builder.candles["8AM"].values())
                     nq_market_context.set_ib(nq_ib_candidate.ib_high, nq_ib_candidate.ib_low)
                     es_market_context.set_ib(es_ib_candidate.ib_high, es_ib_candidate.ib_low)
                 
-                # print("NQ Market Context: ", nq_market_context.values())
-                # print("ES Market Context: ", es_market_context.values())
+                print("NQ Market Context: ", nq_market_context.values())
+                print("ES Market Context: ", es_market_context.values())
                 
                 historical_nq = nq_30m[:i]
                 historical_es = es_30m[:i]
                 #  gather session liquidity
-                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
-                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start)
-                liquidity_nq["pdh"]["price"] = nq_pdh
-                liquidity_nq["pdl"]["price"] = nq_pdl
-                liquidity_es["pdh"]["price"] = es_pdh
-                liquidity_es["pdl"]["price"] = es_pdl
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start, pdh = nq_pdh, pdl = nq_pdl)
+                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start, pdh = es_pdh, pdl = es_pdl)
                 
                 #  check if there is already a sweep
                 raw_swings_high_nq = find_swing_highs(historical_nq)
@@ -497,10 +491,11 @@ def run_quick_backtest(test_date: str):
                 # if sweep_nq and not sweep_nq["sweep_key_level"]:
                 #     continue
                 print("Liquidity levels NQ:", liquidity_nq)
+                print("Liquidity levels ES:", liquidity_es)
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["1AM"].values())
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["8AM"].values())
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
-                # print("Liquidity levels ES:", liquidity_es)
+                
                 if sweep_nq and sweep_nq["sweep_key_level"]:
                     print("SWEEP DETECTED NQ:", sweep_nq)
                     if sweep_nq["side"] == "buy_side":
@@ -668,7 +663,7 @@ def run_quick_backtest(test_date: str):
                 else:
                     print("NQ Sell candidate NOT ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
 
-
+                # filter alerts based on Market Context
                 # send alert if FVG confirmed and alert not sent for that candidate
                 if (nq_sell_candidate.fvg_confirmed or nq_sell_candidate.sweep_and_ob_confirmed) and not nq_sell_candidate.alert_sent:
                     # send alert for NQ sell candidate
