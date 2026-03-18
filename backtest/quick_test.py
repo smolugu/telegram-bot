@@ -3,12 +3,13 @@ from data.models.candle_7h import SevenHourBuilder
 from data.models.day_type_detector import DayTypeContext, MarketContext
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, get_futures_session, get_pdh_pdl_fixed_date, session_high_low
+from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
 from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
+from helpers.sessions import get_futures_session, get_session_high_low
 from helpers.sweep_time import find_sweep_time_3m
 from helpers.time_windows import get_active_window
 from modules.imbalance_detector_old import detect_3m_fvg
@@ -130,10 +131,9 @@ def run_quick_test(test_date: str):
     end_dt = test_dt + timedelta(days=1)
     # nq_pdh, nq_pdl = get_pdh_pdl(nq["30m"], test_date)
     # es_pdh, es_pdl = get_pdh_pdl(es["30m"], test_date)
-    high, low = get_pdh_pdl_fixed_date(test_date)
-    print("NQ high, low:", high, low)
-    high, low = get_pdh_pdl_fixed_date(test_date, "ES=F")
-    print("ES high, low:", high, low)
+    nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date)
+    print("NQ high, low:", nq_pdh, nq_pdl)
+    # high, low = get_pdh_pdl_fixed_date(test_date, "ES=F")
     
     # print("nq h,l:", nq_pdh, nq_pdl)
     # print("es h,l:", es_pdh, es_pdl)
@@ -146,6 +146,7 @@ def run_quick_test(test_date: str):
     # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     nq_30m = get_futures_session(nq["30m"], test_date)
     nq_3m = get_futures_session(nq["3m"], test_date)
+    liquidity_nq = reset_liquidity()
     # nq_30m = nq["30m"]
     # nq_3m = nq["3m"]
     print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
@@ -177,6 +178,43 @@ def run_quick_test(test_date: str):
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
+            print("\n---------------------------")
+            print("\n---------------------------")
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
             if i >= 3:
-                print("\n---------------------------")
+                print("\n++++++++++++++++++")
+                # reset setup candidates at the start of each 7h window
+                current_30m_start = nq_30m[i]["timestamp"]
+                
+                # previous 30m candle just closed
+                last_closed_nq = nq_30m[i - 1]
+                # last_closed_es = es_30m[i - 1]
+
+                print("i =", i)
+                print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])
+                # print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])
+                
+                # current_30m_start = nq_30m[i]["timestamp"]
+                print("current 30m boundary at:", current_30m_start)
+                dt = datetime.fromisoformat(last_closed_nq["timestamp"])
+                dt_current = datetime.fromisoformat(current_30m_start)
+                print("current tix: ", dt.hour)
+                
+                if dt.hour == 16:
+                    print("resetting liquidity at : ", dt.hour)
+                    liquidity_nq = reset_liquidity()
+                    liquidity_es = reset_liquidity()
+                    ny_bias = "neutral"
+                
+                
+                historical_nq = nq_30m[:i]
+                
+                #  gather session liquidity
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
+                liquidity_nq["pdh"]["price"] = nq_pdh
+                liquidity_nq["pdl"]["price"] = nq_pdl
+                print(" Nq Liquidity Levels: ", liquidity_nq)
+                asia_high, asia_low = get_session_high_low(historical_nq, 20,0, 0,0, last_closed_nq["timestamp"], "Asia")
+                print("asia h,l: ", asia_high, asia_low)
+                LH, LL = get_session_high_low(historical_nq, 9,30,11,0, last_closed_nq["timestamp"])
+                print("NYAM H,L: ", LH, LL)

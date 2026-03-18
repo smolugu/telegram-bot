@@ -3,7 +3,8 @@ from data.models.candle_7h import SevenHourBuilder
 from data.models.day_type_detector import DayTypeContext, MarketContext
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, get_futures_session, get_pdh_pdl_fixed_date, session_high_low
+from data.market_data import fetch_symbol_data_safe, get_pdh_pdl_fixed_date
+from helpers.sessions import get_futures_session
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
