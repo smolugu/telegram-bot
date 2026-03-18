@@ -188,29 +188,6 @@ def get_pdh_pdl_fixed_date(current_date, symbol="NQ=F"):
 
     return float(prev_day["High"]), float(prev_day["Low"])
 
-def get_pdh_pdl_fixed_date2(current_date, symbol="NQ=F"):
-    ticker = yf.Ticker(symbol)
-    df_1d = ticker.history(interval="1d", period="10d")
-
-    prev_day = df_1d.loc[df_1d.index < pd.Timestamp(current_date)].iloc[-1]
-
-    pdh = prev_day["High"]
-    pdl = prev_day["Low"]
-
-    return pdh, pdl
-
-def get_pdh_pdl_old(symbol: str):
-    ticker = yf.Ticker(symbol)
-
-    df = ticker.history(interval="1d", period="3d")
-
-    if len(df) < 2:
-        return None, None
-
-    pdh = df.iloc[1]["High"]
-    pdl = df.iloc[1]["Low"]
-
-    return pdh, pdl
 
 def fetch_daily_data(symbol: str):
 
@@ -324,13 +301,17 @@ def get_futures_session(candles, test_date):
 
     session_start = test_dt - timedelta(hours=6)
     session_end = test_dt + timedelta(hours=16)
-
+    print("start, end: ", session_start, session_end)
     filtered = []
 
     for c in candles:
         ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
-
+        print("ts: ", ts, c["timestamp"])
         if session_start <= ts <= session_end:
+            print("inside")
             filtered.append(c)
+        else:
+            print("outside")
+    print("start, end: ", session_start, session_end)
 
     return filtered

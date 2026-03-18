@@ -1,3 +1,29 @@
+# Final Engine Struncture
+# MarketContext
+    # 7H Candles
+    # IB levels
+    # session range
+    # ATR
+    # expansion metrics
+    # day type
+# Execution Engine
+    # Reversal
+        # sweep
+        # SMT
+        # OB
+        # imbalance
+    # Continuation
+        # IB Breakouts and Acceptance
+        # IB metrics
+# Trading Engine
+    # entry
+    # stop
+    # TP
+    # alerts
+
+
+
+
 # Context Layer
 #     7H candles
 #     IB levels

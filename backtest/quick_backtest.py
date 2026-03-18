@@ -1,6 +1,6 @@
 from alerts.execute import execute_trade_and_log
 from data.models.candle_7h import SevenHourBuilder
-from data.models.day_type_detector import DayTypeContext
+from data.models.day_type_detector import DayTypeContext, MarketContext
 from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, get_futures_session, get_pdh_pdl_fixed_date, session_high_low
@@ -8,7 +8,7 @@ from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
-from helpers.daily_session import get_pdh_pdl
+
 from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
 from helpers.sweep_time import find_sweep_time_3m
 from helpers.time_windows import get_active_window
@@ -129,10 +129,10 @@ def run_quick_backtest(test_date: str):
     test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
     start_dt = test_dt - timedelta(days=2)
     end_dt = test_dt + timedelta(days=1)
-    nq_pdh, nq_pdl = get_pdh_pdl(nq["30m"], test_date)
-    es_pdh, es_pdl = get_pdh_pdl(es["30m"], test_date)
-    print("nq h,l:", nq_pdh, nq_pdl)
-    print("es h,l:", es_pdh, es_pdl)
+    nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, "NQ=F")
+    print("NQ PDhigh, PDlow:", nq_pdh, nq_pdl)
+    es_pdh, es_pdl = get_pdh_pdl_fixed_date(test_date, "ES=F")
+    print("ES PDhigh, PDlow:", es_pdh, es_pdl)
     nq_daily_atr = calculate_daily_atr(nq["30m"])
     es_daily_atr = calculate_daily_atr(es["30m"])
     
@@ -183,10 +183,10 @@ def run_quick_backtest(test_date: str):
     liquidity_es = reset_liquidity()
     ny_bias_nq = "neutral"
     ny_bias_es = "neutral"
-    nq_day_type = DayTypeContext("NQ", nq_daily_atr)
+    nq_market_context = MarketContext("NQ", nq_daily_atr)
+    es_market_context = MarketContext("ES", es_daily_atr)
     print("nq_daily_atr: ", nq_daily_atr)
     print("es_daily_atr: ", es_daily_atr)
-    es_day_type = DayTypeContext("ES", es_daily_atr)
     nq_current_session_high = float("-inf")
     nq_current_session_low = float("inf")
     es_current_session_high = float("-inf")
@@ -215,55 +215,17 @@ def run_quick_backtest(test_date: str):
                 # previous 30m candle just closed
                 last_closed_nq = nq_30m[i - 1]
                 last_closed_es = es_30m[i - 1]
+
                 print("i =", i)
-                print("Last closed:", last_closed_nq["timestamp"])
+                print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])
+                print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])
+                
                 # current_30m_start = nq_30m[i]["timestamp"]
                 print("current 30m boundary at:", current_30m_start)
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
                 dt_current = datetime.fromisoformat(current_30m_start)
                 print("current tix: ", dt.hour)
-                # update 7hr candle through seven hour builder
-                nq_seven_hour_builder.update(last_closed_nq)
-                es_seven_hour_builder.update(last_closed_es)
-                
-                if dt.hour == 16:
-                    print("resetting liquidity at : ", dt.hour)
-                    liquidity_nq = reset_liquidity()
-                    liquidity_es = reset_liquidity()
-                    ny_bias = "neutral"
-                nq_morning_context = None
-                es_morning_context = None
-                # populate IB for NQ and ES
-                if dt_current.hour == 9:
-                    print("updating nq_day_type")
-
-                    nq_ib_candidate.update(nq_seven_hour_builder.candles["8AM"].values())
-                    es_ib_candidate.update(es_seven_hour_builder.candles["8AM"].values())
-                    nq_day_type.ib_high = nq_ib_candidate.ib_high
-                    nq_day_type.ib_low = nq_ib_candidate.ib_low
-                    nq_day_type.ib_ce = nq_ib_candidate.ib_ce
-                    es_day_type.ib_high = es_ib_candidate.ib_high
-                    es_day_type.ib_low = es_ib_candidate.ib_low
-                    es_day_type.ib_ce = es_ib_candidate.ib_ce
-                
-                # ts_dt = datetime.fromisoformat(current_ts)
-                # print("Current TS:", current_ts)
-                # if ts_dt.minute % 30 != 0:
-                #     continue
-                historical_nq = nq_30m[:i]
-                historical_es = es_30m[:i]
-                #  gather session liquidity
-                # print("pre liquidity lows nq: ", liquidity_nq)
-                
-                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
-                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start)
-                print("nq_daily_atr: ", nq_daily_atr)
-                print("es_daily_atr: ", es_daily_atr)
-                liquidity_nq["pdh"]["price"] = nq_pdh
-                liquidity_nq["pdl"]["price"] = nq_pdl
-                liquidity_es["pdh"]["price"] = es_pdh
-                liquidity_es["pdl"]["price"] = es_pdl
-                #  track current sessio high and low
+                #  track current current day high and low (HOD, LOD)
                 if last_closed_nq["high"] > nq_current_session_high:
                     nq_current_session_high = last_closed_nq["high"]
                 if last_closed_nq["low"] < nq_current_session_low:
@@ -275,23 +237,51 @@ def run_quick_backtest(test_date: str):
                     es_current_session_low = last_closed_es["low"]
                 print("nq HOD:", nq_current_session_high, "nq LOD: ", nq_current_session_low)
                 print("es HOD:", es_current_session_high, "es LOD: ", es_current_session_low)
-                if dt_current.hour >=9 and dt_current.hour < 12:
-                    nq_day_type.update(last_closed_nq, day_high=nq_current_session_high, day_low=nq_current_session_low, daily_atr = nq_daily_atr)
-                    es_day_type.update(last_closed_es, day_high=es_current_session_high, day_low=es_current_session_low, daily_atr = es_daily_atr)
-                print("nq day type, bias: ", nq_day_type.day_type, nq_day_type.bias)
-                print("es day type, bias: ", es_day_type.day_type, es_day_type.bias)
-                # print("Liquidity levels NQ:", liquidity_nq)
-                # print("Liquidity levels ES:", liquidity_es)
-                # if dt.hour == 8 and dt.minute == 30:
-                #     # get nyam context and 8AM IB of 7h candle
-                #     nq_morning_context = get_morning_context(candles_1h=nq["1h"], candles_30m=nq["30m"])
-                #     es_morning_context = get_morning_context(candles_1h=es["1h"], candles_30m=es["30m"])
-                    # liquidity_nq["ib_high"]["price"] = nq_morning_context["ib_high"]
-                    # liquidity_nq["ib_low"]["price"] = nq_morning_context["ib_low"]
-                    # liquidity_es["ib_high"]["price"] = es_morning_context["ib_high"]
-                    # liquidity_es["ib_low"]["price"] = es_morning_context["ib_low"]
-                # print("Historical count:", len(historical_nq))
-                # print("Historical count:", len(historical_es))
+                # update 7hr candle through seven hour builder
+                nq_seven_hour_builder.update(last_closed_nq)
+                es_seven_hour_builder.update(last_closed_es)
+            
+                if dt.hour == 16:
+                    print("resetting liquidity at : ", dt.hour)
+                    liquidity_nq = reset_liquidity()
+                    liquidity_es = reset_liquidity()
+                    ny_bias = "neutral"
+                
+                # update market context for NQ and ES
+                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"])
+                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"])
+                if nq_market_context.ib_ready:
+                    nq_market_context.update_ib_acceptance(last_closed_nq["close"])
+                    es_market_context.update_ib_acceptance(last_closed_es["close"])
+                    nq_market_context.compute_expansion_metrics(last_closed_nq["timestamp"])
+                    es_market_context.compute_expansion_metrics(last_closed_es["timestamp"])
+                    nq_market_context.update_relative_expansion(es_market_context.expansion_ratio)
+                    es_market_context.update_relative_expansion(nq_market_context.expansion_ratio)
+                    # ideally detect_day_type() function should run only when needed at 10:00, 10:30, 11:00 and 11:30
+                    # which reduces unnecessary checks
+                    nq_day_type = nq_market_context.detect_day_type(last_closed_nq["timestamp"])
+                    es_day_type = es_market_context.detect_day_type(last_closed_es["timestamp"])
+                # call set_ib towards the end so ib_ready is true for the next candle
+                # populate IB for NQ and ES
+                if dt_current.hour == 9:
+                    nq_ib_candidate.update(nq_seven_hour_builder.candles["8AM"].values())
+                    es_ib_candidate.update(es_seven_hour_builder.candles["8AM"].values())
+                    nq_market_context.set_ib(nq_ib_candidate.ib_high, nq_ib_candidate.ib_low)
+                    es_market_context.set_ib(es_ib_candidate.ib_high, es_ib_candidate.ib_low)
+                
+                # print("NQ Market Context: ", nq_market_context.values())
+                # print("ES Market Context: ", es_market_context.values())
+                
+                historical_nq = nq_30m[:i]
+                historical_es = es_30m[:i]
+                #  gather session liquidity
+                liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start)
+                liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start)
+                liquidity_nq["pdh"]["price"] = nq_pdh
+                liquidity_nq["pdl"]["price"] = nq_pdl
+                liquidity_es["pdh"]["price"] = es_pdh
+                liquidity_es["pdl"]["price"] = es_pdl
+                
                 #  check if there is already a sweep
                 raw_swings_high_nq = find_swing_highs(historical_nq)
                 raw_swings_low_nq  = find_swing_lows(historical_nq)
@@ -506,9 +496,9 @@ def run_quick_backtest(test_date: str):
                 # if sweep_nq and not sweep_nq["sweep_key_level"]:
                 #     continue
                 print("Liquidity levels NQ:", liquidity_nq)
-                print("nq seven hour candle: ", nq_seven_hour_builder.candles["1AM"].values())
-                print("nq seven hour candle: ", nq_seven_hour_builder.candles["8AM"].values())
-                print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
+                # print("nq seven hour candle: ", nq_seven_hour_builder.candles["1AM"].values())
+                # print("nq seven hour candle: ", nq_seven_hour_builder.candles["8AM"].values())
+                # print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
                 # print("Liquidity levels ES:", liquidity_es)
                 if sweep_nq and sweep_nq["sweep_key_level"]:
                     print("SWEEP DETECTED NQ:", sweep_nq)
@@ -618,7 +608,6 @@ def run_quick_backtest(test_date: str):
                     "| OB data:", es_sell_candidate.ob_data, "| Final OB confirmed:", es_sell_candidate.final_ob_confirmed)
 
 
-                
                 fvg = None
 
                 if nq_buy_candidate.final_ob_confirmed:
