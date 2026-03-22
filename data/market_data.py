@@ -7,6 +7,37 @@ import pandas as pd
 # Public API
 # ---------------------------
 
+def get_current_contract(instrument, date_str=None):
+    if date_str is None:
+        today = datetime.now().date()
+    else:
+        today = datetime.strptime(date_str, "%Y-%m-%d")
+    print("month: ", today.month)
+    print("day:", today.day)
+    
+    # Very simple quarterly logic (adjust the exact switch day if your broker rolls on a different date)
+    if today.month < 3: 
+        return instrument + "H26.CME"
+    elif today.month == 3 and today.day < 18:
+        return instrument + "H26.CME"
+    elif today.month == 3 and today.day >= 18:
+        return instrument + "M26.CME"
+    elif today.month < 6:
+        return instrument + "M26.CME"
+    elif today.month == 6 and today.day < 15:
+        return instrument + "M26.CME"
+    elif today.month == 6 and today.day >= 15:
+        return "NQU26"
+    elif today.month < 9:
+        return "NQU26"
+    elif today.month == 9 and today.day < 15:
+        return "NQU26"
+    elif today.month == 9 and today.day >= 15:
+        return "NQZ26"
+    else: 
+        return "NQZ26"
+    
+
 def fetch_market_data():
 
     nq = fetch_symbol_data("NQ=F")
@@ -85,7 +116,9 @@ def fetch_symbol_data(symbol: str):
 
 def get_pdh_pdl_fixed_date(current_date, symbol="NQ=F"):
     ticker = yf.Ticker(symbol)
+    # print("ticker info:", ticker.info)
     df_1d = ticker.history(interval="1d", period="10d")
+    # print("daily_candles:", df_1d)
 
     test_date = pd.Timestamp(current_date).tz_localize(df_1d.index.tz)
 

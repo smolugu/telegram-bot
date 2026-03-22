@@ -3,6 +3,141 @@ from helpers.time_windows import (
     is_in_reversal_window
 )
 
+from datetime import datetime, timedelta
+
+def detect_smt_key_levels(nq_swept, es_swept):
+
+    nq_swept = nq_swept or []
+    es_swept = es_swept or []
+
+    # Convert to dict for fast lookup
+    nq_map = {lvl["level_name"]: lvl for lvl in nq_swept}
+    es_map = {lvl["level_name"]: lvl for lvl in es_swept}
+
+    all_levels = set(nq_map.keys()) | set(es_map.keys())
+
+    results = []
+
+    for level in all_levels:
+
+        nq_lvl = nq_map.get(level)
+        es_lvl = es_map.get(level)
+
+        # -------------------------
+        # Only NQ swept this level
+        # -------------------------
+        if nq_lvl and not es_lvl:
+
+            if nq_lvl["side"] == "sell_side":
+                results.append({
+                    "type": "bullish_smt",
+                    "sweeper": "nq",
+                    "level": level,
+                    "details": nq_lvl
+                })
+
+            elif nq_lvl["side"] == "buy_side":
+                results.append({
+                    "type": "bearish_smt",
+                    "sweeper": "nq",
+                    "level": level,
+                    "details": nq_lvl
+                })
+
+        # -------------------------
+        # Only ES swept this level
+        # -------------------------
+        elif es_lvl and not nq_lvl:
+
+            if es_lvl["side"] == "sell_side":
+                results.append({
+                    "type": "bullish_smt",
+                    "sweeper": "es",
+                    "level": level,
+                    "details": es_lvl
+                })
+
+            elif es_lvl["side"] == "buy_side":
+                results.append({
+                    "type": "bearish_smt",
+                    "sweeper": "es",
+                    "level": level,
+                    "details": es_lvl
+                })
+
+        # -------------------------
+        # Both swept → NO SMT
+        # -------------------------
+        else:
+            continue
+
+    return results if results else None
+
+
+def detect_30m_swing_smt(
+    nq_swings_high,
+    nq_swings_low,
+    es_swings_high,
+    es_swings_low,
+    current_nq_candle,
+    current_es_candle,
+    time_tolerance=timedelta(minutes=5)
+):
+
+    def find_matching_swing(target_ts, swings):
+        for s in swings:
+            dt_target = datetime.fromisoformat(target_ts)
+            dt = datetime.fromisoformat(s["timestamp"])
+            # if abs(s["timestamp"] - target_ts) <= time_tolerance:
+            if dt_target.hour == dt.hour and dt_target.minute == dt.minute:
+                return s
+        return None
+
+    # -------------------------
+    # Bullish SMT (lows)
+    # -------------------------
+    for nq_swing in nq_swings_low:
+
+        es_swing = find_matching_swing(nq_swing["timestamp"], es_swings_low)
+        if es_swing is None:
+            continue
+
+        nq_swept = current_nq_candle["low"] < nq_swing["low"]
+        es_swept = current_es_candle["low"] < es_swing["low"]
+
+        # XOR condition → only one sweeps
+        if nq_swept != es_swept:
+
+            return {
+                "type": "bullish_smt",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_swing": nq_swing,
+                "es_swing": es_swing
+            }
+
+    # -------------------------
+    # Bearish SMT (highs)
+    # -------------------------
+    for nq_swing in nq_swings_high:
+
+        es_swing = find_matching_swing(nq_swing["timestamp"], es_swings_high)
+        if es_swing is None:
+            continue
+
+        nq_swept = current_nq_candle["high"] > nq_swing["high"]
+        es_swept = current_es_candle["high"] > es_swing["high"]
+
+        if nq_swept != es_swept:
+
+            return {
+                "type": "bearish_smt",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_swing": nq_swing,
+                "es_swing": es_swing
+            }
+
+    return None
+
 def detect_smt_dual(
     nq_30m,
     es_30m,

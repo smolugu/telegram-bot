@@ -6,13 +6,16 @@ def get_7h_label(timestamp):
     dt = datetime.fromisoformat(timestamp)
     h = dt.hour
 
+    if 18 <= h <= 23 or h == 0:
+        return "6PM"
+
     if 1 <= h < 8:
         return "1AM"
 
     if 8 <= h < 15:
         return "8AM"
 
-    if 15 <= h < 22:
+    if 15 <= h < 18:
         return "3PM"
 
     return None
@@ -126,6 +129,7 @@ class SevenHourBuilder:
         
         self.instrument = instrument
         self.candles = {
+            "6PM": SevenHourCandle("6PM", instrument),
             "1AM": SevenHourCandle("1AM", instrument),
             "8AM": SevenHourCandle("8AM", instrument),
             "3PM": SevenHourCandle("3PM", instrument)
