@@ -20,7 +20,7 @@ from helpers.zones import get_7h_open_from_timestamp
 
 from datetime import datetime, timedelta, timezone
 from modules.ob_detector import detect_30m_order_block
-from modules.smt_detector import detect_30m_swing_smt, detect_hourly_smt_precise, detect_smt_key_levels
+from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_hourly_smt_precise, detect_smt_key_levels
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
@@ -217,14 +217,16 @@ def run_quick_backtest(test_date: str):
                 liquidity_es = get_liquidity_values(symbol= es_contract, candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start, pdh = es_pdh, pdl = es_pdl)
                 
                 #  check if there is already a sweep
-                sweep_nq = None
-                sweep_es = None
+                sweep_nq_highs = None
+                sweep_nq_lows = None
+                sweep_es_highs = None
+                sweep_es_lows = None
                 # get valid swing points and key levels and send to detect_30m_key_level_sweep
                 nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq, i)
                 es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es, i)
                 # sweep detection and key level detection
-                sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
-                sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
+                sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
+                sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
 
                 # if not sweep_nq and not sweep_es:
                 #     continue
@@ -237,39 +239,40 @@ def run_quick_backtest(test_date: str):
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
                 
                 # if sweep_nq and sweep_nq["sweep_key_level"]:
-                if sweep_nq:
-                    print("SWEEP DETECTED NQ:", sweep_nq)
-                    if sweep_nq["side"] == "buy_side":
-                        nq_sell_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle high"], sweep_nq["sweep_time"], sweep_nq["sweep_and_ob_confirmed"], sweep_nq["sweep_and_ob_entry"], sweep_nq["sweep_and_ob_ce_confirmed"], sweep_nq["sweep_and_ob_ce_entry"], sweep_nq["sweep_and_ob_confirmation_timestamp"], "NQ")
-                    
-                    if sweep_nq["side"] == "sell_side":
-                        nq_buy_candidate.register_sweep(sweep_nq["timestamp"], sweep_nq["sweep candle low"], sweep_nq["sweep_time"], sweep_nq["sweep_and_ob_confirmed"], sweep_nq["sweep_and_ob_entry"], sweep_nq["sweep_and_ob_ce_confirmed"], sweep_nq["sweep_and_ob_ce_entry"], sweep_nq["sweep_and_ob_confirmation_timestamp"], "NQ")
-
-                # if sweep_es and sweep_es["sweep_key_level"]:
-                if sweep_es:
-                    print("SWEEP DETECTED ES:", sweep_es)
-                    if sweep_es["side"] == "buy_side":
-                        es_sell_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle high"], sweep_es["sweep_time"], sweep_es["sweep_and_ob_confirmed"], sweep_es["sweep_and_ob_entry"], sweep_es["sweep_and_ob_ce_confirmed"], sweep_es["sweep_and_ob_ce_entry"], sweep_es["sweep_and_ob_confirmation_timestamp"], "ES")
-
-                    if sweep_es["side"] == "sell_side":
-                        es_buy_candidate.register_sweep(sweep_es["timestamp"], sweep_es["sweep candle low"], sweep_es["sweep_time"], sweep_es["sweep_and_ob_confirmed"], sweep_es["sweep_and_ob_entry"], sweep_es["sweep_and_ob_ce_confirmed"], sweep_es["sweep_and_ob_ce_entry"], sweep_es["sweep_and_ob_confirmation_timestamp"], "ES")
+                if sweep_nq_highs:
+                    print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
+                    nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], "NQ")
+                if sweep_nq_lows:
+                    print("Sweep detected NQ Lows:", sweep_nq_lows)
+                    nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candls_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], "NQ")
+                
+                if sweep_es_highs:
+                    print("SWEEP DETECTED ES Highs:", sweep_es_highs)
+                    es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], "ES")
+                if sweep_es_lows:
+                    print("Sweep detected ES Lows:", sweep_es_lows)
+                    es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], "ES")
+                
                 
                 #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
                     continue
 
-                # candidate is active, so check if the sweep result in an SMT
-                key_level_smt_result = detect_smt_key_levels(sweep_nq["swept_levels"] if sweep_nq else None,
-                    sweep_es["swept_levels"] if sweep_es else None)
+                # candidate is active, so check if the sweep result in a bullish or bearish SMT
+                key_level_bullish_smt_result = detect_bullish_smt_key_levels(sweep_nq_lows["swept_levels"] if sweep_nq_lows else None,
+                    sweep_es_lows["swept_levels"] if sweep_es_lows else None)
+                key_level_bearish_smt_result = detect_bearish_smt_key_levels(sweep_nq_highs["swept_levels"] if sweep_nq_highs else None,
+                    sweep_es_highs["swept_levels"] if sweep_es_highs else None)
                 smt_result = detect_30m_swing_smt(nq_valid_swing_highs, nq_valid_swing_lows, es_valid_swing_highs, es_valid_swing_lows, last_closed_nq, last_closed_es)
                 if smt_result is None:
                     print('no smt result')
                 else:
                     print("smt_result: smt yes", smt_result)
-                if key_level_smt_result is None:
+                if key_level_bullish_smt_result is None and key_level_bearish_smt_result is None:
                     print("no key level smt")
                 else:
-                    print("key_level_smt_result: smt yes ", key_level_smt_result)
+                    print("key_level_bullish_smt_result: ", key_level_bullish_smt_result)
+                    print("key_level_bearish_smt_result: ", key_level_bearish_smt_result)
                 # detect smt at key level
                 nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
                 es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)

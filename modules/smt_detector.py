@@ -249,6 +249,111 @@ def detect_smt_key_levels(nq_swept, es_swept):
 
     return results if results else None
 
+def detect_bearish_smt_key_levels(nq_swept, es_swept):
+
+    nq_swept = nq_swept or []
+    es_swept = es_swept or []
+
+    # Convert to dict for fast lookup
+    nq_map = {lvl["level_name"]: lvl for lvl in nq_swept}
+    es_map = {lvl["level_name"]: lvl for lvl in es_swept}
+
+    all_levels = set(nq_map.keys()) | set(es_map.keys())
+
+    results = []
+
+    for level in all_levels:
+
+        nq_lvl = nq_map.get(level)
+        es_lvl = es_map.get(level)
+
+        # -------------------------
+        # Only NQ swept this level
+        # -------------------------
+        if nq_lvl and not es_lvl:
+
+            if nq_lvl["side"] == "buy_side":
+                results.append({
+                    "type": "bearish_smt",
+                    "sweeper": "nq",
+                    "level": level,
+                    "details": nq_lvl
+                })
+
+        # -------------------------
+        # Only ES swept this level
+        # -------------------------
+        elif es_lvl and not nq_lvl:
+
+            if es_lvl["side"] == "buy_side":
+                results.append({
+                    "type": "bearish_smt",
+                    "sweeper": "es",
+                    "level": level,
+                    "details": es_lvl
+                })
+
+        # -------------------------
+        # Both swept → NO SMT
+        # -------------------------
+        else:
+            continue
+
+    return results if results else None
+
+def detect_bullish_smt_key_levels(nq_swept, es_swept):
+
+    nq_swept = nq_swept or []
+    es_swept = es_swept or []
+
+    # Convert to dict for fast lookup
+    nq_map = {lvl["level_name"]: lvl for lvl in nq_swept}
+    es_map = {lvl["level_name"]: lvl for lvl in es_swept}
+
+    all_levels = set(nq_map.keys()) | set(es_map.keys())
+
+    results = []
+
+    for level in all_levels:
+
+        nq_lvl = nq_map.get(level)
+        es_lvl = es_map.get(level)
+
+        # -------------------------
+        # Only NQ swept this level
+        # -------------------------
+        if nq_lvl and not es_lvl:
+
+            if nq_lvl["side"] == "sell_side":
+                results.append({
+                    "type": "bullish_smt",
+                    "sweeper": "nq",
+                    "level": level,
+                    "details": nq_lvl
+                })
+
+        # -------------------------
+        # Only ES swept this level
+        # -------------------------
+        elif es_lvl and not nq_lvl:
+
+            if es_lvl["side"] == "sell_side":
+                results.append({
+                    "type": "bullish_smt",
+                    "sweeper": "es",
+                    "level": level,
+                    "details": es_lvl
+                })
+
+
+        # -------------------------
+        # Both swept → NO SMT
+        # -------------------------
+        else:
+            continue
+
+    return results if results else None
+
 
 def detect_30m_swing_smt(
     nq_swings_high,

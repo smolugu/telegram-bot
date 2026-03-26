@@ -113,9 +113,115 @@ def detect_key_liquidity_sweep(last_candle, liquidity, tolerance=0):
 
     return sweep_at_key_level, swept_levels
 
+def detect_key_liquidity_sweep_highs(last_candle, liquidity, tolerance=0):
+
+    sweep_at_key_level = False
+    swept_levels = []
+
+    high = last_candle["high"]
+    # low = last_candle["low"]
+    close = last_candle["close"]
+    
+
+    for level_type, level_data in liquidity.items():
+
+        price = level_data["price"]
+        swept = level_data["swept"]
+
+        if price is None or swept:
+            continue
+
+        # Buy-side liquidity (price above level)
+        if level_type.endswith("high") or level_type == "pdh":
+            # Check if high touches or exceeds the level (potential sweep) and set swept to True
+            # if high >= price - tolerance:
+            # --------------------------------
+            # IMPORTANT: updated high >= price to high > price, as the same candle forming the low or high
+            # of the session can trigger sweep as the session high/ low == candle high/ low
+            # remove equality for sweep across this function
+            # --------------------------------
+            if high > price:
+                liquidity[level_type]["swept"] = True
+            # check for valid sweep (rejection off level)
+            # if high >= price - tolerance and close < price:
+            if high > price and close < price:
+
+                sweep_at_key_level = True
+                liquidity[level_type]["swept"] = True
+
+                swept_levels.append({
+                    "level_name": level_type,
+                    "price": price,
+                    "side": "buy_side",
+                    "type": "rejection"
+                })
+            # elif high >= price - tolerance and close >= price:
+            elif high > price and close > price:
+                # potential sweep but no rejection, still mark as swept
+                liquidity[level_type]["swept"] = True
+                swept_levels.append({
+                    "level_name": level_type,
+                    "price": price,
+                    "side": "buy_side",
+                    "type": "displacement"
+                })
+
+    return sweep_at_key_level, swept_levels
+
+def detect_key_liquidity_sweep_lows(last_candle, liquidity, tolerance=0):
+
+    sweep_at_key_level = False
+    swept_levels = []
+
+    # high = last_candle["high"]
+    low = last_candle["low"]
+    close = last_candle["close"]
+    
+
+    for level_type, level_data in liquidity.items():
+
+        price = level_data["price"]
+        swept = level_data["swept"]
+
+        if price is None or swept:
+            continue
+
+        # Sell-side liquidity (price below level)
+        elif level_type.endswith("low") or level_type == "pdl":
+            # Check if low touches or goes below the level (potential sweep) and set swept to True
+            # if low <= price + tolerance:
+            if low < price:
+                liquidity[level_type]["swept"] = True
+            #  check for valid sweep (rejection off level)
+            # if low <= price + tolerance and close > price:
+            if low < price and close > price:
+
+                sweep_at_key_level = True
+                liquidity[level_type]["swept"] = True
+
+                swept_levels.append({
+                    "level_name": level_type,
+                    "price": price,
+                    "side": "sell_side",
+                    "type": "rejection"
+                })
+            # elif low <= price + tolerance and close <= price:
+            elif low < price and close < price:
+                # potential sweep but no rejection, still mark as swept
+                liquidity[level_type]["swept"] = True
+                swept_levels.append({
+                    "level_name": level_type,
+                    "price": price,
+                    "side": "sell_side",
+                    "type": "displacement"
+                })
+
+    return sweep_at_key_level, swept_levels
+
 
 def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lows, candles_3m, last_closed_candle, key_levels, current_30m_start):
-    sweep_data = None
+    sweep_highs_info = None
+    sweep_lows_info = None
     
     for swing in valid_swing_highs:
         if last_closed_candle["high"] > swing["high"]:
@@ -134,8 +240,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["high"], "buy_side")
-            sweep, levels = detect_key_liquidity_sweep(last_closed_candle, key_levels)
-            print(f"{instrument} Sweep, Swept levels:", sweep, levels)
+            sweep, levels = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels)
+            print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
             
             if sweep:
                 nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + 3 
@@ -153,11 +259,11 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             # ny_am bias = bullish
             # ny_lunch = bearish - reversal or retracement
             # ny_pm = 7h wick window - setup based on 30m sweep and ob or 3pm retest of 30m ob for continuation
-            sweep_data = {
+            sweep_highs_info = {
                 "instrument": instrument,
                 "side": "buy_side",
                 "timestamp": last_closed_candle["timestamp"],
-                "sweep candle high": last_closed_candle["high"],
+                "sweep_candle_high": last_closed_candle["high"],
                 "sweep_time": sweep_time,
                 "sweep_key_level": sweep,
                 "swept_levels": levels,
@@ -186,8 +292,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["low"], "sell_side")
-            sweep, levels = detect_key_liquidity_sweep(last_closed_candle, key_levels)
-            print(f"{instrument} Sweep, Swept levels:", sweep, levels)
+            sweep, levels = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels)
+            print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
 
             if sweep:
                 nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] - 3
@@ -202,11 +308,11 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 nq_sweep_and_ob_ce_confirmed = True
             
             
-            sweep_data = {
+            sweep_lows_info = {
                 "instrument": instrument,
                 "side": "sell_side",
                 "timestamp": last_closed_candle["timestamp"],
-                "sweep candle low": last_closed_candle["low"],
+                "sweep_candle_low": last_closed_candle["low"],
                 "sweep_time": sweep_time,
                 "sweep_key_level": sweep,
                 "swept_levels": levels,
@@ -218,7 +324,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             }
             break
 
-    return sweep_data
+    return sweep_highs_info, sweep_lows_info
 
 def detect_dual_sweep(
     nq_30m,
