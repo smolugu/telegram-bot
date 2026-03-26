@@ -28,6 +28,7 @@ class SetupCandidate:
         self.fvg_confirmed = False
         self.fvg_data = None
 
+        self.confirmation_time = None
         self.alert_sent = False
         self.insert_trade_data = None
 

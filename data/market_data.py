@@ -7,6 +7,20 @@ import pandas as pd
 # Public API
 # ---------------------------
 
+def filter_hourly_candles(hourly_candles, current_ts):
+
+    current_dt = datetime.fromisoformat(current_ts)
+
+    filtered = []
+
+    for c in hourly_candles:
+        dt = datetime.fromisoformat(c["timestamp"])
+
+        if dt <= current_dt:
+            filtered.append(c)
+
+    return filtered
+
 def get_current_contract(instrument, date_str=None):
     if date_str is None:
         today = datetime.now().date()

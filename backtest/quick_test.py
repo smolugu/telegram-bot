@@ -3,7 +3,7 @@ from data.models.candle_7h import SevenHourBuilder
 from data.models.market_context import MarketContext
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, get_current_contract, get_pdh_pdl_fixed_date
+from data.market_data import fetch_symbol_data_safe, filter_hourly_candles, get_current_contract, get_pdh_pdl_fixed_date
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
@@ -18,7 +18,7 @@ from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_7h_open_from_timestamp
 
 from datetime import datetime, timedelta, timezone
-from modules.smt_detector import detect_30m_swing_smt, detect_smt_key_levels
+from modules.smt_detector import detect_30m_swing_smt, detect_hourly_smt_precise, detect_smt_key_levels
 from modules.ob_detector import detect_30m_order_block
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
@@ -98,6 +98,7 @@ def run_quick_test(test_date: str):
         nq_30m[i]["timestamp"]: i
         for i in range(len(nq_30m))
     }
+    
     # print("nq 30m closes: ", nq_30m_closes)
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
@@ -112,9 +113,12 @@ def run_quick_test(test_date: str):
                 # previous 30m candle just closed
                 last_closed_nq = nq_30m[i - 1]
                 last_closed_es = es_30m[i - 1]
+                prev_last_closed_nq = nq_30m[i-2]
+                prev_last_closed_es = es_30m[i-2]
 
                 print("i =", i)
                 print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])
+                print("NQ prev Last closed:", prev_last_closed_nq["timestamp"], prev_last_closed_nq["high"], prev_last_closed_nq["low"])
                 # print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])
                 
                 # current_30m_start = nq_30m[i]["timestamp"]
@@ -142,11 +146,12 @@ def run_quick_test(test_date: str):
                 #  gather session liquidity
                 liquidity_nq = get_liquidity_values(symbol="NQ=F", candles_30m = historical_nq, test_date=test_date, liquidity_levels=liquidity_nq, current_start = current_30m_start, pdh = nq_pdh, pdl = nq_pdl)
                 liquidity_es = get_liquidity_values(symbol="ES=F", candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start, pdh = es_pdh, pdl = es_pdl)
-                print("liquidity es: ", liquidity_es)
+                # print("liquidity es: ", liquidity_es)
                 sweep_nq = None
                 sweep_es = None
-                nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq)
-                es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es)
+                nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq, i)
+                es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es, i)
+                
                 # print(" es swing points high: ", es_valid_swing_highs)
                 # print(" es swing points low: ", es_valid_swing_lows)
                 # sweep detection and key level detection
@@ -165,24 +170,26 @@ def run_quick_test(test_date: str):
                 # print('es valid swing highs: ', es_valid_swing_highs)
                 # sweep detection and key level detection
                 sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
-                sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
-                nq_swept_levels = None
-                es_swept_levels = None
-
+                # sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
+                
                 key_level_smt_result = detect_smt_key_levels(sweep_nq["swept_levels"] if sweep_nq else None,
                     sweep_es["swept_levels"] if sweep_es else None)
-                smt_result = detect_30m_swing_smt(nq_valid_swing_highs, nq_valid_swing_lows, es_valid_swing_highs, es_valid_swing_lows, last_closed_nq, last_closed_es)
-                if smt_result is None:
-                    print('no smt result')
-                else:
-                    print("smt_result: ", smt_result)
+                # smt_result = detect_30m_swing_smt(nq_valid_swing_highs, nq_valid_swing_lows, es_valid_swing_highs, es_valid_swing_lows, last_closed_nq, last_closed_es)
+                # if smt_result is None:
+                #     print('no smt result')
+                # else:
+                #     print("smt_result: ", smt_result)
                 if key_level_smt_result is None:
                     print("no key level smt")
                 else:
                     print("key_level_smt_result: ", key_level_smt_result)
                 # detect smt at key level
+                nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
+                es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
 
                 # detect smt at 1h
+                # h1_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)
+                # print("smt on 1h: ", h1_smt)
 
                 # detect htf at daily, 7h, 4h
                 

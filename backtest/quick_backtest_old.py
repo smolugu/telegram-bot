@@ -50,7 +50,7 @@ def run_quick_backtest(test_date: str):
     
     nq_daily_atr = calculate_daily_atr(nq["30m"])
     es_daily_atr = calculate_daily_atr(es["30m"])
-    # print("nq daily atr: ", nq_daily_atr, "es daily atr: ", es_daily_atr)
+    print("nq daily atr: ", nq_daily_atr, "es daily atr: ", es_daily_atr)
     
     # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
@@ -130,7 +130,7 @@ def run_quick_backtest(test_date: str):
 
                 print("i =", i)
                 print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])
-                # print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])            
+                print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])            
                 print("current 30m boundary at:", current_30m_start)
 
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
@@ -166,8 +166,8 @@ def run_quick_backtest(test_date: str):
                     es_current_session_high = last_closed_es["high"]
                 if last_closed_es["low"] < es_current_session_low:
                     es_current_session_low = last_closed_es["low"]
-                # print("nq HOD:", nq_current_session_high, "nq LOD: ", nq_current_session_low)
-                # print("es HOD:", es_current_session_high, "es LOD: ", es_current_session_low)
+                print("nq HOD:", nq_current_session_high, "nq LOD: ", nq_current_session_low)
+                print("es HOD:", es_current_session_high, "es LOD: ", es_current_session_low)
                 # update 7hr candle through seven hour builder
                 # he 18:00 7hr candle is not complete with the first 3 30m candles
                 nq_seven_hour_builder.update(last_closed_nq)
@@ -217,6 +217,19 @@ def run_quick_backtest(test_date: str):
                 liquidity_es = get_liquidity_values(symbol= es_contract, candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start, pdh = es_pdh, pdl = es_pdl)
                 
                 #  check if there is already a sweep
+                raw_swings_high_nq = find_swing_highs(historical_nq)
+                raw_swings_low_nq  = find_swing_lows(historical_nq)
+                # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_nq])
+                # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_nq])
+                raw_swings_high_es = find_swing_highs(historical_es)
+                raw_swings_low_es  = find_swing_lows(historical_es)
+                # print("Raw swing highs:", [(s["timestamp"], s["high"]) for s in raw_swings_high_es])
+                # print("Raw swing lows:", [(s["timestamp"], s["low"]) for s in raw_swings_low_es])
+                valid_highs_nq = filter_valid_swing_highs(raw_swings_high_nq)
+                valid_lows_nq  = filter_valid_swing_lows(raw_swings_low_nq)
+                valid_highs_es = filter_valid_swing_highs(raw_swings_high_es)
+                valid_lows_es  = filter_valid_swing_lows(raw_swings_low_es)
+                
                 sweep_nq = None
                 sweep_es = None
                 # get valid swing points and key levels and send to detect_30m_key_level_sweep
@@ -226,6 +239,189 @@ def run_quick_backtest(test_date: str):
                 sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
                 sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
 
+                # sweep_es = detect_30m_key_level_sweep("ES", historical_es, es_3m, last_closed_es)
+                # for swing in valid_highs_nq:
+                #     if last_closed_nq["high"] > swing["high"]:
+                #         # last candle high and low
+                #         sweep_candle_start = last_closed_nq["timestamp"]
+                #         sweep_candle_end = (
+                #             datetime.fromisoformat(sweep_candle_start)
+                #             + timedelta(minutes=30)
+                #         ).isoformat()
+                        
+                #         nq_sweep_and_ob_entry = None
+                #         nq_sweep_and_ob_ce_entry = None
+                #         nq_sweep_and_ob_confirmed = False
+                #         nq_sweep_and_ob_ce_confirmed = False
+                #         nq_sweep_and_ob_confirmation_timestamp = None
+                #         nq_sweep_and_ob_confirmed = last_closed_nq["close"] < last_closed_nq["open"]
+                #         if nq_sweep_and_ob_confirmed:
+                #             nq_sweep_and_ob_entry = last_closed_nq["open"]
+                #             # confirmation timestamp is current timestamp
+                #             # nq_sweep_and_ob_confirmation_timestamp = last_closed_nq["timestamp"]
+                #             nq_sweep_and_ob_confirmation_timestamp = current_30m_start
+                #         # if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 60:
+                #         #     nq_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
+                #         #     nq_sweep_and_ob_ce_confirmed = True
+                #         if last_closed_nq["close"] < last_closed_nq["open"] and (last_closed_nq["open"] - last_closed_nq["close"]) > 60:
+                #             nq_sweep_and_ob_ce_entry = (last_closed_nq["open"] + last_closed_nq["close"]) / 2
+                #             nq_sweep_and_ob_ce_confirmed = True
+
+                #         inside_3m_candles = [c for c in nq_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+                #         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["high"], "buy_side")
+                #         sweep, levels = detect_key_liquidity_sweep(last_closed_nq, liquidity_nq)
+                #         print("Sweep, Swept levels:", sweep, levels)
+                #         if liquidity_nq["ib_high"]["price"] is not None:
+                #             if last_closed_nq["close"] > liquidity_nq["ib_high"]["price"]:
+                #                 ny_bias_nq = "bullish"
+                #             elif last_closed_nq["close"] < liquidity_nq["ib_high"]["price"]:
+                #                 ny_bias_nq = "neutral"
+                
+                #         # ny_am bias = bullish
+                #         # ny_lunch = bearish - reversal or retracement
+                #         # ny_pm = 7h wick window - setup based on 30m sweep and ob or 3pm retest of 30m ob for continuation
+                #         sweep_nq = {
+                #             "side": "buy_side",
+                #             "timestamp": last_closed_nq["timestamp"],
+                #             "sweep candle high": last_closed_nq["high"],
+                #             "sweep_time": sweep_time,
+                #             "sweep_key_level": sweep,
+                #             "sweep_and_ob_confirmed": nq_sweep_and_ob_confirmed,
+                #             "sweep_and_ob_entry": nq_sweep_and_ob_entry,
+                #             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
+                #             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
+                #             "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp
+                #         }
+                #         break
+
+                # for swing in valid_lows_nq:
+                #     if last_closed_nq["low"] < swing["low"]:
+                #         sweep_candle_start = last_closed_nq["timestamp"]
+                #         sweep_candle_end = (
+                #             datetime.fromisoformat(sweep_candle_start)
+                #             + timedelta(minutes=30)
+                #         ).isoformat()
+                #         nq_sweep_and_ob_confirmed = False
+                #         nq_sweep_and_ob_ce_confirmed = False
+                #         nq_sweep_and_ob_entry = None
+                #         nq_sweep_and_ob_ce_entry = None
+                #         nq_sweep_and_ob_confirmation_timestamp = None
+                #         nq_sweep_and_ob_confirmed = last_closed_nq["close"] > last_closed_nq["open"]
+                #         if nq_sweep_and_ob_confirmed:
+                #             nq_sweep_and_ob_entry = last_closed_nq["open"]
+                #             nq_sweep_and_ob_confirmation_timestamp = last_closed_nq["timestamp"]
+                #         if last_closed_nq["close"] > last_closed_nq["open"] and last_closed_nq["close"] - last_closed_nq["open"] > 60:
+                #             nq_sweep_and_ob_ce_entry = (last_closed_nq["open"] + last_closed_nq["close"]) / 2
+                #             nq_sweep_and_ob_ce_confirmed = True
+                #         inside_3m_candles = [c for c in nq_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+                #         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_nq["low"], "sell_side")
+                #         sweep, levels = detect_key_liquidity_sweep(last_closed_nq, liquidity_nq)
+                #         print("Sweep, Swept levels:", sweep, levels)
+                #         if liquidity_nq["ib_low"]["price"] is not None:
+                #             if last_closed_nq["close"] < liquidity_nq["ib_low"]["price"]:
+                #                 ny_bias_nq = "bearish"
+                #             elif last_closed_nq["close"] > liquidity_nq["ib_low"]["price"]:
+                #                 ny_bias_nq = "neutral"
+                        
+                #         sweep_nq = {
+                #             "side": "sell_side",
+                #             "timestamp": last_closed_nq["timestamp"],
+                #             "sweep candle low": last_closed_nq["low"],
+                #             "sweep_time": sweep_time,
+                #             "sweep_key_level": sweep,
+                #             "sweep_and_ob_confirmed": nq_sweep_and_ob_confirmed,
+                #             "sweep_and_ob_entry": nq_sweep_and_ob_entry,
+                #             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
+                #             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
+                #             "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp
+                #         }
+                #         break
+                
+                # for swing in valid_highs_es:
+                #     # print("last closed es high, swing high: ", last_closed_es["high"], swing["high"])
+                #     if last_closed_es["high"] > swing["high"]:
+                #         sweep_candle_start = last_closed_es["timestamp"]
+                #         sweep_candle_end = (
+                #             datetime.fromisoformat(sweep_candle_start)
+                #             + timedelta(minutes=30)
+                #         ).isoformat()
+                #         es_sweep_and_ob_confirmed = False
+                #         es_sweep_and_ob_ce_confirmed = False
+                #         es_sweep_and_ob_entry = None
+                #         es_sweep_and_ob_ce_entry = None
+                #         es_sweep_and_ob_confirmation_timestamp = None
+                #         es_sweep_and_ob_confirmed = last_closed_es["close"] < last_closed_es["open"]
+                #         if es_sweep_and_ob_confirmed:
+                #             es_sweep_and_ob_entry = last_closed_es["open"]
+                #             es_sweep_and_ob_confirmation_timestamp = last_closed_es["timestamp"]
+                #         if last_closed_es["close"] < last_closed_es["open"] and last_closed_es["open"] - last_closed_es["close"] > 5:
+                #             es_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
+                #             es_sweep_and_ob_ce_confirmed = True
+                #         inside_3m_candles = [c for c in es_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+                #         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["high"], "buy_side")
+                #         sweep, levels = detect_key_liquidity_sweep(last_closed_es, liquidity_es)
+                #         print("ES Sweep, Swept levels:", sweep, levels)
+                #         if liquidity_es["ib_high"]["price"] is not None:
+                #             if last_closed_es["close"] > liquidity_es["ib_high"]["price"]:
+                #                 ny_bias_es = "bullish"
+                #             elif last_closed_es["close"] < liquidity_es["ib_high"]["price"]:
+                #                 ny_bias_es = "neutral"
+                #         sweep_es = {
+                #             "side": "buy_side",
+                #             "timestamp": last_closed_es["timestamp"],
+                #             "sweep candle high": last_closed_es["high"],
+                #             "sweep_time": sweep_time,
+                #             "sweep_key_level": sweep,
+                #             "sweep_and_ob_confirmed": es_sweep_and_ob_confirmed,
+                #             "sweep_and_ob_entry": es_sweep_and_ob_entry,
+                #             "sweep_and_ob_ce_confirmed": es_sweep_and_ob_ce_confirmed,
+                #             "sweep_and_ob_ce_entry": es_sweep_and_ob_ce_entry,
+                #             "sweep_and_ob_confirmation_timestamp": es_sweep_and_ob_confirmation_timestamp
+                #         }
+                #         break
+
+                # for swing in valid_lows_es:
+                #     if last_closed_es["low"] < swing["low"]:
+                #         sweep_candle_start = last_closed_es["timestamp"]
+                #         sweep_candle_end = (
+                #             datetime.fromisoformat(sweep_candle_start)
+                #             + timedelta(minutes=30)
+                #         ).isoformat()
+                #         es_sweep_and_ob_entry = None
+                #         es_sweep_and_ob_ce_entry = None
+                #         es_sweep_and_ob_confirmed = False
+
+                #         es_sweep_and_ob_ce_confirmed = False
+                #         es_sweep_and_ob_confirmation_timestamp = None
+                #         es_sweep_and_ob_confirmed = last_closed_es["close"] > last_closed_es["open"]
+                #         if es_sweep_and_ob_confirmed:
+                #             es_sweep_and_ob_entry = last_closed_es["open"]
+                #             es_sweep_and_ob_confirmation_timestamp = last_closed_es["timestamp"]
+                #         if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 5:
+                #             es_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
+                #             es_sweep_and_ob_ce_confirmed = True
+                #         inside_3m_candles = [c for c in es_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+                #         sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_es["low"], "sell_side")
+                #         sweep, levels = detect_key_liquidity_sweep(last_closed_es, liquidity_es)
+                #         print("Sweep, Swept levels:", sweep, levels)
+                #         if liquidity_es["ib_low"]["price"] is not None:
+                #             if last_closed_es["close"] < liquidity_es["ib_low"]["price"]:
+                #                 ny_bias_nq = "bearish"
+                #             elif last_closed_es["close"] > liquidity_es["ib_low"]["price"]:
+                #                 ny_bias_es = "neutral"
+                #         sweep_es = {
+                #             "side": "sell_side",
+                #             "timestamp": last_closed_es["timestamp"],
+                #             "sweep candle low": last_closed_es["low"],
+                #             "sweep_time": sweep_time,
+                #             "sweep_key_level": sweep,
+                #             "sweep_and_ob_confirmed": es_sweep_and_ob_confirmed,
+                #             "sweep_and_ob_ce_confirmed": es_sweep_and_ob_ce_confirmed,
+                #             "sweep_and_ob_entry": es_sweep_and_ob_entry,
+                #             "sweep_and_ob_ce_entry": es_sweep_and_ob_ce_entry,
+                #             "sweep_and_ob_confirmation_timestamp": es_sweep_and_ob_confirmation_timestamp
+                #         }
+                #         break
                 # if not sweep_nq and not sweep_es:
                 #     continue
                 # if sweep_nq and not sweep_nq["sweep_key_level"]:
@@ -265,11 +461,11 @@ def run_quick_backtest(test_date: str):
                 if smt_result is None:
                     print('no smt result')
                 else:
-                    print("smt_result: smt yes", smt_result)
+                    print("smt_result: ", smt_result)
                 if key_level_smt_result is None:
                     print("no key level smt")
                 else:
-                    print("key_level_smt_result: smt yes ", key_level_smt_result)
+                    print("key_level_smt_result: ", key_level_smt_result)
                 # detect smt at key level
                 nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
                 es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
@@ -277,7 +473,7 @@ def run_quick_backtest(test_date: str):
                 # detect smt at 1h
                 h1_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)
                 if h1_smt is not None:
-                    print("smt on 1h: smt yes ", h1_smt)
+                    print("smt on 1h: ", h1_smt)
                 
 
                 # print for debug
@@ -457,19 +653,6 @@ def run_quick_backtest(test_date: str):
                     if (nq_market_context.day_type == "reversal" or nq_market_context.day_type is None) and nq_market_context.bias == "bearish":
                         send = True
                     # filter based on SMT and other market context
-                    if nq_market_context.atr_usage > 0.8:
-                        send = True
-                    # check for alert at 9:30
-                    time = None
-                    if nq_sell_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = nq_sell_candidate.ob_data["confirmation_timestamp"]
-                    if nq_sell_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = nq_sell_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
-                        send = False
 
                     # send alert for NQ sell candidate
                     if send:
@@ -491,19 +674,6 @@ def run_quick_backtest(test_date: str):
                     send = False
                     if (nq_market_context.day_type == "reversal" or nq_market_context.day_type is None) and (nq_market_context.bias == "bullish" or nq_market_context.bias == "neutral"):
                         send = True
-                    if nq_market_context.atr_usage > 0.8:
-                        send = True
-                    # check for alert at 9:30
-                    time = None
-                    if nq_buy_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = nq_buy_candidate.ob_data["confirmation_timestamp"]
-                    if nq_buy_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = nq_buy_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
-                        send = False
                     # send = True
                     if send:
                         # send alert for NQ buy candidate
@@ -518,19 +688,6 @@ def run_quick_backtest(test_date: str):
                     send = False
                     if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                         send = True
-                    if es_market_context.atr_usage > 0.8:
-                        send = True
-                    # check for alert at 9:30
-                    time = None
-                    if es_sell_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = es_sell_candidate.ob_data["confirmation_timestamp"]
-                    if es_sell_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = es_sell_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
-                        send = False
                     # send = True
                     if send:
                         # send alert for ES sell candidate
@@ -543,24 +700,10 @@ def run_quick_backtest(test_date: str):
                 
                 if (es_buy_candidate.fvg_confirmed or es_buy_candidate.sweep_and_ob_confirmed) and not es_buy_candidate.alert_sent:
                     send = False
-                    if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and (es_market_context.bias == "bullish" or es_market_context.bias == "neutral"):
+                    if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bullish" :
                         send = True
-                    if es_market_context.atr_usage > 0.8:
-                        send = True
-                    # check for alert at 9:30
-                    time = None
-                    if es_buy_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = es_buy_candidate.ob_data["confirmation_timestamp"]
-                    if es_buy_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = es_buy_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
-                        send = False
                     # send = True
                     if send:
-                        print("sending ES buy alert")
                         # send alert for ES buy candidate
                         message = build_trade_alert(es_buy_candidate)
                         if message:

@@ -199,14 +199,14 @@ class MarketContext:
         ts = datetime.fromisoformat(current_timestamp)
 
         session_range = self.session_high - self.session_low
-        print("MC hour: Min - ", ts.hour, ":", ts.minute)
+        # print("MC hour: Min - ", ts.hour, ":", ts.minute)
 
         # PM Trend - late range expansion
         # pre market expansion -> ny am range -> PM expansion
         if ts.minute >= 0 and (ts.hour == 14  or ts.hour == 15):
-            print("MC hour: Min - ", ts.hour, ":", ts.minute)
-            print("ib containment count: ", self.ib_containment_count)
-            print("day_type: ", self.day_type)
+            # print("MC hour: Min - ", ts.hour, ":", ts.minute)
+            # print("ib containment count: ", self.ib_containment_count)
+            # print("day_type: ", self.day_type)
             if (
                 self.day_type == "range"
                 and self.ib_containment_count >= 6

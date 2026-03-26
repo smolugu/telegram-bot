@@ -1,9 +1,185 @@
-from helpers.time_windows import (
-    get_reversal_windows,
-    is_in_reversal_window
-)
-
+from helpers.time_windows import get_reversal_windows, is_in_reversal_window
 from datetime import datetime, timedelta
+
+def filter_unswept_highs(candles):
+    """
+    Keeps only highs that have NOT been swept by later candles
+    """
+
+    unswept = []
+
+    for i in range(len(candles)):
+        current_high = candles[i]["high"]
+
+        swept = False
+
+        # Check if any future candle swept it
+        for j in range(i + 1, len(candles)):
+            if candles[j]["high"] > current_high:
+                swept = True
+                break
+
+        if not swept:
+            unswept.append(candles[i])
+
+    return unswept
+
+
+def filter_unswept_lows(candles):
+    unswept = []
+
+    for i in range(len(candles)):
+        current_low = candles[i]["low"]
+
+        swept = False
+
+        for j in range(i + 1, len(candles)):
+            if candles[j]["low"] < current_low:
+                swept = True
+                break
+
+        if not swept:
+            unswept.append(candles[i])
+
+    return unswept
+
+def detect_hourly_smt_precise(
+    nq_candles,
+    es_candles,
+    lookback=10,
+    time_tolerance=timedelta(minutes=5)
+):
+
+    if len(nq_candles) < lookback + 1:
+        return None
+    
+    nq_current = nq_candles[-1]
+    es_current = es_candles[-1]
+
+    nq_prev = nq_candles[-(lookback+1):-1]
+    es_prev = es_candles[-(lookback+1):-1]
+
+    # -------------------------
+    # Build ALL previous levels
+    # -------------------------
+    nq_unswept_highs = filter_unswept_highs(nq_prev)
+    nq_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in nq_unswept_highs]
+
+    es_unswept_highs = filter_unswept_highs(es_prev)
+    es_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in es_unswept_highs]
+
+    nq_unswept_lows = filter_unswept_lows(nq_prev)
+    nq_prev_lows = [{"low": c["low"], "timestamp": c["timestamp"]} for c in nq_unswept_lows]
+
+    es_unswept_lows = filter_unswept_lows(es_prev)
+    es_prev_lows = [{"low": c["low"], "timestamp": c["timestamp"]} for c in es_unswept_lows]
+    # print("NQ highs: ")
+    # for high in nq_prev_highs:
+    #     print(high["high"], end=", ")
+    # print("NQ lows: ")
+    # for low in nq_prev_lows:
+    #     print(low["low"], end=", ")
+    # print("ES highs: ")
+    # for high in es_prev_highs:
+    #     print(high["high"], end=", ")
+    # print("ES lows: ")
+    # for low in es_prev_lows:
+    #     print(low["low"], end=", ")
+
+    def find_match(ts, levels, time_tolerance=timedelta(minutes=5)):
+
+        ts_dt = datetime.fromisoformat(ts)
+
+        for lvl in levels:
+            lvl_dt = datetime.fromisoformat(lvl["timestamp"])
+
+            if abs(lvl_dt - ts_dt) <= time_tolerance:
+                return lvl
+
+        return None
+
+    # -------------------------
+    # Bearish SMT (high sweep mismatch)
+    # -------------------------
+    for nq_high in nq_prev_highs:
+
+        # NQ sweeps THIS specific high
+        if nq_current["high"] > nq_high["high"]:
+
+            es_high = find_match(nq_high["timestamp"], es_prev_highs)
+            if es_high is None:
+                continue
+
+            es_swept = es_current["high"] > es_high["high"]
+
+            if not es_swept:
+                return {
+                    "type": "bearish_smt",
+                    "sweeper": "nq",
+                    "level_price": nq_high["high"],
+                    "level_ts": nq_high["timestamp"]
+                }
+
+    # Reverse: ES sweeps, NQ doesn't
+    for es_high in es_prev_highs:
+
+        if es_current["high"] > es_high["high"]:
+
+            nq_high = find_match(es_high["timestamp"], nq_prev_highs)
+            if nq_high is None:
+                continue
+
+            nq_swept = nq_current["high"] > nq_high["high"]
+
+            if not nq_swept:
+                return {
+                    "type": "bearish_smt",
+                    "sweeper": "es",
+                    "level_price": es_high["high"],
+                    "level_ts": es_high["timestamp"]
+                }
+
+    # -------------------------
+    # Bullish SMT (low sweep mismatch)
+    # -------------------------
+    for nq_low in nq_prev_lows:
+
+        if nq_current["low"] < nq_low["low"]:
+
+            es_low = find_match(nq_low["timestamp"], es_prev_lows)
+            if es_low is None:
+                continue
+
+            es_swept = es_current["low"] < es_low["low"]
+
+            if not es_swept:
+                return {
+                    "type": "bullish_smt",
+                    "sweeper": "nq",
+                    "level_price": nq_low["low"],
+                    "level_ts": nq_low["timestamp"]
+                }
+
+    for es_low in es_prev_lows:
+
+        if es_current["low"] < es_low["low"]:
+
+            nq_low = find_match(es_low["timestamp"], nq_prev_lows)
+            if nq_low is None:
+                continue
+
+            nq_swept = nq_current["low"] < nq_low["low"]
+
+            if not nq_swept:
+                return {
+                    "type": "bullish_smt",
+                    "sweeper": "es",
+                    "level_price": es_low["low"],
+                    "level_ts": es_low["timestamp"]
+                }
+    return None
+
+
 
 def detect_smt_key_levels(nq_swept, es_swept):
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def detect_30m_order_block(candles, candidate):
@@ -28,7 +28,6 @@ def detect_30m_order_block(candles, candidate):
 
                 # OB confirmed if last_closed closes below bullish open
                 if last_closed["close"] < c["open"]:
-
                     return {
                         "type": "bearish_ob",
                         "confirmation_timestamp": last_closed["timestamp"],

@@ -131,23 +131,25 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_confirmed = False
             nq_sweep_and_ob_ce_confirmed = False
             nq_sweep_and_ob_confirmation_timestamp = None
-            nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"]
-            if nq_sweep_and_ob_confirmed:
-                nq_sweep_and_ob_entry = last_closed_candle["open"]
-                # confirmation timestamp is current timestamp
-                # nq_sweep_and_ob_confirmation_timestamp = last_closed_nq["timestamp"]
-                nq_sweep_and_ob_confirmation_timestamp = current_30m_start
-            # if last_closed_es["close"] > last_closed_es["open"] and last_closed_es["low"] - last_closed_es["open"] > 60:
-            #     nq_sweep_and_ob_ce_entry = (last_closed_es["open"] + last_closed_es["close"]) / 2
-            #     nq_sweep_and_ob_ce_confirmed = True
-            if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
-                nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
-                nq_sweep_and_ob_ce_confirmed = True
-
+            
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["high"], "buy_side")
             sweep, levels = detect_key_liquidity_sweep(last_closed_candle, key_levels)
             print(f"{instrument} Sweep, Swept levels:", sweep, levels)
+            
+            if sweep:
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + 3 
+            else:
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"]
+            
+            if nq_sweep_and_ob_confirmed:
+                nq_sweep_and_ob_entry = last_closed_candle["open"]
+                # confirmation timestamp is current timestamp
+                nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+            
+            if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
+                nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
+                nq_sweep_and_ob_ce_confirmed = True
             # ny_am bias = bullish
             # ny_lunch = bearish - reversal or retracement
             # ny_pm = 7h wick window - setup based on 30m sweep and ob or 3pm retest of 30m ob for continuation
@@ -169,6 +171,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
 
     for swing in valid_swing_lows:
         if last_closed_candle["low"] < swing["low"]:
+            print("swept low: ", swing["low"], " last candle low: ", last_closed_candle["low"])
             sweep_candle_start = last_closed_candle["timestamp"]
             sweep_candle_end = (
                 datetime.fromisoformat(sweep_candle_start)
@@ -179,17 +182,24 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_entry = None
             nq_sweep_and_ob_ce_entry = None
             nq_sweep_and_ob_confirmation_timestamp = None
-            nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"]
+
+            
+            inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+            sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["low"], "sell_side")
+            sweep, levels = detect_key_liquidity_sweep(last_closed_candle, key_levels)
+            print(f"{instrument} Sweep, Swept levels:", sweep, levels)
+
+            if sweep:
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] - 3
+            else:
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"]
+            
             if nq_sweep_and_ob_confirmed:
                 nq_sweep_and_ob_entry = last_closed_candle["open"]
                 nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
             if last_closed_candle["close"] > last_closed_candle["open"] and last_closed_candle["close"] - last_closed_candle["open"] > 60:
                 nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
                 nq_sweep_and_ob_ce_confirmed = True
-            inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
-            sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["low"], "sell_side")
-            sweep, levels = detect_key_liquidity_sweep(last_closed_candle, key_levels)
-            print(f"{instrument} Sweep, Swept levels:", sweep, levels)
             
             
             sweep_data = {

@@ -36,9 +36,12 @@ def find_swing_lows(candles):
 # valid swing points
 # ---------------------
 
-def filter_valid_swing_lows(swings):
+def filter_valid_swing_lows(swings, prev_last_closed_candle):
 
     valid = []
+    # print("\n Nq swings raw: ")
+    # for s in swings:
+    #     print(s['low'], end=", ")
 
     for swing in swings:
 
@@ -49,10 +52,17 @@ def filter_valid_swing_lows(swings):
 
         # Add the current swing
         valid.append(swing)
-
+    # print("\nvalid swing lows - pre final: ")
+    # for v in valid:
+    #     print(v["low"], end=", ")
+    # print("prev closed low: ", prev_last_closed_candle["low"], prev_last_closed_candle["timestamp"])
+    valid = [v for v in valid if v["low"] <=  prev_last_closed_candle["low"]]
+    # print("\nvalid swing lows - final: ")
+    # for v in valid:
+    #     print(v['low'], end=", ")
     return valid
 
-def filter_valid_swing_highs(swings):
+def filter_valid_swing_highs(swings, prev_last_closed_candle):
 
     valid = []
 
@@ -65,16 +75,20 @@ def filter_valid_swing_highs(swings):
 
         # Add the current swing
         valid.append(swing)
+    valid = [v for v in valid if v["high"] >= prev_last_closed_candle["high"]]
 
     return valid
 
 
-def get_valid_swings(historical_candles):
+def get_valid_swings(historical_candles, i):
 
+    prev_last_closed_candle = historical_candles[i-2]
+    
     swing_lows = find_swing_lows(historical_candles)
     swing_highs = find_swing_highs(historical_candles)
-    valid_swing_lows = filter_valid_swing_lows(swing_lows)
-    valid_swing_highs = filter_valid_swing_highs(swing_highs)
+    
+    valid_swing_lows = filter_valid_swing_lows(swing_lows,prev_last_closed_candle)
+    valid_swing_highs = filter_valid_swing_highs(swing_highs, prev_last_closed_candle)
     
     return valid_swing_lows, valid_swing_highs
 
