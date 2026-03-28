@@ -30,6 +30,7 @@ def calculate_atr(candles, period=14):
 # if 10:30 range > ATR
 # → high probability trend day
 
+# ATR: tells how much price can move. it does not tell bias
 def calculate_daily_atr(candles, period=5):
 
     sessions = {}

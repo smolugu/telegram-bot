@@ -46,19 +46,20 @@ def filter_unswept_lows(candles):
 def detect_hourly_smt_precise(
     nq_candles,
     es_candles,
-    lookback=10,
+    lookback=3,
     time_tolerance=timedelta(minutes=5)
 ):
-
+    bearish_smt = None
+    bullish_smt = None
     if len(nq_candles) < lookback + 1:
-        return None
+        return None, None
     
     nq_current = nq_candles[-1]
     es_current = es_candles[-1]
 
     nq_prev = nq_candles[-(lookback+1):-1]
     es_prev = es_candles[-(lookback+1):-1]
-
+    
     # -------------------------
     # Build ALL previous levels
     # -------------------------
@@ -113,7 +114,7 @@ def detect_hourly_smt_precise(
             es_swept = es_current["high"] > es_high["high"]
 
             if not es_swept:
-                return {
+                bearish_smt = {
                     "type": "bearish_smt",
                     "sweeper": "nq",
                     "level_price": nq_high["high"],
@@ -132,7 +133,7 @@ def detect_hourly_smt_precise(
             nq_swept = nq_current["high"] > nq_high["high"]
 
             if not nq_swept:
-                return {
+                bearish_smt = {
                     "type": "bearish_smt",
                     "sweeper": "es",
                     "level_price": es_high["high"],
@@ -153,7 +154,7 @@ def detect_hourly_smt_precise(
             es_swept = es_current["low"] < es_low["low"]
 
             if not es_swept:
-                return {
+                bullish_smt = {
                     "type": "bullish_smt",
                     "sweeper": "nq",
                     "level_price": nq_low["low"],
@@ -171,13 +172,14 @@ def detect_hourly_smt_precise(
             nq_swept = nq_current["low"] < nq_low["low"]
 
             if not nq_swept:
-                return {
+                bullish_smt = {
                     "type": "bullish_smt",
                     "sweeper": "es",
                     "level_price": es_low["low"],
                     "level_ts": es_low["timestamp"]
                 }
-    return None
+            
+    return bullish_smt, bearish_smt
 
 
 
@@ -364,7 +366,9 @@ def detect_30m_swing_smt(
     current_es_candle,
     time_tolerance=timedelta(minutes=5)
 ):
-
+    bullish_smt = None
+    bearish_smt = None
+    
     def find_matching_swing(target_ts, swings):
         for s in swings:
             dt_target = datetime.fromisoformat(target_ts)
@@ -389,7 +393,7 @@ def detect_30m_swing_smt(
         # XOR condition → only one sweeps
         if nq_swept != es_swept:
 
-            return {
+            bullish_smt = {
                 "type": "bullish_smt",
                 "sweeper": "nq" if nq_swept else "es",
                 "nq_swing": nq_swing,
@@ -410,14 +414,14 @@ def detect_30m_swing_smt(
 
         if nq_swept != es_swept:
 
-            return {
+            bearish_smt = {
                 "type": "bearish_smt",
                 "sweeper": "nq" if nq_swept else "es",
                 "nq_swing": nq_swing,
                 "es_swing": es_swing
             }
 
-    return None
+    return bullish_smt, bearish_smt
 
 def detect_smt_dual(
     nq_30m,

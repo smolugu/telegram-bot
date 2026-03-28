@@ -5,6 +5,8 @@ def detect_30m_order_block(candles, candidate):
 
     # if not candidate.active:
     #     return None
+    if candidate.ob_confirmed:
+        return candidate.ob_data
 
     direction = candidate.side  # "buy_side" or "sell_side"
 

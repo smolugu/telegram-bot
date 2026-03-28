@@ -159,3 +159,25 @@ def detect_ladder_structure(candles):
 
     return None
 
+
+def check_ib_rejection(candle, ib_high, ib_low, ib_ce, direction):
+    # candle is last closed candle in 30m for loop. 
+    high = candle["high"]
+    low = candle["low"]
+    close = candle["close"]
+    
+    if direction == "bearish":
+        # price taps IB levels and rejects downward
+        if (high >= ib_high and close < ib_ce) or (high >= ib_ce and close < ib_ce) or (high >= ib_low and close < ib_low):
+            return True
+        else:
+            return False
+        
+    if direction == "bullish":
+        if (low <= ib_low and close > ib_low) or (low <= ib_ce and close >ib_ce) or (low <= ib_high and close > ib_high):
+            return True
+        else:
+            return False
+    
+    return False
+

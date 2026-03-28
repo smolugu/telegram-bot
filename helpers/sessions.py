@@ -1,6 +1,15 @@
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 
+def in_session(ts, start_h, start_m, end_h, end_m):
+    tz = ZoneInfo("America/New_York")
+    if isinstance(ts, str):
+        dt = datetime.fromisoformat(ts).astimezone(tz)
+    else:
+        dt = ts.astimezone(tz)
+    start = time(start_h, start_m)
+    end = time(end_h, end_m)
+    return start <= dt.time < end 
 
 def get_max_high_low_with_time(candles):
 

@@ -4,7 +4,8 @@ from data.models.market_context import MarketContext
 from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, filter_hourly_candles, get_current_contract, get_pdh_pdl_fixed_date
-from helpers.sessions import get_futures_session
+from data.models.reversal_setup import check_for_reversal_setup_confirmation
+from helpers.sessions import get_futures_session, in_session
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
@@ -244,7 +245,7 @@ def run_quick_backtest(test_date: str):
                     nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], "NQ")
                 if sweep_nq_lows:
                     print("Sweep detected NQ Lows:", sweep_nq_lows)
-                    nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candls_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], "NQ")
+                    nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], "NQ")
                 
                 if sweep_es_highs:
                     print("SWEEP DETECTED ES Highs:", sweep_es_highs)
@@ -252,7 +253,6 @@ def run_quick_backtest(test_date: str):
                 if sweep_es_lows:
                     print("Sweep detected ES Lows:", sweep_es_lows)
                     es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], "ES")
-                
                 
                 #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
@@ -263,11 +263,11 @@ def run_quick_backtest(test_date: str):
                     sweep_es_lows["swept_levels"] if sweep_es_lows else None)
                 key_level_bearish_smt_result = detect_bearish_smt_key_levels(sweep_nq_highs["swept_levels"] if sweep_nq_highs else None,
                     sweep_es_highs["swept_levels"] if sweep_es_highs else None)
-                smt_result = detect_30m_swing_smt(nq_valid_swing_highs, nq_valid_swing_lows, es_valid_swing_highs, es_valid_swing_lows, last_closed_nq, last_closed_es)
-                if smt_result is None:
+                bullish_30m_swing_smt, bearish_30m_swing_smt = detect_30m_swing_smt(nq_valid_swing_highs, nq_valid_swing_lows, es_valid_swing_highs, es_valid_swing_lows, last_closed_nq, last_closed_es)
+                if bullish_30m_swing_smt is None and bearish_30m_swing_smt:
                     print('no smt result')
                 else:
-                    print("smt_result: smt yes", smt_result)
+                    print("30m swing bullish smt, bearish smt: ", bullish_30m_swing_smt, bearish_30m_swing_smt)
                 if key_level_bullish_smt_result is None and key_level_bearish_smt_result is None:
                     print("no key level smt")
                 else:
@@ -278,10 +278,9 @@ def run_quick_backtest(test_date: str):
                 es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
 
                 # detect smt at 1h
-                h1_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)
-                if h1_smt is not None:
-                    print("smt on 1h: smt yes ", h1_smt)
-                
+                h1_bullish_smt, h1_bearish_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)
+                if h1_bullish_smt is not None or h1_bearish_smt:
+                    print("h1 bullish smt, bearish smt: ", h1_bullish_smt, h1_bearish_smt)
 
                 # print for debug
                 print("Nq Buy candidate active:", nq_buy_candidate.active,
@@ -518,11 +517,33 @@ def run_quick_backtest(test_date: str):
                             # insert_trade(nq_buy_candidate)
                 
                 if (es_sell_candidate.fvg_confirmed or es_sell_candidate.sweep_and_ob_confirmed) and not es_sell_candidate.alert_sent:
+                    # filters
+                    # session time
+                    # earlier 7h bias, sweep of Asia session high or low
+                    # rejection of IB at asia session sweep
+                    # atr for move
+                    print("es sell: step 1")
                     send = False
+                    
+
+                    if is_london_killzone:
+                        send = check_for_reversal_setup_confirmation(es_seven_hour_builder.candles["6PM"].values(), es_seven_hour_builder.candles["1AM"].values(), liquidity_es, es_sell_candidate, current_30m_start)
                     if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                         send = True
+                        print("es sell: step 2")
+                    else:
+                        print("es sell: step 3")
                     if es_market_context.atr_usage > 0.8:
                         send = True
+                        print("es sell: step 4")
+                    elif es_current_session_high > es_current_session_low:
+                        # allow continuation shorts
+                        send = True
+                        print("es sell: step 5")
+                    elif es_current_session_high < es_current_session_low:
+                        #  dont allow shorts. atr incomplete, allow longs
+                        print("es sell: step 6")
+                        send = False
                     # check for alert at 9:30
                     time = None
                     if es_sell_candidate.ob_data is None:
@@ -535,6 +556,7 @@ def run_quick_backtest(test_date: str):
                     if dt.hour == 9 and dt.minute == 30:
                         send = False
                     # send = True
+                    print("es final send: ", send)
                     if send:
                         # send alert for ES sell candidate
                         message = build_trade_alert(es_sell_candidate)
