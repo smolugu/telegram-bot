@@ -75,10 +75,7 @@ def check_for_reversal_setup_confirmation(prev_seven_hour_candle, current_seven_
             reversal_confirmation = False
         else:
             reversal_confirmation = False
-        # scenario 2 - highly bearish
-        # below ib_18, ib_1 rejected, reversal confirmation, expansion targets
-        if is_ib_rejection_1 and is_below_ib_18:
-            is_scenario_2 = True
+        
         
 
 
