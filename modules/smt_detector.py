@@ -543,3 +543,31 @@ def _find_swing_lows(candles):
         if candles[i]["low"] < candles[i-1]["low"] and candles[i]["low"] < candles[i+1]["low"]:
             swings.append(candles[i])
     return swings
+
+def summary_smt(h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt):
+
+    # # Priority 1: 1h SMT
+    # if h1_bullish_smt:
+    #     return "bullish", h1_bullish_smt
+    # if h1_bearish_smt:
+    #     return "bearish", h1_bearish_smt
+
+    # # Priority 2: Key level sweep SMT
+    # if key_level_bullish_smt_result:
+    #     return "bullish", key_level_bullish_smt_result
+    # if key_level_bearish_smt_result:
+    #     return "bearish", key_level_bearish_smt_result
+
+    # # Priority 3: 30m swing SMT
+    # if bullish_30m_swing_smt:
+    #     return "bullish", bullish_30m_swing_smt
+    # if bearish_30m_swing_smt:
+    #     return "bearish", bearish_30m_swing_smt
+
+    return {
+        "bullish_smt_1h": h1_bullish_smt,
+        "bullish_smt_30m_swing": bullish_30m_swing_smt,
+        "bullish_smt_key_level": key_level_bullish_smt_result,
+    }, {"bearish_smt_1h": h1_bearish_smt,
+        "bearish_smt_30m_swing": bearish_30m_swing_smt,
+        "bearish_smt_key_level": key_level_bearish_smt_result}

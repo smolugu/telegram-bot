@@ -3,6 +3,7 @@ class SetupCandidate:
     def __init__(self, side, instrument):
         self.side = side  # "buy_side" or "sell_side"
         self.instrument = instrument
+        
         self.reset()
 
     def reset(self):
@@ -17,6 +18,7 @@ class SetupCandidate:
         self.sweep_and_ob_entry = None
         self.sweep_and_ob_ce_entry = None
         self.sweep_and_ob_confirmation_timestamp = None
+        self.swept_levels = None
 
         self.smt_confirmed = False
         self.smt_timestamp = None
@@ -34,7 +36,7 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp=None, instrument=None):
+    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp=None, swept_levels=None, instrument=None):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
@@ -45,6 +47,7 @@ class SetupCandidate:
         self.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
         self.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
         self.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
+        self.swept_levels = swept_levels
         self.instrument = instrument
 
         
