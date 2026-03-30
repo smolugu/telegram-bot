@@ -478,7 +478,7 @@ def run_quick_backtest(test_date: str):
 
                     # send alert for NQ sell candidate
                     if send:
-                        message = build_trade_alert(nq_sell_candidate)
+                        message = build_trade_alert(candidate = nq_sell_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
                         if message:
                             execute_trade_and_log(nq_sell_candidate, message)
                             # send_telegram_alert_to_all(message)
@@ -513,7 +513,7 @@ def run_quick_backtest(test_date: str):
                     # send = True
                     if send:
                         # send alert for NQ buy candidate
-                        message = build_trade_alert(nq_buy_candidate)
+                        message = build_trade_alert(candidate = nq_buy_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
                         if message:
                             execute_trade_and_log(nq_buy_candidate, message)
                             # send_telegram_alert_to_all(message)
@@ -559,7 +559,7 @@ def run_quick_backtest(test_date: str):
                     print("es final send: ", send)
                     if send:
                         # send alert for ES sell candidate
-                        message = build_trade_alert(es_sell_candidate)
+                        message = build_trade_alert(candidate = es_sell_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr)
                         if message:
                             execute_trade_and_log(es_sell_candidate, message)
                             # send_telegram_alert_to_all(message)
@@ -588,7 +588,7 @@ def run_quick_backtest(test_date: str):
                     if send:
                         print("sending ES buy alert")
                         # send alert for ES buy candidate
-                        message = build_trade_alert(es_buy_candidate)
+                        message = build_trade_alert(candidate = es_buy_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr)
                         if message:
                             execute_trade_and_log(es_buy_candidate, message)
                             # send_telegram_alert_to_all(message)

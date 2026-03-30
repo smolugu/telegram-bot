@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
 
+from data.models.profit_targets import get_tp_levels
 
-def build_trade_alert(candidate):
+
+def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
 
     if not candidate.fvg_confirmed and not candidate.sweep_and_ob_confirmed:
         return None
@@ -35,7 +37,7 @@ def build_trade_alert(candidate):
     if candidate.ob_data is not None:
         ce_confirmation_candle_price = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
     sweep_candle_extreme = candidate.sweep_candle_extreme
-    tp = None
+    tp1 = None
     # get previous session context with bias, atr to calculate RR, entry levels
     rr = 1
     if side == "buy_side" and candidate.sweep_and_ob_confirmed:
@@ -46,15 +48,16 @@ def build_trade_alert(candidate):
         else:
             entry = candidate.sweep_and_ob_entry - 1
             print("sweep and OB confirmed. Adjusting entry to:", entry)
-            rr = 4
+            rr = 8
         risk = sweep_candle_extreme - entry
-        tp = entry - (risk * rr)
+        tp1 = entry - (risk * rr)
+        print("tp1: ", tp1)
 
     elif side == "buy_side" and entry < ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
-        tp = entry - (risk * rr)
+        tp1 = entry - (risk * rr)
         
         # candidate.insert_trade_data = {
         #     "entry": entry,
@@ -67,7 +70,7 @@ def build_trade_alert(candidate):
         # }
     elif side == "buy_side":
         rr = 1.5
-        tp = entry - (risk * rr)
+        tp1 = entry - (risk * rr)
         print("Using original imbalance entry. TP adjusted to:", entry)
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
@@ -77,18 +80,18 @@ def build_trade_alert(candidate):
         else:
             entry = candidate.sweep_and_ob_entry + 1
             print("sweep and OB confirmed. Adjusting entry to:", entry)
-            rr = 4
+            rr = 8
         risk = entry - sweep_candle_extreme
-        tp = entry + (risk * rr)
+        tp1 = entry + (risk * rr)
         
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
-        tp = entry + (risk * rr)
+        tp1 = entry + (risk * rr)
     elif side == "sell_side":
         rr = 1.5
-        tp = entry + (risk * rr)
+        tp1 = entry + (risk * rr)
         print("Using original imbalance entry. TP adjusted to:", entry)
         
         # candidate.insert_trade_data = {
@@ -100,6 +103,9 @@ def build_trade_alert(candidate):
         #     "entry_type": "CE_ADJUSTED",
         #     "tp": ce_confirmation_candle_price + (risk * 1.5)
         # }
+    stop = sweep_candle_extreme
+    direction = "bearish" if side == "buy_side" else "bullish"
+    tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1)
     candidate.insert_trade_data = {
             "entry": entry,
             "side": side,
@@ -107,7 +113,9 @@ def build_trade_alert(candidate):
             "confirmation_timestamp": time,
             "ce_confirmation_candle_price": ce_confirmation_candle_price,
             "entry_type": "CE_ADJUSTED",
-            "tp": tp
+            "tp": tp1,
+            "tp2": tp2 if tp2 is not None else "N/A",
+            "tp3": tp3 if tp3 is not None else "N/A",
         }
 
     
@@ -136,7 +144,7 @@ def build_trade_alert(candidate):
     # rr = 1.5
 
     alert_message = f"""
-📍 TradeOnCall A++ Time
+ ⚡️Ping A++ Time
 
 Instrument: {instrument}
 Bias: {bias}
@@ -144,10 +152,12 @@ Time: {time_formatted}
 
 Entry: {round(entry, 2)}
 Stop Loss: {round(stop, 2)}
-Take Profit - {rr} RR: {round(tp, 2)}
+Take Profit 1 - {rr} RR: {round(tp1, 2)}
+Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+Take Profit 3 - ATR: {round(tp3, 2)}
 
-Risk: {round(risk, 2)}
-RR: {rr}
+Risk (tp1): {round(risk, 2)}
+RR (tp1): {rr}
 """
 
     return alert_message

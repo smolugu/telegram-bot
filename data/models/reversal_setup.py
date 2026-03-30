@@ -186,14 +186,19 @@ def check_for_reversal_setup_confirmation(prev_seven_hour_candle, current_seven_
         else:
             reversal_confirmation = False
             print("step6: no IB rules met")
-        if asia_swept and reversal_confirmation:
-            print("Ib reversal confirmation: ", reversal_confirmation)
-            print("asia high swept, allowing trade")
+        # final confirmation using smt
+        #  allow trade for reversal candidate only when SMT is present
+        if is_smt and is_reversal_candidate:
+            print("Smt confirmation for reversal candidate, allowing trade")
             reversal_confirmation = True
-        else:
-            reversal_confirmation = False
-            print("asia high not swept, not allowing trade")
-            print("Ib reversal confirmation: ", reversal_confirmation)
+        # if asia_swept and reversal_confirmation:
+        #     print("Ib reversal confirmation: ", reversal_confirmation)
+        #     print("asia high swept, allowing trade")
+        #     reversal_confirmation = True
+        # else:
+        #     reversal_confirmation = False
+        #     print("asia high not swept, not allowing trade")
+        #     print("Ib reversal confirmation: ", reversal_confirmation)
     # allow trade temporarity. implement other killzones and rules later.
     # elif is_displacement:
     #     print("outside london Killzone, but displacement candle detected, allowing trade")
