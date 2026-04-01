@@ -47,6 +47,7 @@ class SetupCandidate:
         self.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
         self.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
         self.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
+        self.confirmation_time = sweep_and_ob_confirmation_timestamp
         self.swept_levels = swept_levels
         self.instrument = instrument
 
@@ -67,6 +68,7 @@ class SetupCandidate:
         #     return
         self.ob_confirmed = True
         self.ob_data = ob_data
+        self.confirmation_time = ob_data["confirmation_timestamp"]
 
     # --------------------------------------------------
 

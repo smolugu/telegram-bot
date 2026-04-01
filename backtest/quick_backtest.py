@@ -5,6 +5,7 @@ from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, filter_hourly_candles, get_current_contract, get_pdh_pdl_fixed_date
 from data.models.reversal_setup import check_for_reversal_setup_confirmation
+from helpers.date_time_helpers import to_ny_datetime
 from helpers.sessions import get_futures_session, in_session
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
@@ -51,7 +52,7 @@ def run_quick_backtest(test_date: str):
     
     nq_daily_atr = calculate_daily_atr(nq["30m"])
     es_daily_atr = calculate_daily_atr(es["30m"])
-    # print("nq daily atr: ", nq_daily_atr, "es daily atr: ", es_daily_atr)
+    print("nq daily atr: ", nq_daily_atr, "es daily atr: ", es_daily_atr)
     
     # nq_30m = [c for c in nq["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # nq_3m  = [c for c in nq["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
@@ -96,8 +97,10 @@ def run_quick_backtest(test_date: str):
     liquidity_nq = reset_liquidity()
     liquidity_es = reset_liquidity()
     
-    nq_market_context = MarketContext("NQ", nq_daily_atr)
-    es_market_context = MarketContext("ES", es_daily_atr)
+    nq_market_context = MarketContext("NQ")
+    es_market_context = MarketContext("ES")
+    nq_market_context.set_daily_atr(nq_daily_atr)
+    es_market_context.set_daily_atr(es_daily_atr)
     
     nq_current_session_high = float("-inf")
     nq_current_session_low = float("inf")
@@ -137,7 +140,7 @@ def run_quick_backtest(test_date: str):
 
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
                 dt_current = datetime.fromisoformat(current_30m_start)
-                print("current hour: ", dt.hour)
+                
                 # update currest_session for i=0, 1, 2 
                 if (i == 3):
                     nq_current_session_high = max(nq_30m[0]["high"], nq_30m[1]["high"], nq_30m[2]["high"])
@@ -174,11 +177,21 @@ def run_quick_backtest(test_date: str):
                 # he 18:00 7hr candle is not complete with the first 3 30m candles
                 nq_seven_hour_builder.update(last_closed_nq)
                 es_seven_hour_builder.update(last_closed_es)
-            
+
+                # TODO: we need to reset the below at dt.hour == 18
                 if dt.hour == 16:
                     print("resetting liquidity at : ", dt.hour)
                     liquidity_nq = reset_liquidity()
                     liquidity_es = reset_liquidity()
+                    print("resetting market context at : ", dt.hour)
+                    print("daily atrs before reset: ", nq_market_context.daily_atr, es_market_context.daily_atr)
+                    nq_market_context.reset()
+                    es_market_context.reset()
+                    nq_daily_atr = calculate_daily_atr(nq["30m"])
+                    es_daily_atr = calculate_daily_atr(es["30m"])
+                    print("new atrs at 16:", nq_daily_atr, es_daily_atr)
+                    # update new daily atrs
+                    
                 
                 # update market context for NQ and ES
                 nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"])
@@ -209,8 +222,8 @@ def run_quick_backtest(test_date: str):
                     nq_market_context.set_ib(nq_ib_candidate.ib_high, nq_ib_candidate.ib_low)
                     es_market_context.set_ib(es_ib_candidate.ib_high, es_ib_candidate.ib_low)
                 
-                # print("NQ Market Context: ", nq_market_context.values())
-                # print("ES Market Context: ", es_market_context.values())
+                print("NQ Market Context: ", nq_market_context.values())
+                print("ES Market Context: ", es_market_context.values())
                 
                 historical_nq = nq_30m[:i]
                 historical_es = es_30m[:i]
@@ -463,7 +476,7 @@ def run_quick_backtest(test_date: str):
                     # filter based on SMT and other market context
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_seven_hour_builder.candles["6PM"].values(), nq_seven_hour_builder.candles["1AM"].values(), liquidity_nq, liquidity_es, nq_sell_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bearish_smt)
+                    send = check_for_reversal_setup_confirmation(nq_market_context,nq_seven_hour_builder.candles, liquidity_nq, liquidity_es, nq_sell_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bearish_smt)
                     # check for alert at 9:30
                     time = None
                     if nq_sell_candidate.ob_data is None:
@@ -475,8 +488,13 @@ def run_quick_backtest(test_date: str):
                     dt = datetime.fromisoformat(time) + timedelta(minutes=30)
                     if dt.hour == 9 and dt.minute == 30:
                         send = False
-
+                    current_last_closed_dt = to_ny_datetime(last_closed_nq["timestamp"])
+                    confirmation_dt = to_ny_datetime(nq_sell_candidate.confirmation_time)
+                    if confirmation_dt < current_last_closed_dt:
+                        print("current time is ahead of confirmation time, not sending alert")
+                        send = False
                     # send alert for NQ sell candidate
+                    print("send == ", send, "trade confirmation time: ", nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
                     if send:
                         message = build_trade_alert(candidate = nq_sell_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
                         if message:
@@ -498,7 +516,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_seven_hour_builder.candles["6PM"].values(), nq_seven_hour_builder.candles["1AM"].values(), liquidity_nq, liquidity_es, nq_buy_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bullish_smt)
+                    send = check_for_reversal_setup_confirmation(nq_market_context, nq_seven_hour_builder.candles, liquidity_nq, liquidity_es, nq_buy_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bullish_smt)
                     # check for alert at 9:30
                     time = None
                     if nq_buy_candidate.ob_data is None:
@@ -510,7 +528,13 @@ def run_quick_backtest(test_date: str):
                     dt = datetime.fromisoformat(time) + timedelta(minutes=30)
                     if dt.hour == 9 and dt.minute == 30:
                         send = False
+                    current_last_closed_dt = to_ny_datetime(last_closed_nq["timestamp"])
+                    confirmation_dt = to_ny_datetime(nq_buy_candidate.confirmation_time)
+                    if confirmation_dt < current_last_closed_dt:
+                        print("current time is ahead of confirmation time, not sending alert")
+                        send = False
                     # send = True
+                    print("send == ", send, "trade confirmation time: ", nq_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
                     if send:
                         # send alert for NQ buy candidate
                         message = build_trade_alert(candidate = nq_buy_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
@@ -527,7 +551,7 @@ def run_quick_backtest(test_date: str):
                     # rejection of IB at asia session sweep
                     # atr for move
                     send = False                    
-                    send = check_for_reversal_setup_confirmation(es_seven_hour_builder.candles["6PM"].values(), es_seven_hour_builder.candles["1AM"].values(), liquidity_nq, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, es_daily_atr, summary_bearish_smt)
+                    send = check_for_reversal_setup_confirmation(es_market_context, es_seven_hour_builder.candles, liquidity_nq, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, es_daily_atr, summary_bearish_smt)
                     # if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                     #     send = True
                     #     print("es sell: step 2")
@@ -555,8 +579,14 @@ def run_quick_backtest(test_date: str):
                     dt = datetime.fromisoformat(time) + timedelta(minutes=30)
                     if dt.hour == 9 and dt.minute == 30:
                         send = False
+                    # check last_closed_timestamp with confirmation_time
+                    current_last_closed_dt = to_ny_datetime(last_closed_es["timestamp"])
+                    confirmation_dt = to_ny_datetime(es_sell_candidate.confirmation_time)
+                    if confirmation_dt < current_last_closed_dt:
+                        print("current time is ahead of confirmation time, not sending alert")
+                        send = False
                     # send = True
-                    print("es final send: ", send)
+                    print("send == ", send, "trade confirmation time: ", es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
                     if send:
                         # send alert for ES sell candidate
                         message = build_trade_alert(candidate = es_sell_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr)
@@ -572,7 +602,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if es_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(es_seven_hour_builder.candles["6PM"].values(), es_seven_hour_builder.candles["1AM"].values(), liquidity_nq, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, es_daily_atr, summary_bullish_smt)
+                    send = check_for_reversal_setup_confirmation(es_market_context, es_seven_hour_builder.candles, liquidity_nq, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, es_daily_atr, summary_bullish_smt)
                     # check for alert at 9:30
                     time = None
                     if es_buy_candidate.ob_data is None:
@@ -584,7 +614,13 @@ def run_quick_backtest(test_date: str):
                     dt = datetime.fromisoformat(time) + timedelta(minutes=30)
                     if dt.hour == 9 and dt.minute == 30:
                         send = False
+                    current_last_closed_dt = to_ny_datetime(last_closed_es["timestamp"])
+                    confirmation_dt = to_ny_datetime(es_buy_candidate.confirmation_time)
+                    if confirmation_dt < current_last_closed_dt:
+                        print("current time is ahead of confirmation time, not sending alert")
+                        send = False
                     # send = True
+                    print("send == ", send, "trade confirmation time: ", es_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
                     if send:
                         print("sending ES buy alert")
                         # send alert for ES buy candidate

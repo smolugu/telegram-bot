@@ -46,7 +46,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
             print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
             rr = 2
         else:
-            entry = candidate.sweep_and_ob_entry - 1
+            entry = candidate.sweep_and_ob_entry - 1.5
             print("sweep and OB confirmed. Adjusting entry to:", entry)
             rr = 8
         risk = sweep_candle_extreme - entry
@@ -78,7 +78,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
             print("CE OB confirmed. Adjusting entry to:", entry)
             rr = 2
         else:
-            entry = candidate.sweep_and_ob_entry + 1
+            entry = candidate.sweep_and_ob_entry + 1.5
             print("sweep and OB confirmed. Adjusting entry to:", entry)
             rr = 8
         risk = entry - sweep_candle_extreme

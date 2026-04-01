@@ -23,12 +23,15 @@ from datetime import datetime
 # Market Context based on IB, ATR and other IB metrics
 class MarketContext:
 
-    def __init__(self, instrument, daily_atr, label = "NY AM"):
+    def __init__(self, instrument, label = "NY AM"):
 
         self.instrument = instrument
-        self.daily_atr = daily_atr
         self.label = label
 
+        self.reset()
+        
+    
+    def reset(self):
         self.ib_high = None
         self.ib_low = None
         self.ib_range = None
@@ -43,12 +46,14 @@ class MarketContext:
         self.session_high = None
         self.session_low = None
 
+        self.daily_atr = None
         self.atr_usage = None
         self.overnight_atr_usage = None
         self.atr_context = None
         self.session_range = None
         self.atr_expansion_ratio = None
         self.expansion_origin = None
+        self.overnight_expansion = False
 
         self.day_type = None
         self.day_type_finalized = False
@@ -56,7 +61,8 @@ class MarketContext:
         self.expansion_ratio = 0
         self.expansion_speed = 0
         self.relative_expansion = 0
-    
+        self.exhaustion = False
+
     # Lunch decision engine
     # def is_retracement(self):
     #     return (self.day_type == "trend"
@@ -100,16 +106,16 @@ class MarketContext:
             "day_type": self.day_type,
             # "ib_high": self.ib_high,
             # "ib_low": self.ib_low,
-            # "current_above_ib": self.current_above_ib,
-            # "current_below_ib": self.current_below_ib,
-            # "max_above_ib": self.max_above_ib,
-            # "max_below_ib": self.max_below_ib,
+            "current_above_ib": self.current_above_ib,
+            "current_below_ib": self.current_below_ib,
+            "max_above_ib": self.max_above_ib,
+            "max_below_ib": self.max_below_ib,
             # "current_day_high": self.session_high,
             # "current_day_low": self.session_low,
-            # "atr_expansion_ratio": self.atr_expansion_ratio,
-            # "expansion_ration": self.expansion_ratio,
-            # "expansion_speed": self.expansion_speed,
-            # "relative_expansion": self.relative_expansion,
+            "atr_expansion_ratio": self.atr_expansion_ratio,
+            "expansion_ratio": self.expansion_ratio,
+            "expansion_speed": self.expansion_speed,
+            "relative_expansion": self.relative_expansion,
         }
 
     def set_ib(self, ib_high, ib_low):
@@ -120,6 +126,8 @@ class MarketContext:
         self.ib_ce = (ib_high + ib_low) / 2
         self.ib_ready = True
 
+    def set_daily_atr(self, daily_atr):
+        self.daily_atr = daily_atr
 
     def update_session_range(self, high, low):
 
@@ -143,7 +151,23 @@ class MarketContext:
             if self.overnight_atr_usage > 0.8:
                 self.atr_context = "overnight exhaustion"
                 self.expansion_origin = "overnight"
+                self.overnight_expansion = True
         self.atr_usage = self.session_range / self.daily_atr
+        print(f"{self.instrument} atr usage: ", self.atr_usage, "atr context: ", self.atr_context)
+
+    def update_ib_acceptance(self, close):
+        if close > self.ib_high:
+            self.current_above_ib += 1
+            self.current_below_ib = 0
+            self.max_above_ib += 1
+        elif close < self.ib_low:
+            self.current_below_ib += 1
+            self.current_above_ib = 0
+            self.max_below_ib += 1
+        else:
+            self.current_above_ib = 0
+            self.current_below_ib = 0
+            self.ib_containment_count += 1
 
     def compute_expansion_metrics(
         self,
@@ -173,19 +197,7 @@ class MarketContext:
     def update_relative_expansion(self, other_expansion_ratio):
         self.relative_expansion = (self.expansion_ratio - other_expansion_ratio)
 
-    def update_ib_acceptance(self, close):
-        if close > self.ib_high:
-            self.current_above_ib += 1
-            self.current_below_ib = 0
-            self.max_above_ib += 1
-        elif close < self.ib_low:
-            self.current_below_ib += 1
-            self.current_above_ib = 0
-            self.max_below_ib += 1
-        else:
-            self.current_above_ib = 0
-            self.current_below_ib = 0
-            self.ib_containment_count += 1
+    
             
     
     def detect_day_type(
@@ -234,12 +246,13 @@ class MarketContext:
                 and (self.current_above_ib >= 1 or self.current_below_ib >=1)
             ):
                 self.day_type = "trend_candidate"
+                print("updating bias at 10am")
                 if self.current_above_ib >= 1:
                     self.bias = "bullish"
                     print("trend_candidate: assigning bullish at 10am")
                 elif self.current_below_ib >=1 :
                     self.bias = "bearish"
-                    print("trend candidate: assigning bullish at 10am")
+                    print("trend candidate: assigning bearish at 10am")
 
         # 10:30 confirmation
         if ts.hour == 10 and ts.minute == 30:

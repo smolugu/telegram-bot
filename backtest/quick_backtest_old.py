@@ -135,7 +135,6 @@ def run_quick_backtest(test_date: str):
 
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
                 dt_current = datetime.fromisoformat(current_30m_start)
-                print("current hour: ", dt.hour)
                 # update currest_session for i=0, 1, 2 
                 if (i == 3):
                     nq_current_session_high = max(nq_30m[0]["high"], nq_30m[1]["high"], nq_30m[2]["high"])
