@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import pytz
 from datetime import datetime, timedelta, time
 NY_TZ = pytz.timezone("America/New_York")
@@ -137,3 +138,23 @@ def get_active_window(timestamp_iso, wick_minutes=90):
         return "7h_wick_1500"
 
     return None
+
+
+def is_blocked_time(ts, blocked_windows = None, buffer_minutes=5):
+    blocked_times = [
+        (8,30), (9,30)
+    ]
+    tz = ZoneInfo("America/New_York")
+    
+    if isinstance(ts, str):
+        dt = datetime.fromisoformat(ts).astimezone(tz)
+    else:
+        dt = ts.astimezone(tz)
+    current_minutes = dt.hour * 60 + dt.minute
+
+    for h, m in blocked_times:
+        blocked_minutes = h * 60 + m
+        if abs(current_minutes - blocked_minutes) <= buffer_minutes:
+            return True
+    
+    return False

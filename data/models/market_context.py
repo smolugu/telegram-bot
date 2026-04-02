@@ -45,12 +45,18 @@ class MarketContext:
 
         self.session_high = None
         self.session_low = None
+        self.session_open = None
+        self.session_close = None
+        self.session_range = None
+        self.session_direction = None
+        self.directional_move = None
+        self.efficiency = None
 
         self.daily_atr = None
         self.atr_usage = None
         self.overnight_atr_usage = None
         self.atr_context = None
-        self.session_range = None
+        
         self.atr_expansion_ratio = None
         self.expansion_origin = None
         self.overnight_expansion = False
@@ -129,7 +135,14 @@ class MarketContext:
     def set_daily_atr(self, daily_atr):
         self.daily_atr = daily_atr
 
-    def update_session_range(self, high, low):
+    def update_session_range(self, high, low, open, close):
+
+        if self.session_open is None:
+            self.session_open = open
+        self.session_close = close
+
+        # direction
+        self.session_direction = "bullish" if close > open else "bearish"
 
         if self.session_high is None:
             self.session_high = high
@@ -142,7 +155,7 @@ class MarketContext:
     def set_daily_atr(self, atr):
         self.daily_atr = atr
 
-    def update_atr_usage(self, current_30m_start):
+    def update_atr_usage(self, current_30m_start, close=None):
         # print("session_range: ", self.session_range)
         # print("dauly_atr: ", self.daily_atr)
         ts = datetime.fromisoformat(current_30m_start)
@@ -153,6 +166,14 @@ class MarketContext:
                 self.expansion_origin = "overnight"
                 self.overnight_expansion = True
         self.atr_usage = self.session_range / self.daily_atr
+        # efficiency
+        # > 0.7 - clean trend, 0.4-0.7 mixed, < 0.4 choppy
+        if close is not None and self.session_open is not None:
+            current_price = close
+            net_move = abs(current_price - self.session_open)
+            self.directional_move = abs(net_move) / self.daily_atr
+            self.efficiency = (self.directional_move / self.atr_usage if self.atr_usage > 0 else None)
+
         print(f"{self.instrument} atr usage: ", self.atr_usage, "atr context: ", self.atr_context)
 
     def update_ib_acceptance(self, close):

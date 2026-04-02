@@ -14,7 +14,7 @@ from helpers.atr import calculate_daily_atr
 
 from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
 from helpers.swing_points import filter_valid_swing_highs, filter_valid_swing_lows, get_valid_swings
-from helpers.time_windows import get_active_window
+from helpers.time_windows import get_active_window, is_blocked_time
 from modules.imbalance_detector_old import detect_3m_fvg
 from modules.nyam_context import get_morning_context
 from modules.orchestrator import evaluate_7h_setup
@@ -154,12 +154,12 @@ def run_quick_backtest(test_date: str):
                     es_seven_hour_builder.update(es_30m[0])
                     es_seven_hour_builder.update(es_30m[1])
                     es_seven_hour_builder.update(es_30m[2])
-                    nq_market_context.update_session_range(nq_30m[0]["high"], nq_30m[0]["low"])
-                    nq_market_context.update_session_range(nq_30m[1]["high"], nq_30m[1]["low"])
-                    nq_market_context.update_session_range(nq_30m[2]["high"], nq_30m[2]["low"])
-                    es_market_context.update_session_range(es_30m[0]["high"], es_30m[0]["low"])
-                    es_market_context.update_session_range(es_30m[1]["high"], es_30m[1]["low"])
-                    es_market_context.update_session_range(es_30m[2]["high"], es_30m[2]["low"])
+                    nq_market_context.update_session_range(nq_30m[0]["high"], nq_30m[0]["low"], nq_30m[0]["open"], nq_30m[0]["close"])
+                    nq_market_context.update_session_range(nq_30m[1]["high"], nq_30m[1]["low"], nq_30m[1]["open"], nq_30m[1]["close"])
+                    nq_market_context.update_session_range(nq_30m[2]["high"], nq_30m[2]["low"], nq_30m[2]["open"], nq_30m[2]["close"])
+                    es_market_context.update_session_range(es_30m[0]["high"], es_30m[0]["low"], es_30m[0]["open"], es_30m[0]["close"])
+                    es_market_context.update_session_range(es_30m[1]["high"], es_30m[1]["low"], es_30m[1]["open"], es_30m[1]["close"])
+                    es_market_context.update_session_range(es_30m[2]["high"], es_30m[2]["low"], es_30m[2]["open"], es_30m[2]["close"])
                     
                 #  track current current day high and low (HOD, LOD)
                 if last_closed_nq["high"] > nq_current_session_high:
@@ -194,8 +194,8 @@ def run_quick_backtest(test_date: str):
                     
                 
                 # update market context for NQ and ES
-                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"])
-                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"])
+                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"])
+                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"], last_closed_es["open"], last_closed_es["close"])
                 # update atr_usage based on daily atr and session range
                 nq_market_context.update_atr_usage(current_30m_start)
                 es_market_context.update_atr_usage(current_30m_start)
@@ -485,8 +485,13 @@ def run_quick_backtest(test_date: str):
                         time = nq_sell_candidate.ob_data["confirmation_timestamp"]
                     if nq_sell_candidate.sweep_and_ob_confirmation_timestamp is not None:
                         time = nq_sell_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
+                    
+                    # dt = datetime.fromisoformat(time) + timedelta(minutes=30)
+                    # if dt.hour == 9 and dt.minute == 30:
+                    #     send = False
+                    result = is_blocked_time(current_30m_start)
+                    if result:
+                        print("is blocked time (current_30m_start): ", current_30m_start)
                         send = False
                     current_last_closed_dt = to_ny_datetime(last_closed_nq["timestamp"])
                     confirmation_dt = to_ny_datetime(nq_sell_candidate.confirmation_time)
