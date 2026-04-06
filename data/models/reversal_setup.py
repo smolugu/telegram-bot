@@ -26,6 +26,8 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
 
     reversal_confirmation = False
     is_reversal_candidate = False
+    ib_entry = None
+    ib_stop_loss = None
     # direction = "bullish" if candidate.side == "sell_side" else "bearish"
     # check displacement, use displacement for confirmation but not disqualification, as some reversals can be disguised as displacement candles.
     # is_displacement = is_displacement_candle(
@@ -38,7 +40,8 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
 
     # check session, identify session
     is_london_killzone = in_session(current_30m_start, 3, 0, 5,0)
-    is_ny_am_killzone = in_session(last_closed_candle["timestamp"], 9, 30, 12, 30)
+    # in ny killzone lets include 8am wick window as out setup forms around 7hr wicks
+    is_ny_am_killzone = in_session(last_closed_candle["timestamp"], 8, 0, 12, 30)
     print("----------------------------------------")
     print("is_london_killzone: ", is_london_killzone, " |  is_ny_am_killzone: ", is_ny_am_killzone)
     # print("smt summary: ", smt_summary)
@@ -104,10 +107,27 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             #     direction,
             #     None,
             # )
+            
             # bearish confirmation rules
             if is_ib_rejection_18 and is_ib_rejection_1:
                 reversal_confirmation = True
-                print("step1")
+                print("ib_high_18: ", ib_high_18, "ib_high_1: ", ib_high_1)
+                if close < ib_low_18:
+                    ib_entry = ib_low_18
+                    ib_stop_loss = ib_high_18
+                elif close < ib_ce_18:
+                    ib_entry = ib_ce_18
+                    ib_stop_loss = ib_high_18
+                elif close < ib_low_1:
+                    ib_entry = ib_low_1
+                    ib_stop_loss = ib_high_1
+                elif close < ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_high_1
+                    
+                print("step1: strong IB rejection, reversal confirmation")
+                print("IB entry: ", ib_entry, "IB stop loss: ", ib_stop_loss)
+                
             # manipulation
             elif is_ib_rejection_18 and is_above_ib_1:
                 reversal_confirmation = False
@@ -115,18 +135,37 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
                 print("step2: reversal candidate")
             elif is_ib_rejection_18 and is_below_ib_1:
                 reversal_confirmation = True
-                print("step3")
+                if close < ib_low_18:
+                    ib_entry = ib_low_18
+                    ib_stop_loss = ib_high_18
+                elif close < ib_ce_18:
+                    ib_entry = ib_ce_18
+                    ib_stop_loss = ib_high_18
+                print("step3, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_18 and close < ib_ce_1:
                 reversal_confirmation = True
-                print("reversal confirmation at close below ib ce of 1am")
+                ib_entry = ib_ce_1
+                ib_stop_loss = ib_high_1
+                print("reversal confirmation at close below ib ce of 8am, entry, stop_loss: ", ib_entry, ib_stop_loss)
+            
             elif is_ib_rejection_1 and close < ib_ce_18:
                 reversal_confirmation = True
-                print("reversal confirmation at close below ib ce of 18")
+                ib_entry = ib_ce_18
+                ib_stop_loss = ib_high_18
+                print("reversal confirmation at close below ib ce of 1am - 2. entry, SL", ib_entry, ib_stop_loss)
+            
             # bearish confirmation
             elif is_ib_rejection_1 and is_below_ib_18:
                 reversal_confirmation = True
-                print("step4")
-            # 
+                if close < ib_low_1:
+                    ib_entry = ib_low_1
+                    ib_stop_loss = ib_high_1
+                elif close < ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_high_1
+                print("step4, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_1 and is_above_ib_18:
                 reversal_confirmation = False
                 is_reversal_candidate = True
@@ -179,7 +218,23 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             # bullish confirmation rules
             if is_ib_rejection_18 and is_ib_rejection_1:
                 reversal_confirmation = True
-                print("step1")
+                print("ib_high_18: ", ib_high_18, "ib_high_1: ", ib_high_1)
+                if close > ib_high_18:
+                    ib_entry = ib_high_18
+                    ib_stop_loss = ib_low_18
+                elif close > ib_ce_18:
+                    ib_entry = ib_ce_18
+                    ib_stop_loss = ib_low_18
+                elif close > ib_high_1:
+                    ib_entry = ib_high_1
+                    ib_stop_loss = ib_low_1
+                elif close > ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_low_1
+                    
+                print("step1: strong IB rejection, reversal confirmation")
+                print("IB entry: ", ib_entry, "IB stop loss: ", ib_stop_loss)
+                
             # manipulation
             elif is_ib_rejection_18 and is_below_ib_1:
                 reversal_confirmation = False
@@ -187,17 +242,36 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
                 print("step2: reversal candidate")
             elif is_ib_rejection_18 and is_above_ib_1:
                 reversal_confirmation = True
-                print("step3")
+                if close > ib_high_18:
+                    ib_entry = ib_high_18
+                    ib_stop_loss = ib_low_18
+                elif close > ib_ce_18:
+                    ib_entry = ib_ce_18
+                    ib_stop_loss = ib_low_18
+                print("step3, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_18 and close > ib_ce_1:
                 reversal_confirmation = True
-                print("reversal confirmation at close above ib ce of 1am")
+                ib_entry = ib_ce_1
+                ib_stop_loss = ib_low_1
+                print("reversal confirmation at close below ib ce of 8am, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_1 and close > ib_ce_18:
                 reversal_confirmation = True
-                print("reversal confirmation at close above ib ce of 18")
+                ib_entry = ib_ce_18
+                ib_stop_loss = ib_low_18
+                print("reversal confirmation at close above ib ce of 1am. entry, stop loss: ", ib_entry, ib_stop_loss)
+                
+            # bearish confirmation
             elif is_ib_rejection_1 and is_above_ib_18:
                 reversal_confirmation = True
-                print("step4")
-
+                if close > ib_high_1:
+                    ib_entry = ib_high_1
+                    ib_stop_loss = ib_low_1
+                elif close > ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_low_1
+                print("step4, entry, stop_loss: ", ib_entry, ib_stop_loss)                
             elif is_ib_rejection_1 and is_below_ib_18:
                 reversal_confirmation = False
                 is_reversal_candidate = True
@@ -205,6 +279,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             else:
                 reversal_confirmation = False
                 print("step6: no IB rules met")
+
             # final confirmation using smt
             #  allow trade for reversal candidate only when SMT is present
             if is_smt and is_reversal_candidate:
@@ -229,6 +304,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         # return True
         print("smt, reversal confirmation, candidate: ", is_smt, reversal_confirmation, is_reversal_candidate)
         # return reversal_confirmation or is_reversal_candidate
+        candidate.set_ib_entry(ib_entry, ib_stop_loss)
         return reversal_confirmation
     # implement other killzones and rules later
     elif is_ny_am_killzone:
@@ -277,11 +353,27 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             print("is_below_ib_1: ", is_below_ib_1)
             print("is_above_ib_1: ", is_above_ib_1)
             print("asia_swept: ", asia_swept)
-            
+
             # bearish confirmation rules
             if is_ib_rejection_1 and is_ib_rejection_8:
                 reversal_confirmation = True
-                print("step1")
+                print("ib_high_1: ", ib_high_1, "ib_high_8: ", ib_high_8)
+                if close < ib_low_1:
+                    ib_entry = ib_low_1
+                    ib_stop_loss = ib_high_1
+                elif close < ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_high_1
+                elif close < ib_low_8:
+                    ib_entry = ib_low_8
+                    ib_stop_loss = ib_high_8
+                elif close < ib_ce_8:
+                    ib_entry = ib_ce_8
+                    ib_stop_loss = ib_high_8
+                    
+                print("step1: strong IB rejection, reversal confirmation")
+                print("IB entry: ", ib_entry, "IB stop loss: ", ib_stop_loss)
+                
             # manipulation
             elif is_ib_rejection_1 and is_above_ib_8:
                 reversal_confirmation = False
@@ -289,18 +381,37 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
                 print("step2: reversal candidate")
             elif is_ib_rejection_1 and is_below_ib_8:
                 reversal_confirmation = True
-                print("step3")
+                if close < ib_low_1:
+                    ib_entry = ib_low_1
+                    ib_stop_loss = ib_high_1
+                elif close < ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_high_1
+                print("step3, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_1 and close < ib_ce_8:
                 reversal_confirmation = True
-                print("reversal confirmation at close below ib ce of 8am - 1")
+                ib_entry = ib_ce_8
+                ib_stop_loss = ib_high_8
+                print("reversal confirmation at close below ib ce of 8am, entry, stop_loss: ", ib_entry, ib_stop_loss)
+            
             elif is_ib_rejection_8 and close < ib_ce_1:
                 reversal_confirmation = True
-                print("reversal confirmation at close below ib ce of 1am - 2")
+                ib_entry = ib_ce_1
+                ib_stop_loss = ib_high_1
+                print("reversal confirmation at close below ib ce of 1am - 2. entry, SL", ib_entry, ib_stop_loss)
+            
             # bearish confirmation
             elif is_ib_rejection_8 and is_below_ib_1:
                 reversal_confirmation = True
-                print("step4")
-            # 
+                if close < ib_low_8:
+                    ib_entry = ib_low_8
+                    ib_stop_loss = ib_high_8
+                elif close < ib_ce_8:
+                    ib_entry = ib_ce_8
+                    ib_stop_loss = ib_high_8
+                print("step4, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_8 and is_above_ib_1:
                 reversal_confirmation = False
                 is_reversal_candidate = True
@@ -345,7 +456,23 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             # bullish confirmation rules
             if is_ib_rejection_1 and is_ib_rejection_8:
                 reversal_confirmation = True
-                print("step1")
+                print("ib_high_1: ", ib_high_1, "ib_high_8: ", ib_high_8)
+                if close > ib_high_1:
+                    ib_entry = ib_high_1
+                    ib_stop_loss = ib_low_1
+                elif close > ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_low_1
+                elif close > ib_high_8:
+                    ib_entry = ib_high_8
+                    ib_stop_loss = ib_low_8
+                elif close > ib_ce_8:
+                    ib_entry = ib_ce_8
+                    ib_stop_loss = ib_low_8
+                    
+                print("step1: strong IB rejection, reversal confirmation")
+                print("IB entry: ", ib_entry, "IB stop loss: ", ib_stop_loss)
+                
             # manipulation
             elif is_ib_rejection_1 and is_below_ib_8:
                 reversal_confirmation = False
@@ -353,17 +480,36 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
                 print("step2: reversal candidate")
             elif is_ib_rejection_1 and is_above_ib_8:
                 reversal_confirmation = True
-                print("step3")
+                if close > ib_high_1:
+                    ib_entry = ib_high_1
+                    ib_stop_loss = ib_low_1
+                elif close > ib_ce_1:
+                    ib_entry = ib_ce_1
+                    ib_stop_loss = ib_low_1
+                print("step3, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_1 and close > ib_ce_8:
                 reversal_confirmation = True
-                print("reversal confirmation at close above ib ce of 8am - 1")
+                ib_entry = ib_ce_8
+                ib_stop_loss = ib_low_8
+                print("reversal confirmation at close below ib ce of 8am, entry, stop_loss: ", ib_entry, ib_stop_loss)
+                
             elif is_ib_rejection_8 and close > ib_ce_1:
                 reversal_confirmation = True
-                print("reversal confirmation at close above ib ce of 1am - 2")
+                ib_entry = ib_ce_1
+                ib_stop_loss = ib_low_1
+                print("reversal confirmation at close above ib ce of 1am. entry, stop loss: ", ib_entry, ib_stop_loss)
+                
             # bearish confirmation
             elif is_ib_rejection_8 and is_above_ib_1:
                 reversal_confirmation = True
-                print("step4")
+                if close > ib_high_8:
+                    ib_entry = ib_high_8
+                    ib_stop_loss = ib_low_8
+                elif close > ib_ce_8:
+                    ib_entry = ib_ce_8
+                    ib_stop_loss = ib_low_8
+                print("step4, entry, stop_loss: ", ib_entry, ib_stop_loss)                
             elif is_ib_rejection_8 and is_below_ib_1:
                 reversal_confirmation = False
                 is_reversal_candidate = True
@@ -381,6 +527,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
                 print("Not in a bullish overnight expansion or exhaustion, rejecting longs")
         print("smt, reversal confirmation, candidate: ", is_smt, reversal_confirmation, is_reversal_candidate)
         # return reversal_confirmation or is_reversal_candidate
+        candidate.set_ib_entry(ib_entry, ib_stop_loss)
         return reversal_confirmation
             
     else:

@@ -19,6 +19,9 @@ class SetupCandidate:
         self.sweep_and_ob_ce_entry = None
         self.sweep_and_ob_confirmation_timestamp = None
         self.swept_levels = None
+        self.sweep_type = None
+        self.ib_entry = None
+        self.ib_stop_loss = None
 
         self.smt_confirmed = False
         self.smt_timestamp = None
@@ -36,7 +39,13 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp=None, swept_levels=None, instrument=None):
+    def set_ib_entry(self, entry, stop_loss):
+        self.ib_entry = entry
+        self.ib_stop_loss = stop_loss
+
+    # --------------------------------------------------
+
+    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed=False, sweep_and_ob_entry=None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp=None, swept_levels=None, instrument=None, sweep_type = None):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
@@ -49,6 +58,7 @@ class SetupCandidate:
         self.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
         self.confirmation_time = sweep_and_ob_confirmation_timestamp
         self.swept_levels = swept_levels
+        self.sweep_type = sweep_type
         self.instrument = instrument
 
         

@@ -119,7 +119,7 @@ def run_quick_backtest(test_date: str):
                 current_30m_start = nq_30m[i]["timestamp"]
                 window_name = get_active_window(current_30m_start)
 
-                if window_name != current_window:
+                if window_name != current_window and not current_window == "ny_am_lunch" :
                     print("🔄 New window detected:", window_name)
 
                     nq_buy_candidate.reset()
@@ -239,9 +239,15 @@ def run_quick_backtest(test_date: str):
                 # get valid swing points and key levels and send to detect_30m_key_level_sweep
                 nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq, i)
                 es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es, i)
-                # sweep detection and key level detection
+                # sweep detection 30m Swing points
                 sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
                 sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
+                
+                # sweep detection at key levels
+                sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = liquidity_nq, candles_3m = nq_3m, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
+                sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = liquidity_es, candles_3m = es_3m, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
+
+                # sweep detection at previous hour highs and lows
 
                 # if not sweep_nq and not sweep_es:
                 #     continue
@@ -253,20 +259,40 @@ def run_quick_backtest(test_date: str):
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["8AM"].values())
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
                 
-                # if sweep_nq and sweep_nq["sweep_key_level"]:
-                if sweep_nq_highs:
-                    print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
-                    nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ")
-                if sweep_nq_lows:
-                    print("Sweep detected NQ Lows:", sweep_nq_lows)
-                    nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ")
+                # capture key level sweep separately, 1hr sweep
 
-                if sweep_es_highs:
-                    print("SWEEP DETECTED ES Highs:", sweep_es_highs)
-                    es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES")
-                if sweep_es_lows:
-                    print("Sweep detected ES Lows:", sweep_es_lows)
-                    es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES")
+
+                # if sweep_nq and sweep_nq["sweep_key_level"]:
+                # if sweep_nq_highs or sweep_nq_key_level_highs
+                if sweep_nq_highs or sweep_nq_highs_key_level:
+                    if sweep_nq_highs_key_level:
+                        print("SWEEP DETECTED NQ Highs at Key Level:", sweep_nq_highs_key_level)
+                        nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"])
+                    elif sweep_nq_highs:
+                        print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
+                        nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"])
+                if sweep_nq_lows or sweep_nq_lows_key_level:
+                    if sweep_nq_lows_key_level:
+                        print("SWEEP DETECTED NQ Lows at Key Level:", sweep_nq_lows_key_level)
+                        nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"])
+                    elif sweep_nq_lows:
+                        print("Sweep detected NQ Lows:", sweep_nq_lows)
+                        nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"])
+
+                if sweep_es_highs or sweep_es_highs_key_level:
+                    if sweep_es_highs_key_level:
+                        print("SWEEP DETECTED ES Highs at Key Level:", sweep_es_highs_key_level)
+                        es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"])
+                    elif sweep_es_highs:     
+                        print("SWEEP DETECTED ES Highs:", sweep_es_highs)
+                        es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"])
+                if sweep_es_lows or sweep_es_lows_key_level:
+                    if sweep_es_lows_key_level:
+                        print("SWEEP DETECTED ES Lows at Key Level:", sweep_es_lows_key_level)
+                        es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"])
+                    elif sweep_es_lows:
+                        print("Sweep detected ES Lows:", sweep_es_lows)
+                        es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"])
 
                 #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
@@ -477,6 +503,7 @@ def run_quick_backtest(test_date: str):
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
                     send = check_for_reversal_setup_confirmation(nq_market_context,nq_seven_hour_builder.candles, liquidity_nq, liquidity_es, nq_sell_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bearish_smt)
+                    print("send from check: ", send)
                     # check for alert at 9:30
                     time = None
                     if nq_sell_candidate.ob_data is None:
@@ -486,20 +513,19 @@ def run_quick_backtest(test_date: str):
                     if nq_sell_candidate.sweep_and_ob_confirmation_timestamp is not None:
                         time = nq_sell_candidate.sweep_and_ob_confirmation_timestamp
                     
-                    # dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    # if dt.hour == 9 and dt.minute == 30:
-                    #     send = False
+                    
                     result = is_blocked_time(current_30m_start)
                     if result:
                         print("is blocked time (current_30m_start): ", current_30m_start)
                         send = False
+                        print("send from blocked time: ", send)
                     current_last_closed_dt = to_ny_datetime(last_closed_nq["timestamp"])
                     confirmation_dt = to_ny_datetime(nq_sell_candidate.confirmation_time)
                     if confirmation_dt < current_last_closed_dt:
                         print("current time is ahead of confirmation time, not sending alert")
                         send = False
                     # send alert for NQ sell candidate
-                    print("send == ", send, "trade confirmation time: ", nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
+                    print("send === ", send, "trade confirmation time: ", nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
                     if send:
                         message = build_trade_alert(candidate = nq_sell_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
                         if message:
@@ -522,17 +548,14 @@ def run_quick_backtest(test_date: str):
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
                     send = check_for_reversal_setup_confirmation(nq_market_context, nq_seven_hour_builder.candles, liquidity_nq, liquidity_es, nq_buy_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bullish_smt)
+                    print("send from check nq buy candidate: ", send)
                     # check for alert at 9:30
-                    time = None
-                    if nq_buy_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = nq_buy_candidate.ob_data["confirmation_timestamp"]
-                    if nq_buy_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = nq_buy_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
+                    result = is_blocked_time(current_30m_start)
+                    if result:
+                        print("is blocked time (current_30m_start): ", current_30m_start)
                         send = False
+                        print("send from blocked time: ", send)
+                    
                     current_last_closed_dt = to_ny_datetime(last_closed_nq["timestamp"])
                     confirmation_dt = to_ny_datetime(nq_buy_candidate.confirmation_time)
                     if confirmation_dt < current_last_closed_dt:
@@ -574,16 +597,12 @@ def run_quick_backtest(test_date: str):
                     #     print("es sell: step 6")
                     #     send = False
                     # check for alert at 9:30
-                    time = None
-                    if es_sell_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = es_sell_candidate.ob_data["confirmation_timestamp"]
-                    if es_sell_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = es_sell_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
+                    result = is_blocked_time(current_30m_start)
+                    if result:
+                        print("is blocked time (current_30m_start): ", current_30m_start)
                         send = False
+                        print("send from blocked time: ", send)
+                    
                     # check last_closed_timestamp with confirmation_time
                     current_last_closed_dt = to_ny_datetime(last_closed_es["timestamp"])
                     confirmation_dt = to_ny_datetime(es_sell_candidate.confirmation_time)
@@ -609,16 +628,12 @@ def run_quick_backtest(test_date: str):
                     #     send = True
                     send = check_for_reversal_setup_confirmation(es_market_context, es_seven_hour_builder.candles, liquidity_nq, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, es_daily_atr, summary_bullish_smt)
                     # check for alert at 9:30
-                    time = None
-                    if es_buy_candidate.ob_data is None:
-                        time = None
-                    else:
-                        time = es_buy_candidate.ob_data["confirmation_timestamp"]
-                    if es_buy_candidate.sweep_and_ob_confirmation_timestamp is not None:
-                        time = es_buy_candidate.sweep_and_ob_confirmation_timestamp
-                    dt = datetime.fromisoformat(time) + timedelta(minutes=30)
-                    if dt.hour == 9 and dt.minute == 30:
+                    result = is_blocked_time(current_30m_start)
+                    if result:
+                        print("is blocked time (current_30m_start): ", current_30m_start)
                         send = False
+                        print("send from blocked time: ", send)
+                    
                     current_last_closed_dt = to_ny_datetime(last_closed_es["timestamp"])
                     confirmation_dt = to_ny_datetime(es_buy_candidate.confirmation_time)
                     if confirmation_dt < current_last_closed_dt:

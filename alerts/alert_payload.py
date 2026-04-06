@@ -38,7 +38,24 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         ce_confirmation_candle_price = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
     sweep_candle_extreme = candidate.sweep_candle_extreme
     tp1 = None
+    # stop loss when we have rejection sweep at key level or swing point
+    if candidate.sweep_type == "rejection":
+        stop = sweep_candle_extreme
+    elif candidate.sweep_type == "breakout" and candidate.ib_stop_loss is not None:
+        stop = candidate.ib_stop_loss
+        print("stop based on IB stop loss: ", stop)
+
+    else:
+        if candidate.ob_data is not None and candidate.ob_data["ob_high"] is not None:
+            stop = candidate.ob_data["ob_high"] if side == "buy_side" else candidate.ob_data["ob_low"]
+            print("stop based on OB: ", stop)
+        elif candidate.ib_stop_loss is not None:
+            stop = candidate.ib_stop_loss
+            print("stop based on IB: ", stop)
+        else:
+            stop = sweep_candle_extreme
     # get previous session context with bias, atr to calculate RR, entry levels
+    
     rr = 1
     if side == "buy_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
@@ -49,7 +66,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
             entry = candidate.sweep_and_ob_entry - 1.5
             print("sweep and OB confirmed. Adjusting entry to:", entry)
             rr = 8
-        risk = sweep_candle_extreme - entry
+        risk = stop - entry
         tp1 = entry - (risk * rr)
         print("tp1: ", tp1)
 
@@ -70,6 +87,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         # }
     elif side == "buy_side":
         rr = 1.5
+        risk = abs(entry - stop)
         tp1 = entry - (risk * rr)
         print("Using original imbalance entry. TP adjusted to:", entry)
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
@@ -81,7 +99,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
             entry = candidate.sweep_and_ob_entry + 1.5
             print("sweep and OB confirmed. Adjusting entry to:", entry)
             rr = 8
-        risk = entry - sweep_candle_extreme
+        risk = abs(entry - stop)
         tp1 = entry + (risk * rr)
         
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > default_risk:
@@ -91,6 +109,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         tp1 = entry + (risk * rr)
     elif side == "sell_side":
         rr = 1.5
+        risk = abs(entry - stop)
         tp1 = entry + (risk * rr)
         print("Using original imbalance entry. TP adjusted to:", entry)
         
@@ -103,13 +122,16 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         #     "entry_type": "CE_ADJUSTED",
         #     "tp": ce_confirmation_candle_price + (risk * 1.5)
         # }
-    stop = sweep_candle_extreme
+
+    
+
+    # set stop loss based on OB or IB high or low when we have sweep with displacement
     direction = "bearish" if side == "buy_side" else "bullish"
     tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1)
     candidate.insert_trade_data = {
             "entry": entry,
             "side": side,
-            "stop": sweep_candle_extreme,
+            "stop": stop,
             "confirmation_timestamp": time,
             "ce_confirmation_candle_price": ce_confirmation_candle_price,
             "entry_type": "CE_ADJUSTED",
@@ -126,14 +148,14 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
     if side == "buy_side":
         # bearish trade
         print("ce entry: ", entry)
-        stop = sweep_candle_extreme
+        # stop = sweep_candle_extreme
         bias = "Bearish"
         # risk = stop - entry
         # tp = entry - (risk * 1.5)
 
     elif side == "sell_side":
         # bullish trade
-        stop = sweep_candle_extreme
+        # stop = sweep_candle_extreme
         bias = "Bullish"
         # risk = entry - stop
         # tp = entry + (risk * 1.5)
