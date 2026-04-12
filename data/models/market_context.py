@@ -277,8 +277,14 @@ class MarketContext:
 
         # 10:30 confirmation
         if ts.hour == 10 and ts.minute == 30:
+            print("expansion ratio: ", self.expansion_ratio)
+            print("expansion speed: ", self.expansion_speed)
+            print("atr usage: ", self.atr_usage)
             if (self.expansion_ratio >= 1.2 and self.atr_usage > 0.9 and self.expansion_speed < 0.5):
                 self.exhaustion = True
+                print("assigning exhaustion at 10:30am")
+                print("assigning day type: ", self.day_type)
+                print("finalizing day type: ", self.day_type_finalized)
                 if self.exhaustion:
                     self.day_type = "reversal"
                     self.day_type_finalized = True
@@ -291,9 +297,13 @@ class MarketContext:
             ):
                 self.day_type = "trend"
                 self.day_type_finalized = True
+                print("assigning day type to trend at 10:30am")
+                print("max_above_ib: ", self.max_above_ib)
+                print("max_below_ib: ", self.max_below_ib)
                 if self.max_above_ib >= 2:
                     self.bias = "bullish"
                     print("trend: assigning bullish at 10:30am")
+                    
                 else:
                     self.bias = "bearish"
                     print("trend: assigning bearish at 10:30am")

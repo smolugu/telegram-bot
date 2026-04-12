@@ -134,6 +134,7 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, tolerance=0):
 
         # Buy-side liquidity (price above level)
         if level_type.endswith("high") or level_type == "pdh":
+        # if level_type == "pdh":
             # Check if high touches or exceeds the level (potential sweep) and set swept to True
             # if high >= price - tolerance:
             # --------------------------------
@@ -191,7 +192,8 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, tolerance=0):
             continue
 
         # Sell-side liquidity (price below level)
-        elif level_type.endswith("low") or level_type == "pdl":
+        if level_type.endswith("low") or level_type == "pdl":
+        # if level_type == "pdl":
             # Check if low touches or goes below the level (potential sweep) and set swept to True
             # if low <= price + tolerance:
             if low < price:

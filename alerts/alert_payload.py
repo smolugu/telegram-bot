@@ -43,12 +43,12 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         stop = sweep_candle_extreme
     elif candidate.sweep_type == "breakout" and candidate.ib_stop_loss is not None:
         stop = candidate.ib_stop_loss
-        print("stop based on IB stop loss: ", stop)
+        print("stop based on IB stop loss 1: ", stop)
 
     else:
         if candidate.ob_data is not None and candidate.ob_data["ob_high"] is not None:
             stop = candidate.ob_data["ob_high"] if side == "buy_side" else candidate.ob_data["ob_low"]
-            print("stop based on OB: ", stop)
+            print("stop based on OB 2: ", stop)
         elif candidate.ib_stop_loss is not None:
             stop = candidate.ib_stop_loss
             print("stop based on IB: ", stop)

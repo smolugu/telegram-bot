@@ -114,7 +114,13 @@ def run_quick_backtest(test_date: str):
             i = nq_30m_closes[ts]
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
             if i >= 3:
+
                 print("\n---------------------------")
+                # update weekly context at formation of new 1hr candle
+                # weekly_context.update(candle_1h) 
+                # weekly_context.update_cisd(prev, current)
+                # weekly_context.update_fvg(c1, c2, c3)
+                # prifile = weekly_context.infer_profile()
                 # reset setup candidates at the start of each 7h window
                 current_30m_start = nq_30m[i]["timestamp"]
                 window_name = get_active_window(current_30m_start)
@@ -260,7 +266,6 @@ def run_quick_backtest(test_date: str):
                 # print("nq seven hour candle: ", nq_seven_hour_builder.candles["3PM"].values())
                 
                 # capture key level sweep separately, 1hr sweep
-
 
                 # if sweep_nq and sweep_nq["sweep_key_level"]:
                 # if sweep_nq_highs or sweep_nq_key_level_highs

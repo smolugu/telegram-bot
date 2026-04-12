@@ -3,6 +3,157 @@ from helpers.ib_helpers import check_ib_rejection
 from helpers.sessions import in_session
 
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+
+# context to track the formation of low or high of the day on 1h timeframe, sweep of previous day high/low 
+# and formation of 1h cisd will be a strong indication of reversal setup. 
+# we can also use fvg formation as an additional layer of confirmation or disqualification depending on the context.
+def track_asia_context(
+    candles_1h,
+    pdh,
+    pdl,
+    weekly_high,
+    weekly_low,
+    tz_str="America/New_York"
+):
+
+    tz = ZoneInfo(tz_str)
+
+    context = {
+        "swept_pdh": False,
+        "swept_pdl": False,
+
+        "cisd": None,  # "bullish" or "bearish"
+        "cisd_candle": None,
+
+        "fvg": None,  # {"type": "bullish"/"bearish", "low": x, "high": y}
+
+        "asia_high": None,
+        "asia_low": None,
+
+        "hod_candidate": None,
+        "lod_candidate": None,
+
+        "weekly_high_taken": False,
+        "weekly_low_taken": False
+    }
+
+    prev_candle = None
+    prev_prev_candle = None
+
+    for i, c in enumerate(candles_1h):
+
+        high = c["high"]
+        low = c["low"]
+        close = c["close"]
+        open_ = c["open"]
+
+        # -------------------------
+        # Track Asia High/Low
+        # -------------------------
+        if context["asia_high"] is None or high > context["asia_high"]:
+            context["asia_high"] = high
+
+        if context["asia_low"] is None or low < context["asia_low"]:
+            context["asia_low"] = low
+
+        # -------------------------
+        # Sweep PDH / PDL
+        # -------------------------
+        if high > pdh:
+            context["swept_pdh"] = True
+
+        if low < pdl:
+            context["swept_pdl"] = True
+
+        # -------------------------
+        # Weekly High / Low Sweep
+        # -------------------------
+        if high > weekly_high:
+            context["weekly_high_taken"] = True
+
+        if low < weekly_low:
+            context["weekly_low_taken"] = True
+
+        # -------------------------
+        # Detect CISD (simple version)
+        # -------------------------
+        if prev_candle:
+
+            # Bullish CISD
+            if (
+                context["swept_pdl"]
+                and close > prev_candle["high"]
+            ):
+                context["cisd"] = "bullish"
+                context["cisd_candle"] = c
+
+            # Bearish CISD
+            if (
+                context["swept_pdh"]
+                and close < prev_candle["low"]
+            ):
+                context["cisd"] = "bearish"
+                context["cisd_candle"] = c
+
+        # -------------------------
+        # Detect FVG (3-candle model)
+        # -------------------------
+        if prev_prev_candle and prev_candle:
+
+            # Bullish FVG
+            if prev_prev_candle["high"] < c["low"]:
+                context["fvg"] = {
+                    "type": "bullish",
+                    "low": prev_prev_candle["high"],
+                    "high": c["low"],
+                    "created_at": c["timestamp"]
+                }
+
+            # Bearish FVG
+            if prev_prev_candle["low"] > c["high"]:
+                context["fvg"] = {
+                    "type": "bearish",
+                    "low": c["high"],
+                    "high": prev_prev_candle["low"],
+                    "created_at": c["timestamp"]
+                }
+
+        prev_prev_candle = prev_candle
+        prev_candle = c
+
+    # -------------------------
+    # Identify HOD / LOD candidates
+    # -------------------------
+    if context["cisd"] == "bearish" and context["swept_pdh"]:
+        context["hod_candidate"] = context["asia_high"]
+
+    if context["cisd"] == "bullish" and context["swept_pdl"]:
+        context["lod_candidate"] = context["asia_low"]
+
+    return context
+
+
+
+def context_for_london(market_context):
+    # check price delivery in asia and early london
+    # check session direction and atr usage
+    # atr_usage > 1, no smt confirmation needed
+    # atr_usage < 0.9, require smt confirmation
+    # when asia delivers, we need ib rejectin at 1am for reversal
+    # get bias on 1hr, sweep of previous day and formation of 1h cisd
+    require_smt_confirmation = False
+    if market_context.atr_usage < 0.9:
+        require_smt_confirmation = True
+
+    return {
+        "is_asia_choppy": False,  # update with actual logic
+        "session_direction": None,  # update with actual logic
+        "require_smt_confirmation": require_smt_confirmation,  # update with actual logic
+    }
+
 def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_candles, liquidity_levels_nq, liquidity_levels_es, candidate, last_closed_candle, current_30m_start, daily_atr, smt_summary):
     # get session time
     # bias from previous 7hr candle (ex: bearish)
@@ -39,7 +190,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     asia_swept = False
 
     # check session, identify session
-    is_london_killzone = in_session(current_30m_start, 3, 0, 5,0)
+    is_london_killzone = in_session(current_30m_start, 3, 0, 5, 0)
     # in ny killzone lets include 8am wick window as out setup forms around 7hr wicks
     is_ny_am_killzone = in_session(last_closed_candle["timestamp"], 8, 0, 12, 30)
     print("----------------------------------------")
@@ -62,6 +213,9 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     elif look_for_longs:
         if smt_summary["bullish_smt_1h"] is not None or smt_summary["bullish_smt_30m_swing"] is not None:
             is_smt = True
+    
+    session_direction = market_context.session_direction
+    atr_usage = market_context.atr_usage
 
     if is_london_killzone:
         # get seven hour candles
@@ -322,10 +476,10 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         allow_shorts = True
         allow_longs = True
         print("overnight expansion: ", market_context.overnight_expansion, "exhaustion: ", market_context.exhaustion, "bias: ", market_context.bias )
-        if (market_context.overnight_expansion or market_context.exhaustion) and market_context.bias == "bearish":
-            allow_longs = False
-        elif (market_context.overnight_expansion or market_context.exhaustion) and market_context.bias == "bullish":
+        if (market_context.overnight_expansion or market_context.exhaustion) and market_context.session_direction == "bearish":
             allow_shorts = False
+        elif (market_context.overnight_expansion or market_context.exhaustion) and market_context.session_direction == "bullish":
+            allow_longs = False
         print("allow_shorts: ", allow_shorts, "allow_longs: ", allow_longs)
 
         # look for shorts
