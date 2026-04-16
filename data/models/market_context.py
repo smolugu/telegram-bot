@@ -116,8 +116,8 @@ class MarketContext:
             "current_below_ib": self.current_below_ib,
             "max_above_ib": self.max_above_ib,
             "max_below_ib": self.max_below_ib,
-            # "current_day_high": self.session_high,
-            # "current_day_low": self.session_low,
+            "current_day_high": self.session_high,
+            "current_day_low": self.session_low,
             "atr_expansion_ratio": self.atr_expansion_ratio,
             "expansion_ratio": self.expansion_ratio,
             "expansion_speed": self.expansion_speed,
@@ -141,9 +141,6 @@ class MarketContext:
             self.session_open = open
         self.session_close = close
 
-        # direction
-        self.session_direction = "bullish" if close > open else "bearish"
-
         if self.session_high is None:
             self.session_high = high
             self.session_low = low
@@ -151,6 +148,13 @@ class MarketContext:
             self.session_high = max(self.session_high, high)
             self.session_low = min(self.session_low, low)
         self.session_range = self.session_high - self.session_low
+        # direction
+        self.session_direction = "bullish" if self.session_close > self.session_open else "bearish"
+        # print("session high: ", self.session_high)
+        # print("sessionlow: ", self.session_low)
+        # print("session range: ", self.session_range)
+        # print("atrusage: ", self.atr_usage)
+        # print("daily atr: ", self.daily_atr)
     
     def set_daily_atr(self, atr):
         self.daily_atr = atr
@@ -174,7 +178,7 @@ class MarketContext:
             self.directional_move = abs(net_move) / self.daily_atr
             self.efficiency = (self.directional_move / self.atr_usage if self.atr_usage > 0 else None)
 
-        print(f"{self.instrument} atr usage: ", self.atr_usage, "atr context: ", self.atr_context)
+        print(f"{self.instrument} daily atr: ", self.daily_atr, " atr usage: ", self.atr_usage, " sessio high: ", self.session_high, " session low: ", self.session_low, " atr context: ", self.atr_context)
 
     def update_ib_acceptance(self, close):
         if close > self.ib_high:

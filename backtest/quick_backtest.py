@@ -127,7 +127,6 @@ def run_quick_backtest(test_date: str):
 
                 if window_name != current_window and not current_window == "ny_am_lunch" :
                     print("🔄 New window detected:", window_name)
-
                     nq_buy_candidate.reset()
                     nq_sell_candidate.reset()
                     es_buy_candidate.reset()
@@ -139,10 +138,10 @@ def run_quick_backtest(test_date: str):
                 last_closed_nq = nq_30m[i - 1]
                 last_closed_es = es_30m[i - 1]
 
-                print("i =", i)
-                print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])
+                print("i =", i, " | current 30m boundary at: ", current_30m_start)
+                print("NQ Last closed:", last_closed_nq["timestamp"], nq_market_context.session_high, nq_market_context.session_low)
                 # print("ES Last closed:", last_closed_es["timestamp"], last_closed_es["high"], last_closed_es["low"])            
-                print("current 30m boundary at:", current_30m_start)
+                # print("current 30m boundary at:", current_30m_start)
 
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
                 dt_current = datetime.fromisoformat(current_30m_start)
@@ -228,8 +227,8 @@ def run_quick_backtest(test_date: str):
                     nq_market_context.set_ib(nq_ib_candidate.ib_high, nq_ib_candidate.ib_low)
                     es_market_context.set_ib(es_ib_candidate.ib_high, es_ib_candidate.ib_low)
                 
-                print("NQ Market Context: ", nq_market_context.values())
-                print("ES Market Context: ", es_market_context.values())
+                # print("NQ Market Context: ", nq_market_context.values())
+                # print("ES Market Context: ", es_market_context.values())
                 
                 historical_nq = nq_30m[:i]
                 historical_es = es_30m[:i]
@@ -252,7 +251,7 @@ def run_quick_backtest(test_date: str):
                 # sweep detection at key levels
                 sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = liquidity_nq, candles_3m = nq_3m, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
                 sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = liquidity_es, candles_3m = es_3m, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
-
+                
                 # sweep detection at previous hour highs and lows
 
                 # if not sweep_nq and not sweep_es:
@@ -304,17 +303,18 @@ def run_quick_backtest(test_date: str):
                     continue
 
                 # print for debug
-                print("Nq Buy candidate active:", nq_buy_candidate.active,
-                    "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
-
-                print("Nq Sell candidate active:", nq_sell_candidate.active,
-                    "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
-
-                print("Es Buy candidate active:", es_buy_candidate.active,
-                    "| ES sweep at:", es_buy_candidate.sweep_timestamp)
-
-                print("Es Sell candidate active:", es_sell_candidate.active,
-                    "| ES sweep at:", es_sell_candidate.sweep_timestamp)
+                if nq_buy_candidate.active:
+                    print("Nq Buy candidate active:", nq_buy_candidate.active,
+                        "| NQ sweep at:", nq_buy_candidate.sweep_timestamp)
+                if nq_sell_candidate.active:
+                    print("Nq Sell candidate active:", nq_sell_candidate.active,
+                        "| NQ sweep at:", nq_sell_candidate.sweep_timestamp)
+                if es_buy_candidate.active:
+                    print("Es Buy candidate active:", es_buy_candidate.active,
+                        "| ES sweep at:", es_buy_candidate.sweep_timestamp)
+                if es_sell_candidate.active:
+                    print("Es Sell candidate active:", es_sell_candidate.active,
+                        "| ES sweep at:", es_sell_candidate.sweep_timestamp)
 
                 # smt = detect_smt_dual(
                 # nq_30m[:i],
@@ -420,7 +420,7 @@ def run_quick_backtest(test_date: str):
                 fvg = None
                 
                 if nq_buy_candidate.final_ob_confirmed:
-                    print("Processing FVG for NQ Buy candidate")
+                    # print("Processing FVG for NQ Buy candidate")
                     #  imbalance should be present between sweep time and Ob time
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
@@ -434,7 +434,7 @@ def run_quick_backtest(test_date: str):
                         print("Bullish FVG detected:", fvg)
                 
                 if nq_sell_candidate.final_ob_confirmed:
-                    print("Processing FVG for NQ Sell candidate")
+                    # print("Processing FVG for NQ Sell candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         nq_3m,
@@ -447,7 +447,7 @@ def run_quick_backtest(test_date: str):
                         print("Bearish FVG detected:", fvg)
                 
                 if es_buy_candidate.final_ob_confirmed:
-                    print("Processing FVG for ES Buy candidate")
+                    # print("Processing FVG for ES Buy candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         es_3m,
@@ -460,7 +460,7 @@ def run_quick_backtest(test_date: str):
                         print("Bullish FVG detected:", fvg)
 
                 if es_sell_candidate.final_ob_confirmed:
-                    print("Processing FVG for ES Sell candidate")
+                    # print("Processing FVG for ES Sell candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         es_3m,
@@ -474,26 +474,26 @@ def run_quick_backtest(test_date: str):
                 if(nq_sell_candidate.fvg_confirmed or nq_sell_candidate.sweep_and_ob_confirmed):
                     print("NQ Sell candidate ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
-                else:
-                    print("NQ Sell candidate NOT ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                # else:
+                    # print("NQ Sell candidate NOT ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
                 if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed):
                     print("NQ buy candidate ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
-                else:
-                    print("NQ buy candidate NOT ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                # else:
+                #     print("NQ buy candidate NOT ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
                 if(es_sell_candidate.fvg_confirmed or es_sell_candidate.sweep_and_ob_confirmed):
                     print("es Sell candidate ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
-                else:
-                    print("ES Sell candidate NOT ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                # else:
+                #     print("ES Sell candidate NOT ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
                 if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed):
                     print("ES buy candidate ready for alert. FVG confirmed:", es_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
-                else:
-                    print("ES buy candidate NOT ready for alert. FVG confirmed:", es_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
+                # else:
+                #     print("ES buy candidate NOT ready for alert. FVG confirmed:", es_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
 
                 # filter alerts based on Market Context
@@ -507,8 +507,7 @@ def run_quick_backtest(test_date: str):
                     # filter based on SMT and other market context
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_market_context,nq_seven_hour_builder.candles, liquidity_nq, liquidity_es, nq_sell_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bearish_smt)
-                    print("send from check: ", send)
+                    send = check_for_reversal_setup_confirmation(nq_market_context, nq_seven_hour_builder.candles, liquidity_nq, liquidity_es, nq_sell_candidate, last_closed_nq, current_30m_start, nq_daily_atr, summary_bearish_smt)
                     # check for alert at 9:30
                     time = None
                     if nq_sell_candidate.ob_data is None:
@@ -532,6 +531,7 @@ def run_quick_backtest(test_date: str):
                     # send alert for NQ sell candidate
                     print("send === ", send, "trade confirmation time: ", nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
                     if send:
+                        print("Market Context: ", nq_market_context.values())
                         message = build_trade_alert(candidate = nq_sell_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
                         if message:
                             execute_trade_and_log(nq_sell_candidate, message)
@@ -569,6 +569,7 @@ def run_quick_backtest(test_date: str):
                     # send = True
                     print("send == ", send, "trade confirmation time: ", nq_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
                     if send:
+                        print("Market Context: ", nq_market_context.values())
                         # send alert for NQ buy candidate
                         message = build_trade_alert(candidate = nq_buy_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
                         if message:
@@ -615,8 +616,9 @@ def run_quick_backtest(test_date: str):
                         print("current time is ahead of confirmation time, not sending alert")
                         send = False
                     # send = True
-                    print("send == ", send, "trade confirmation time: ", es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
+                    print("ES send == ", send, "trade confirmation time: ", es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
                     if send:
+                        print("ES Market Context: ", es_market_context.values())
                         # send alert for ES sell candidate
                         message = build_trade_alert(candidate = es_sell_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr)
                         if message:
@@ -647,7 +649,7 @@ def run_quick_backtest(test_date: str):
                     # send = True
                     print("send == ", send, "trade confirmation time: ", es_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
                     if send:
-                        print("sending ES buy alert")
+                        print("ES Market Context: ", es_market_context.values())
                         # send alert for ES buy candidate
                         message = build_trade_alert(candidate = es_buy_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr)
                         if message:

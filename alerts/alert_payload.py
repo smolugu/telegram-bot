@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from data.models.profit_targets import get_tp_levels
 
 
-def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
+def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
 
     if not candidate.fvg_confirmed and not candidate.sweep_and_ob_confirmed:
         return None
@@ -65,7 +65,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         else:
             entry = candidate.sweep_and_ob_entry - 1.5
             print("sweep and OB confirmed. Adjusting entry to:", entry)
-            rr = 8
+            rr = 4
         risk = stop - entry
         tp1 = entry - (risk * rr)
         print("tp1: ", tp1)
@@ -98,7 +98,7 @@ def build_trade_alert(candidate, liquidity_map=None, daily_atr=None):
         else:
             entry = candidate.sweep_and_ob_entry + 1.5
             print("sweep and OB confirmed. Adjusting entry to:", entry)
-            rr = 8
+            rr = 4
         risk = abs(entry - stop)
         tp1 = entry + (risk * rr)
         

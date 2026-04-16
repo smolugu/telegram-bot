@@ -58,6 +58,101 @@ def get_tp2_from_liquidity(tp1, direction, liquidity_map):
 
     return tp2
 
+def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
+
+    buy_levels = []
+    sell_levels = []
+
+    # -------------------------
+    # 1. Filter unswept levels
+    # -------------------------
+    for lvl in liquidity_map.values():
+
+        price = lvl.get("price")
+        swept = lvl.get("swept")
+        side = lvl.get("side")
+
+        if price is None or swept:
+            continue
+
+        if side == "buy_side":
+            buy_levels.append(price)
+
+        elif side == "sell_side":
+            sell_levels.append(price)
+
+    # -------------------------
+    # 2. Direction logic
+    # -------------------------
+    if direction == "bearish":
+
+        candidates = sorted([p for p in sell_levels if p < entry_price], reverse=True)
+
+    else:  # bullish
+
+        candidates = sorted([p for p in buy_levels if p > entry_price])
+
+    if not candidates:
+        return tp1, None
+
+    # -------------------------
+    # 3. Find closest liquidity
+    # -------------------------
+    closest = candidates[0]
+
+    # -------------------------
+    # 4. Replace TP1 if needed
+    # -------------------------
+    if abs(entry_price - closest) < abs(entry_price - tp1):
+        new_tp1 = closest
+    else:
+        new_tp1 = tp1
+
+    # -------------------------
+    # 5. Find TP1 index PROPERLY
+    # -------------------------
+    tp1_index = None
+
+    for i, p in enumerate(candidates):
+        if p == new_tp1:
+            tp1_index = i
+            break
+
+    # If TP1 is not exactly in list, find correct insertion point
+    if tp1_index is None:
+
+        if direction == "bearish":
+            # find first level BELOW tp1
+            for i, p in enumerate(candidates):
+                if p < new_tp1:
+                    tp1_index = i
+                    break
+
+        else:  # bullish
+            # find first level ABOVE tp1
+            for i, p in enumerate(candidates):
+                if p > new_tp1:
+                    tp1_index = i
+                    break
+
+    # Safety fallback
+    if tp1_index is None:
+        tp1_index = 0
+
+    # -------------------------
+    # 6. TP2 = next level ONLY
+    # -------------------------
+    tp2 = None
+
+    if tp1_index + 1 < len(candidates):
+        tp2 = candidates[tp1_index + 1]
+
+    # Prevent duplicate TP1/TP2
+    if tp2 == new_tp1:
+        tp2 = candidates[tp1_index + 2] if tp1_index + 2 < len(candidates) else None
+
+    return new_tp1, tp2
+
 def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
 
     risk = abs(entry - stop)
@@ -66,7 +161,7 @@ def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
     # tp1 = entry - 1.5 * risk if direction == "bearish" else entry + 1.5 * risk
 
     # TP2: liquidity
-    tp2 = get_tp2_from_liquidity(tp1, direction, liquidity_map)
+    tp1, tp2 = get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry)
     print("tp2 from function: ", tp2)
 
      # if no valid TP2 from liquidity, set TP2 to 2RR

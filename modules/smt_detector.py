@@ -431,7 +431,7 @@ def detect_smt_dual(
     current_7h_open_iso,
     wick_window_minutes
 ):
-    print("SMT module called")
+  
     windows = get_reversal_windows(
         current_7h_open_iso,
         wick_window_minutes

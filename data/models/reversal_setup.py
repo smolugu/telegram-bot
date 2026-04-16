@@ -1,10 +1,36 @@
 from data.models.displacement import is_displacement_candle
 from helpers.ib_helpers import check_ib_rejection
 from helpers.sessions import in_session
+from helpers.time_windows import get_active_window
 
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+# decision flow: context layer, direction layer and validation layer
+def should_take_trade(context, setup):
+    
+    # context
+    if context.chop:
+        return False
+    if context.atr_usage > 0.9:
+        if setup.direction == context.direction:
+            return False # block continuation
+    
+    # base setup
+    if not (setup.sweep and setup.ob):
+        return False
+    # Filters
+    score = 0
+    if setup.smt:
+        score += 2
+    if setup.key_level:
+        score += 2
+    if setup.displacement:
+        score += 3
+    if score < 4:
+        return False
+    return True
 
 
 # context to track the formation of low or high of the day on 1h timeframe, sweep of previous day high/low 
@@ -16,8 +42,7 @@ def track_asia_context(
     pdl,
     weekly_high,
     weekly_low,
-    tz_str="America/New_York"
-):
+    tz_str="America/New_York"):
 
     tz = ZoneInfo(tz_str)
 
@@ -150,7 +175,7 @@ def context_for_london(market_context):
 
     return {
         "is_asia_choppy": False,  # update with actual logic
-        "session_direction": None,  # update with actual logic
+        "session_direction": market_context.session_direction,  # update with actual logic
         "require_smt_confirmation": require_smt_confirmation,  # update with actual logic
     }
 
@@ -162,6 +187,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     # if price is above current 7hr ib and rejecting previous 7hr ib = Manipulation of current 7hr
     # high = last_closed_candle["high"]
     # low = last_closed_candle["low"]
+    window_name = get_active_window(current_30m_start)
     close = last_closed_candle["close"]
     # sweep candle in totally below ib
     def below_ib(last_closed_candle, ib_low):
@@ -174,6 +200,32 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         if last_closed_candle["low"] > ib_high:
             return True
         return False
+
+    def filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt):
+        if not look_for_longs:
+            return False
+        if session_direction == "bullish":
+            if atr_usage > 0.9:
+                look_for_longs = False
+                print("not allowing longs as atr > 0.9")
+        elif session_direction == "bearish":
+            if atr_usage < 0.9 and not is_smt:
+                look_for_longs = False
+                print("not allowing longs as atr < 0.9 and no smt")
+        return look_for_longs
+
+    def filter_shorts_london(look_for_shorts, session_direction, atr_usage, is_smt):
+        if not look_for_shorts:
+            return False
+        if session_direction == "bearish":
+            if atr_usage > 0.9:
+                look_for_shorts = False
+                print("not allowing shorts as atr > 0.9")
+        elif session_direction == "bullish":
+            if atr_usage < 0.9 and not is_smt:
+                look_for_shorts = False
+                print("not allowing shorts as atr < 0.9 and no smt")
+        return look_for_shorts
 
     reversal_confirmation = False
     is_reversal_candidate = False
@@ -192,13 +244,16 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     # check session, identify session
     is_london_killzone = in_session(current_30m_start, 3, 0, 5, 0)
     # in ny killzone lets include 8am wick window as out setup forms around 7hr wicks
-    is_ny_am_killzone = in_session(last_closed_candle["timestamp"], 8, 0, 12, 30)
+    is_ny_am_killzone = in_session(current_30m_start, 8, 0, 12, 30)
+    is_ny_lunch_time = in_session(current_30m_start, 11, 0, 13, 30)
+    if window_name is "7h_wick_0800" and is_ny_am_killzone:
+        is_ny_am_killzone = False
     print("----------------------------------------")
     print("is_london_killzone: ", is_london_killzone, " |  is_ny_am_killzone: ", is_ny_am_killzone)
+    print("market context: ", market_context.values())
     # print("smt summary: ", smt_summary)
     
     # bias = prev_seven_hour_candle["bias"]
-    
 
     look_for_shorts = False
     look_for_longs = False
@@ -207,6 +262,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     elif candidate.side == "sell_side":
         look_for_longs = True
     is_smt = False
+    print("smt summary: ", smt_summary)
     if look_for_shorts:
         if smt_summary["bearish_smt_1h"] is not None or smt_summary["bearish_smt_30m_swing"] is not None:
             is_smt = True
@@ -216,7 +272,16 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     
     session_direction = market_context.session_direction
     atr_usage = market_context.atr_usage
+    london_context = context_for_london(market_context)
 
+    # -----------------------------------------------
+    # disable or allow longs and shorts based on atr_usage and smt
+    # -----------------------------------------------
+    look_for_longs = filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt)
+    look_for_shorts = filter_shorts_london(look_for_shorts, session_direction, atr_usage, is_smt)    
+    # -----------------------------------------------
+
+    
     if is_london_killzone:
         # get seven hour candles
         seven_hour_candle_6pm = seven_hour_builder_candles["6PM"].values()
@@ -578,6 +643,13 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             if is_smt and is_reversal_candidate:
                 print("Smt confirmation for reversal candidate, not allowing trade in ny am")
                 reversal_confirmation = False
+                print("is_ny_lunch_time: ", is_ny_lunch_time)
+                if is_ny_lunch_time:
+                    print("smt + reversal candidate during lunch time = allowing trade")
+                    reversal_confirmation = True
+                else:
+                    print("is_ny_lunch_time: ", is_ny_lunch_time)
+                
             if not allow_shorts:
                 reversal_confirmation = False
                 print("Not in a bearish overnight expansion or exhaustion, rejecting shorts")            
@@ -598,14 +670,14 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             is_above_ib_1 = above_ib(last_closed_candle, ib_high_1)
 
             # print ib reaction values
-            print("instrument, direction: ", candidate.instrument, "bullish")
-            print("is_ib_rejection_8: ", is_ib_rejection_8)
-            print("is_ib_rejection_1: ", is_ib_rejection_1)
-            print("is_below_ib_8: ", is_below_ib_8)
-            print("is_above_ib_8: ", is_above_ib_8)
-            print("is_below_ib_1: ", is_below_ib_1)
-            print("is_above_ib_1: ", is_above_ib_1)
-            print("asia_swept: ", asia_swept)
+            # print("instrument, direction: ", candidate.instrument, "bullish")
+            # print("is_ib_rejection_8: ", is_ib_rejection_8)
+            # print("is_ib_rejection_1: ", is_ib_rejection_1)
+            # print("is_below_ib_8: ", is_below_ib_8)
+            # print("is_above_ib_8: ", is_above_ib_8)
+            # print("is_below_ib_1: ", is_below_ib_1)
+            # print("is_above_ib_1: ", is_above_ib_1)
+            # print("asia_swept: ", asia_swept)
 
             # bullish confirmation rules
             if is_ib_rejection_1 and is_ib_rejection_8:
@@ -684,8 +756,36 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         candidate.set_ib_entry(ib_entry, ib_stop_loss)
         return reversal_confirmation
             
+    elif window_name is "7h_wick_0800":
+        allow_shorts = True
+        allow_longs = True
+        print("overnight expansion: ", market_context.overnight_expansion, "exhaustion: ", market_context.exhaustion, "bias: ", market_context.bias )
+        if (market_context.overnight_expansion or market_context.exhaustion):
+            if market_context.session_direction == "bearish":
+                print("overnight bearish expansion or exhausion. not allowing shorts")
+                allow_shorts = False
+            elif market_context.session_direction == "bullish":
+                print("overnight bullish expansion or exhausion. not allowing shorts")
+                allow_longs = False
+        else:
+            if market_context.session_direction == "bullish" and look_for_shorts and not is_smt:
+                print("no bullish exhausion and no bearish smt. not allowing shorts ")
+                allow_shorts = False
+            elif market_context.session_direction == "bearish" and look_for_longs and not is_smt:
+                print("no bearish exhausion and no bullish smt. not allowing longs ")
+                allow_longs = False
+            
+        # elif (market_context.overnight_expansion or market_context.exhaustion) and market_context.session_direction == "bullish":
+        #     allow_longs = False
+        print("allow_shorts: ", allow_shorts, "allow_longs: ", allow_longs)
+        # allow reversal with reversal_confirmation as true
+        
+        if look_for_longs and allow_longs:
+            reversal_confirmation = True
+        if look_for_shorts and allow_shorts:
+            reversal_confirmation = True
+        return reversal_confirmation
     else:
-
         return True
 
 

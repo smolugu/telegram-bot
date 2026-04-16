@@ -235,8 +235,8 @@ def run_quick_backtest(test_date: str):
                 nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq, i)
                 es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es, i)
                 # sweep detection and key level detection
-                sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
-                sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
+                # sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
+                # sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
 
                 # sweep_es = detect_30m_key_level_sweep("ES", historical_es, es_3m, last_closed_es)
                 # for swing in valid_highs_nq:

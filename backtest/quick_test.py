@@ -63,6 +63,8 @@ def run_quick_test(test_date: str):
     # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     nq_30m = get_futures_session(nq["30m"], test_date)
     nq_3m = get_futures_session(nq["3m"], test_date)
+    print("nq_3m candles for date: ", nq_3m)
+    
     es_30m = get_futures_session(es["30m"], test_date)
     es_3m = get_futures_session(es["3m"], test_date)
     liquidity_nq = reset_liquidity()
@@ -102,6 +104,7 @@ def run_quick_test(test_date: str):
     # print("nq 30m closes: ", nq_30m_closes)
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
+        print("3m candle timestamp: ", ts)
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
@@ -133,12 +136,29 @@ def run_quick_test(test_date: str):
                     nq_seven_hour_builder.update(nq_30m[0])
                     nq_seven_hour_builder.update(nq_30m[1])
                     nq_seven_hour_builder.update(nq_30m[2])
+
+                    
+                    nq_current_session_high = max(nq_30m[0]["high"], nq_30m[1]["high"], nq_30m[2]["high"])
+                    nq_current_session_low = min(nq_30m[0]["low"], nq_30m[1]["low"], nq_30m[2]["low"])
+                    es_current_session_high = max(es_30m[0]["high"], es_30m[1]["high"], es_30m[2]["high"])
+                    es_current_session_low = min(es_30m[0]["low"], es_30m[1]["low"], es_30m[2]["low"])
+                    # update 18:00 candle with the initial 3 candles
+                    
+                    nq_market_context.update_session_range(nq_30m[0]["high"], nq_30m[0]["low"], nq_30m[0]["open"], nq_30m[0]["close"])
+                    nq_market_context.update_session_range(nq_30m[1]["high"], nq_30m[1]["low"], nq_30m[1]["open"], nq_30m[1]["close"])
+                    nq_market_context.update_session_range(nq_30m[2]["high"], nq_30m[2]["low"], nq_30m[2]["open"], nq_30m[2]["close"])
+                    
                 
                 if dt.hour == 16:
                     print("resetting liquidity at : ", dt.hour)
                     liquidity_nq = reset_liquidity()
                     liquidity_es = reset_liquidity()
-                    ny_bias = "neutral"
+                    print("resetting market context at : ", dt.hour)
+                    print("daily atrs before reset: ", nq_market_context.daily_atr)
+                    nq_market_context.reset()
+                    nq_daily_atr = calculate_daily_atr(nq["30m"])
+                    
+                    print("new atrs at 16:", nq_daily_atr, es_daily_atr)
                 
                 historical_nq = nq_30m[:i]
                 historical_es = es_30m[:i]
@@ -149,8 +169,11 @@ def run_quick_test(test_date: str):
                 # print("liquidity es: ", liquidity_es)
                 sweep_nq = None
                 sweep_es = None
-                nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq, i)
-                es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es, i)
+                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"])
+            
+                # update atr_usage based on daily atr and session range
+                # nq_market_context.update_atr_usage(current_30m_start)
+            
                 
                 # print(" es swing points high: ", es_valid_swing_highs)
                 # print(" es swing points low: ", es_valid_swing_lows)
@@ -169,23 +192,23 @@ def run_quick_test(test_date: str):
                 # print('nq valid swing highs: ', nq_valid_swing_highs)
                 # print('es valid swing highs: ', es_valid_swing_highs)
                 # sweep detection and key level detection
-                sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
+                # sweep_nq = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
                 # sweep_es = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
                 
-                key_level_smt_result = detect_smt_key_levels(sweep_nq["swept_levels"] if sweep_nq else None,
-                    sweep_es["swept_levels"] if sweep_es else None)
+                # key_level_smt_result = detect_smt_key_levels(sweep_nq["swept_levels"] if sweep_nq else None,
+                #     sweep_es["swept_levels"] if sweep_es else None)
                 # smt_result = detect_30m_swing_smt(nq_valid_swing_highs, nq_valid_swing_lows, es_valid_swing_highs, es_valid_swing_lows, last_closed_nq, last_closed_es)
                 # if smt_result is None:
                 #     print('no smt result')
                 # else:
                 #     print("smt_result: ", smt_result)
-                if key_level_smt_result is None:
-                    print("no key level smt")
-                else:
-                    print("key_level_smt_result: ", key_level_smt_result)
+                # if key_level_smt_result is None:
+                #     print("no key level smt")
+                # else:
+                #     print("key_level_smt_result: ", key_level_smt_result)
                 # detect smt at key level
-                nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
-                es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
+                # nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
+                # es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
 
                 # detect smt at 1h
                 # h1_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)

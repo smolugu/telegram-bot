@@ -110,10 +110,10 @@ def detect_3m_imbalance_inside_ob_candle(
     ob_low = ob["ob_low"]
     ce_ob = (ob_high + ob_low) / 2
     sweep_extreme_price = candidate.sweep_candle_extreme
-    print("Ob high/low:", ob_high, ob_low, "| OB candle window:", ob_candle_start, "to", ob_candle_end)
-    print("Sweep timestamp:", sweep_time)
-    print("On end time: ", ob_candle_end)
-    print("sweep extreme: ", candidate.sweep_candle_extreme)
+    # print("Ob high/low:", ob_high, ob_low, "| OB candle window:", ob_candle_start, "to", ob_candle_end)
+    # print("Sweep timestamp:", sweep_time)
+    # print("On end time: ", ob_candle_end)
+    # print("sweep extreme: ", candidate.sweep_candle_extreme)
 
     # 1️⃣ Extract 3m candles inside OB candle
     inside = [
