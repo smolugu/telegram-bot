@@ -94,18 +94,21 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
 
     if not candidates:
         return tp1, None
-
+    print("candidates: ", candidates)
     # -------------------------
     # 3. Find closest liquidity
     # -------------------------
     closest = candidates[0]
+    print("closest: ", closest)
 
     # -------------------------
     # 4. Replace TP1 if needed
     # -------------------------
     if abs(entry_price - closest) < abs(entry_price - tp1):
+        print("level closest to entry")
         new_tp1 = closest
     else:
+        print("tp1 is closest")
         new_tp1 = tp1
 
     # -------------------------

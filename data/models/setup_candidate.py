@@ -35,6 +35,8 @@ class SetupCandidate:
 
         self.confirmation_time = None
         self.alert_sent = False
+        self.window_name = None
+        self.trade_status = None
         self.insert_trade_data = None
 
     # --------------------------------------------------

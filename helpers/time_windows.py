@@ -142,7 +142,7 @@ def get_active_window(timestamp_iso, wick_minutes=90):
 
 def is_blocked_time(ts, blocked_windows = None, buffer_minutes=5):
     blocked_times = [
-        (8,30), 
+        (8,30), (16,00), (13,00)
         # (9,30)
     ]
     tz = ZoneInfo("America/New_York")

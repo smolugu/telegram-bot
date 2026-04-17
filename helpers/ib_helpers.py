@@ -168,7 +168,8 @@ def check_ib_rejection(candle, ib_high, ib_low, ib_ce, direction):
     
     if direction == "bearish":
         # price taps IB levels and rejects downward
-        if (high >= ib_high and close < ib_ce) or (high >= ib_ce and close < ib_ce) or (high >= ib_low and close < ib_low):
+        # if (high >= ib_high and close < ib_ce) or (high >= ib_ce and close < ib_ce) or (high >= ib_low and close < ib_low):
+        if (high >= ib_high and close < ib_high) or (high >= ib_ce and close < ib_ce) or (high >= ib_low and close < ib_low):
             return True
         else:
             return False

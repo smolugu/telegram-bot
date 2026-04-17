@@ -124,6 +124,8 @@ def run_quick_backtest(test_date: str):
                 # reset setup candidates at the start of each 7h window
                 current_30m_start = nq_30m[i]["timestamp"]
                 window_name = get_active_window(current_30m_start)
+                if window_name != current_window:
+                    current_window = window_name
 
                 if window_name != current_window and not current_window == "ny_am_lunch" :
                     print("🔄 New window detected:", window_name)
@@ -471,25 +473,25 @@ def run_quick_backtest(test_date: str):
                     if fvg:
                         es_sell_candidate.register_fvg(fvg)
                         print("Bearish FVG detected:", fvg)
-                if(nq_sell_candidate.fvg_confirmed or nq_sell_candidate.sweep_and_ob_confirmed):
+                if(nq_sell_candidate.fvg_confirmed or nq_sell_candidate.final_ob_confirmed):
                     print("NQ Sell candidate ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
                 # else:
                     # print("NQ Sell candidate NOT ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
-                if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed):
+                if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.final_ob_confirmed):
                     print("NQ buy candidate ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
                 # else:
                 #     print("NQ buy candidate NOT ready for alert. FVG confirmed:", nq_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
-                if(es_sell_candidate.fvg_confirmed or es_sell_candidate.sweep_and_ob_confirmed):
+                if(es_sell_candidate.fvg_confirmed or es_sell_candidate.final_ob_confirmed):
                     print("es Sell candidate ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
                 # else:
                 #     print("ES Sell candidate NOT ready for alert. FVG confirmed:", es_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
-                if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed):
+                if(nq_buy_candidate.fvg_confirmed or nq_buy_candidate.final_ob_confirmed):
                     print("ES buy candidate ready for alert. FVG confirmed:", es_buy_candidate.fvg_confirmed, "| Sweep and OB confirmed:", es_buy_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", es_market_context.values())
                 # else:
@@ -499,7 +501,7 @@ def run_quick_backtest(test_date: str):
                 # filter alerts based on Market Context
                 # send alert if FVG confirmed and alert not sent for that candidate
 
-                if (nq_sell_candidate.fvg_confirmed or nq_sell_candidate.sweep_and_ob_confirmed) and not nq_sell_candidate.alert_sent:
+                if (nq_sell_candidate.fvg_confirmed or nq_sell_candidate.final_ob_confirmed) and not nq_sell_candidate.alert_sent:
                     # filter using market context
                     send = False
                     if (nq_market_context.day_type == "reversal" or nq_market_context.day_type is None) and nq_market_context.bias == "bearish":
@@ -530,6 +532,14 @@ def run_quick_backtest(test_date: str):
                         send = False
                     # send alert for NQ sell candidate
                     print("send === ", send, "trade confirmation time: ", nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
+                    if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
+                        if nq_sell_candidate.final_ob_confirmed and es_sell_candidate.final_ob_confirmed:
+                            if summary_bearish_smt["bearish_smt_1h"] is not None or summary_bearish_smt["bearish_smt_30m_swing"] is not None or summary_bearish_smt["bearish_smt_key_level"]:
+                                send = True
+                            else:
+                                send = False
+                        else:
+                            send = False
                     if send:
                         print("Market Context: ", nq_market_context.values())
                         message = build_trade_alert(candidate = nq_sell_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr)
@@ -546,7 +556,7 @@ def run_quick_backtest(test_date: str):
                             # print("Total trades:", cursor.fetchone())
 
                             # conn.close()
-                if (nq_buy_candidate.fvg_confirmed or nq_buy_candidate.sweep_and_ob_confirmed) and not nq_buy_candidate.alert_sent:
+                if (nq_buy_candidate.fvg_confirmed or nq_buy_candidate.final_ob_confirmed) and not nq_buy_candidate.alert_sent:
                     send = False
                     if (nq_market_context.day_type == "reversal" or nq_market_context.day_type is None) and (nq_market_context.bias == "bullish" or nq_market_context.bias == "neutral"):
                         send = True
@@ -568,6 +578,14 @@ def run_quick_backtest(test_date: str):
                         send = False
                     # send = True
                     print("send == ", send, "trade confirmation time: ", nq_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
+                    if nq_sell_candidate.alert_sent or es_sell_candidate.alert_sent:
+                        if nq_buy_candidate.final_ob_confirmed and es_buy_candidate.final_ob_confirmed:
+                            if summary_bullish_smt["bullish_smt_1h"] is not None or summary_bullish_smt["bullish_smt_30m_swing"] is not None or summary_bullish_smt["bullish_smt_key_level"]:
+                                send = True
+                            else:
+                                send = False
+                        else:
+                            send = False
                     if send:
                         print("Market Context: ", nq_market_context.values())
                         # send alert for NQ buy candidate
@@ -578,7 +596,7 @@ def run_quick_backtest(test_date: str):
                             # nq_buy_candidate.alert_sent = True
                             # insert_trade(nq_buy_candidate)
                 
-                if (es_sell_candidate.fvg_confirmed or es_sell_candidate.sweep_and_ob_confirmed) and not es_sell_candidate.alert_sent:
+                if (es_sell_candidate.fvg_confirmed or es_sell_candidate.final_ob_confirmed) and not es_sell_candidate.alert_sent:
                     # filters
                     # session time
                     # earlier 7h bias, sweep of Asia session high or low
@@ -617,6 +635,14 @@ def run_quick_backtest(test_date: str):
                         send = False
                     # send = True
                     print("ES send == ", send, "trade confirmation time: ", es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
+                    if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
+                        if nq_sell_candidate.final_ob_confirmed and es_sell_candidate.final_ob_confirmed:
+                            if summary_bearish_smt["bearish_smt_1h"] is not None or summary_bearish_smt["bearish_smt_30m_swing"] is not None or summary_bearish_smt["bearish_smt_key_level"]:
+                                send = True
+                            else:
+                                send = False
+                        else:
+                            send = False
                     if send:
                         print("ES Market Context: ", es_market_context.values())
                         # send alert for ES sell candidate
@@ -627,7 +653,7 @@ def run_quick_backtest(test_date: str):
                             # es_sell_candidate.alert_sent = True
                             # insert_trade(es_sell_candidate)
                 
-                if (es_buy_candidate.fvg_confirmed or es_buy_candidate.sweep_and_ob_confirmed) and not es_buy_candidate.alert_sent:
+                if (es_buy_candidate.fvg_confirmed or es_buy_candidate.final_ob_confirmed) and not es_buy_candidate.alert_sent:
                     send = False
                     if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and (es_market_context.bias == "bullish" or es_market_context.bias == "neutral"):
                         send = True
@@ -648,6 +674,16 @@ def run_quick_backtest(test_date: str):
                         send = False
                     # send = True
                     print("send == ", send, "trade confirmation time: ", es_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
+                    # check if existing candidate in opp direction
+                    # if there is, then both es and nq should be active with smt
+                    if es_sell_candidate.alert_sent or nq_sell_candidate.alert_sent:
+                        if es_buy_candidate.final_ob_confirmed and nq_buy_candidate.final_ob_confirmed:
+                            if summary_bullish_smt["bullish_smt_1h"] is not None or summary_bullish_smt["bullish_smt_30m_swing"] is not None or summary_bullish_smt["bullish_smt_key_level"]:
+                                send = True
+                            else:
+                                send = False
+                        else:
+                            send = False
                     if send:
                         print("ES Market Context: ", es_market_context.values())
                         # send alert for ES buy candidate
