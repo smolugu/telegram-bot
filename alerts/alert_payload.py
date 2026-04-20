@@ -48,7 +48,11 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
     else:
         if candidate.ob_data is not None and candidate.ob_data["ob_high"] is not None:
             stop = candidate.ob_data["ob_high"] if side == "buy_side" else candidate.ob_data["ob_low"]
-            print("stop based on OB 2: ", stop)
+            if side == "buy_side":
+                stop = candidate.ob_data["ob_high"] if candidate.ob_data["ob_high"] > candidate.ob_data["confirmation_high"] else candidate.ob_data["confirmation_high"]
+            else:
+                stop = candidate.ob_data["ob_low"] if candidate.ob_data["ob_low"] < candidate.ob_data["confirmation_low"] else candidate.ob_data["confirmation_low"]
+            print("stop based on OB and confirmation candle high or low: ", stop)
         elif candidate.ib_stop_loss is not None:
             stop = candidate.ib_stop_loss
             print("stop based on IB: ", stop)
@@ -59,13 +63,28 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
     rr = 1
     if side == "buy_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
+            
             entry = candidate.sweep_and_ob_ce_entry
-            print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
+            print("entry1 buyside: ", entry)
             rr = 2
+            print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
         else:
-            entry = candidate.sweep_and_ob_entry - 1.5
+            if candidate.ob_data is not None:
+                entry = candidate.ob_data["ob_low"]
+                print("entry2 buyside: ", entry)
+            else:
+                entry = candidate.sweep_and_ob_entry
+                print("entry3 buy side: ", entry)
+            rr = 2
             print("sweep and OB confirmed. Adjusting entry to:", entry)
-            rr = 4
+        # if candidate.sweep_and_ob_ce_confirmed:
+        #     entry = candidate.sweep_and_ob_ce_entry
+        #     print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
+        #     rr = 2
+        # else:
+        #     entry = candidate.sweep_and_ob_entry - 1.5
+        #     print("sweep and OB confirmed. Adjusting entry to:", entry)
+        #     rr = 4
         risk = stop - entry
         tp1 = entry - (risk * rr)
         print("tp1: ", tp1)
@@ -93,12 +112,26 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
             entry = candidate.sweep_and_ob_ce_entry
-            print("CE OB confirmed. Adjusting entry to:", entry)
+            print("entry1: ", entry)
             rr = 2
+            print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
         else:
-            entry = candidate.sweep_and_ob_entry + 1.5
+            if candidate.ob_data is not None:
+                entry = candidate.ob_data["ob_high"]
+                print("entry2: ", entry)
+            else:
+                entry = candidate.sweep_and_ob_entry
+                print("entry3: ", entry)
+            rr = 2
             print("sweep and OB confirmed. Adjusting entry to:", entry)
-            rr = 4
+        # if candidate.sweep_and_ob_ce_confirmed:
+        #     entry = candidate.sweep_and_ob_ce_entry
+        #     print("CE OB confirmed. Adjusting entry to:", entry)
+        #     rr = 2
+        # else:
+        #     entry = candidate.sweep_and_ob_entry + 1.5
+        #     print("sweep and OB confirmed. Adjusting entry to:", entry)
+        #     rr = 4
         risk = abs(entry - stop)
         tp1 = entry + (risk * rr)
         

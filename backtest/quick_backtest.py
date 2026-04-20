@@ -124,15 +124,19 @@ def run_quick_backtest(test_date: str):
                 # reset setup candidates at the start of each 7h window
                 current_30m_start = nq_30m[i]["timestamp"]
                 window_name = get_active_window(current_30m_start)
+                
                 if window_name != current_window:
-                    current_window = window_name
-
-                if window_name != current_window and not current_window == "ny_am_lunch" :
                     print("🔄 New window detected:", window_name)
-                    nq_buy_candidate.reset()
-                    nq_sell_candidate.reset()
-                    es_buy_candidate.reset()
-                    es_sell_candidate.reset()
+                    # reset only candidates whose alert is sent when a new window starts
+                    # dont reset active candidates    
+                    if nq_buy_candidate.alert_sent:
+                        nq_buy_candidate.reset()
+                    if nq_sell_candidate.alert_sent:
+                        nq_sell_candidate.reset()
+                    if es_buy_candidate.alert_sent:
+                        es_buy_candidate.reset()
+                    if es_sell_candidate.alert_sent:
+                        es_sell_candidate.reset()
                     current_window = window_name
 
                 print("Current window:", current_window)

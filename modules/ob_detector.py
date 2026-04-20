@@ -15,6 +15,10 @@ def detect_30m_order_block(candles, candidate):
 
     # We evaluate the last closed candle
     last_closed = candles[-1]
+    body = abs(last_closed["close"] - last_closed["open"])
+    range_ = last_closed["high"] - last_closed["low"]
+    strong_body = body/range_ > 0.6
+    ob_body_range = body/range_
 
     # ---------------------------------------
     # Bearish Setup (buy-side sweep first)
@@ -30,6 +34,7 @@ def detect_30m_order_block(candles, candidate):
 
                 # OB confirmed if last_closed closes below bullish open
                 if last_closed["close"] < c["open"]:
+
                     return {
                         "type": "bearish_ob",
                         "confirmation_timestamp": last_closed["timestamp"],
@@ -38,7 +43,10 @@ def detect_30m_order_block(candles, candidate):
                         "ob_low": c["open"],
                         "confirmation_high": last_closed["high"],
                         "confirmation_low": last_closed["low"],
-                        "source_index": i
+                        "source_index": i,
+                        "structure_break": last_closed["close"] < c["low"],
+                        "strong_body_displacement": strong_body,
+                        "ob_body_range": ob_body_range
                     }
 
                 break
@@ -66,7 +74,10 @@ def detect_30m_order_block(candles, candidate):
                         "ob_high": c["open"],
                         "confirmation_high": last_closed["high"],
                         "confirmation_low": last_closed["low"],
-                        "source_index": i
+                        "source_index": i,
+                        "structure_break": last_closed["close"] > c["high"],
+                        "strong_body_displacement": strong_body,
+                        "ob_body_range": ob_body_range
                     }
 
                 break

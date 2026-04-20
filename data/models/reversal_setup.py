@@ -189,6 +189,8 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     # low = last_closed_candle["low"]
     window_name = get_active_window(current_30m_start)
     close = last_closed_candle["close"]
+    high = last_closed_candle["high"]
+    low = last_closed_candle["low"]
     # sweep candle in totally below ib
     def below_ib(last_closed_candle, ib_low):
         if last_closed_candle["high"] < ib_low:
@@ -243,13 +245,14 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
 
     # check session, identify session
     is_london_killzone = in_session(current_30m_start, 3, 0, 5, 0)
+    is_post_london_killzone = in_session(current_30m_start, 5, 0, 6, 30)
     # in ny killzone lets include 8am wick window as out setup forms around 7hr wicks
-    is_ny_am_killzone = in_session(current_30m_start, 8, 0, 12, 30)
-    is_ny_lunch_time = in_session(current_30m_start, 11, 0, 13, 30)
+    is_ny_am_killzone = in_session(current_30m_start, 8, 0, 11, 30)
+    is_ny_lunch_time = in_session(current_30m_start, 12, 0, 13, 30)
     if window_name is "7h_wick_0800" and is_ny_am_killzone:
         is_ny_am_killzone = False
     print("----------------------------------------")
-    print("is_london_killzone: ", is_london_killzone, " |  is_ny_am_killzone: ", is_ny_am_killzone)
+    print("is_london_killzone: ", is_london_killzone, " | is_post_london_killzone:", is_post_london_killzone, " |  is_ny_am_killzone: ", is_ny_am_killzone, " | is_ny_lunch_time: ", is_ny_lunch_time, " | window_name: ", window_name)
     print("market context: ", market_context.values())
     # print("smt summary: ", smt_summary)
     
@@ -277,12 +280,11 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
     # -----------------------------------------------
     # disable or allow longs and shorts based on atr_usage and smt
     # -----------------------------------------------
-    look_for_longs = filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt)
-    look_for_shorts = filter_shorts_london(look_for_shorts, session_direction, atr_usage, is_smt)    
+    
     # -----------------------------------------------
-
     
     if is_london_killzone:
+        
         # get seven hour candles
         seven_hour_candle_6pm = seven_hour_builder_candles["6PM"].values()
         seven_hour_candle_1am = seven_hour_builder_candles["1AM"].values()
@@ -293,9 +295,12 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         ib_high_1 = seven_hour_candle_1am["ib_high"]
         ib_low_1 = seven_hour_candle_1am["ib_low"]
         ib_ce_1 = seven_hour_candle_1am["ib_ce"]
+        #  filter london longs and shorts
+        allow_longs = filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt)
+        allow_shorts = filter_shorts_london(look_for_shorts, session_direction, atr_usage, is_smt)    
 
         # london killzone shorts
-        if look_for_shorts:
+        if look_for_shorts and allow_shorts:
             
             is_below_ib_18 = False
             is_above_ib_18 = False
@@ -408,7 +413,7 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
             #     reversal_confirmation = False
         
         # london killzone shorts
-        elif look_for_longs:
+        elif look_for_longs and allow_longs:
             
             is_below_ib_18 = False
             is_above_ib_18 = False
@@ -760,6 +765,16 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         allow_shorts = True
         allow_longs = True
         print("overnight expansion: ", market_context.overnight_expansion, "exhaustion: ", market_context.exhaustion, "bias: ", market_context.bias )
+        
+        seven_hour_candle_6pm = seven_hour_builder_candles["6PM"].values()
+        seven_hour_candle_1am = seven_hour_builder_candles["1AM"].values()
+        
+        ib_high_18 = seven_hour_candle_6pm["ib_high"]
+        ib_low_18 = seven_hour_candle_6pm["ib_low"]
+        ib_ce_18 = seven_hour_candle_6pm["ib_ce"]
+        ib_high_1 = seven_hour_candle_1am["ib_high"]
+        ib_low_1 = seven_hour_candle_1am["ib_low"]
+        ib_ce_1 = seven_hour_candle_1am["ib_ce"]
         if (market_context.overnight_expansion or market_context.exhaustion):
             if market_context.session_direction == "bearish":
                 print("overnight bearish expansion or exhausion. not allowing shorts")
@@ -768,12 +783,24 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
                 print("overnight bullish expansion or exhausion. not allowing shorts")
                 allow_longs = False
         else:
-            if market_context.session_direction == "bullish" and look_for_shorts and not is_smt:
-                print("no bullish exhausion and no bearish smt. not allowing shorts ")
-                allow_shorts = False
-            elif market_context.session_direction == "bearish" and look_for_longs and not is_smt:
-                print("no bearish exhausion and no bullish smt. not allowing longs ")
-                allow_longs = False
+            if market_context.session_direction == "bullish":
+                
+                if liquidity_levels_nq["pdh"]["swept"] or liquidity_levels_es["pdh"]["swept"]:
+                    print("no bullish exhausion, but pdh swept, allowing shorts")
+                    allow_shorts = True
+                else:
+                    allow_shorts = False
+                    print("step 2")
+            elif market_context.session_direction == "bearish":
+                
+                if liquidity_levels_nq["pdl"]["swept"] or liquidity_levels_es["pdl"]["swept"]:
+                    print("no bearish exhausion, but pdl swept, allowing longs")
+                    allow_longs = True
+                else:
+                    allow_longs = False
+                    print("step 3")
+            else:
+                print("step 4")
             
         # elif (market_context.overnight_expansion or market_context.exhaustion) and market_context.session_direction == "bullish":
         #     allow_longs = False
@@ -785,8 +812,39 @@ def check_for_reversal_setup_confirmation(market_context, seven_hour_builder_can
         if look_for_shorts and allow_shorts:
             reversal_confirmation = True
         return reversal_confirmation
+    elif is_post_london_killzone:
+        allow_longs = filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt)
+        allow_shorts = filter_shorts_london(look_for_shorts, session_direction, atr_usage, is_smt)
+        if look_for_longs and allow_longs:
+            reversal_confirmation = True
+        if look_for_shorts and allow_shorts:
+            reversal_confirmation = True
+        return reversal_confirmation
+    elif is_ny_lunch_time:
+        # capture major reversal, skip retracements
+        if candidate.ob_data is not None:
+            if candidate.ob_data["structure_break"] and candidate.ob_data["strong_body_displacement"]:
+                reversal_confirmation = True
+        return reversal_confirmation
     else:
-        return True
-
+        print("inside last: ", candidate.instrument, candidate.sweep_and_ob_ce_confirmed)
+        print("structure break: ", candidate.ob_data["structure_break"] if candidate.ob_data is not None else None, "strong_body_displacement: ", candidate.ob_data["strong_body_displacement"] if candidate.ob_data is not None else None)
+        print("ob body range: ", candidate.ob_data["ob_body_range"] if candidate.ob_data is not None else None)
+        if candidate.sweep_and_ob_ce_confirmed:
+            reversal_confirmation = True
+            print("aksnkdna")
+        elif candidate.sweep_and_ob_confirmed:
+            if candidate.ob_data is not None:
+                if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
+                    reversal_confirmation = True
+                    print("lklkl")
+        elif candidate.ob_data is not None:
+            if candidate.ob_data["structure_break"] and candidate.ob_data["strong_body_displacement"]:
+                reversal_confirmation = True
+                print("aksnkdnaasdadasdas")
+        else:
+            print("none+none")
+        return reversal_confirmation
+        
 
 

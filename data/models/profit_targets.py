@@ -175,5 +175,12 @@ def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
 
     # TP3: ATR expansion
     tp3 = entry - 0.7 * daily_atr if direction == "bearish" else entry + 0.7 * daily_atr
+    if tp2 is None:
+        if direction == "bearish":
+            tp2 = tp1 - (tp1 - tp3) / 2
+        else:
+            tp2 = tp1 + (tp3 - tp1) / 2
+
+
     
     return tp1, tp2, tp3
