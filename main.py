@@ -88,8 +88,8 @@ def main():
     init_db()  # initialize database if needed
     
     if MODE == "BACKTEST":
-        run_quick_backtest("2026-04-13")
-        # run_quick_test("2026-04-10")
+        run_quick_backtest("2026-04-21")
+        # run_quick_test("2026-04-21")
         return
     token = os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(token).build()

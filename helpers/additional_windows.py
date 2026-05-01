@@ -20,7 +20,6 @@ ADDITIONAL_WINDOWS = [
         "start": {"hour": 10, "minute": 0},
         "end": {"hour": 13, "minute": 45}
     }
-
 ]
 
 SPECIFIC_WINDOWS = {
@@ -29,3 +28,5 @@ SPECIFIC_WINDOWS = {
     # "london_reversal": ("03:00", "05:00"),
     "7h_wick_0100": ("1:00", "05:00")
 }
+
+

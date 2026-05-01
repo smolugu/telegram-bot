@@ -56,6 +56,25 @@ class MarketContext:
         self.atr_usage = None
         self.overnight_atr_usage = None
         self.atr_context = None
+
+        # compression
+        self.compression_flags = {
+            "nested_1_in_18": False,
+            "engulfing_1_over_18": False,
+            "overlap_1_18": False,
+            "overlap_8_1": False,
+            "nested_8_between_18_1": False,
+            "multi_ib_compression": False
+            }
+        self.compression_range = {"high": None, "low": None}
+
+        # smt
+        self.bullish_smt_1h = None
+        self.bearish_smt_1h = None  
+        self.bullish_smt_30m = None 
+        self.bearish_smt_30m = None
+        self.bullish_key_level_smt = None
+        self.bearish_key_level_smt = None
         
         self.atr_expansion_ratio = None
         self.expansion_origin = None
@@ -122,6 +141,11 @@ class MarketContext:
             "expansion_ratio": self.expansion_ratio,
             "expansion_speed": self.expansion_speed,
             "relative_expansion": self.relative_expansion,
+            "session_direction": self.session_direction,
+            "session_high": self.session_high,
+            "session_low": self.session_low,
+            "session_open": self.session_open,
+            "session_close": self.session_close,
         }
 
     def set_ib(self, ib_high, ib_low):
@@ -134,6 +158,10 @@ class MarketContext:
 
     def set_daily_atr(self, daily_atr):
         self.daily_atr = daily_atr
+
+    def update_compression_info(self, compression_flags, compression_range):
+        self.compression_flags = compression_flags
+        self.compression_range = compression_range
 
     def update_session_range(self, high, low, open, close):
 
@@ -180,6 +208,27 @@ class MarketContext:
 
         print(f"{self.instrument} daily atr: ", self.daily_atr, " atr usage: ", self.atr_usage, " sessio high: ", self.session_high, " session low: ", self.session_low, " atr context: ", self.atr_context)
 
+    def update_1h_smt(self, bullish_smt_1h, bearish_smt_1h):
+        self.bullish_smt_1h = bullish_smt_1h
+        self.bearish_smt_1h = bearish_smt_1h
+
+    def update_1h_smt_status(self, last_closed_nq, last_closed_es):
+        if self.bullish_smt_1h is not None:
+            if self.bullish_smt_1h["sweeper"] == "nq":
+                if last_closed_es["low"] < self.bullish_smt_1h["es_level_price"]:
+                    self.bullish_smt_1h = None  # invalidate bullish smt if price has moved against it
+            elif self.bullish_smt_1h["sweeper"] == "es":
+                if last_closed_nq["low"] < self.bullish_smt_1h["nq_level_price"]:
+                    self.bullish_smt_1h = None  # invalidate bullish smt if price has moved against it
+
+        if self.bearish_smt_1h is not None:
+            if self.bearish_smt_1h["sweeper"] == "nq":
+                if last_closed_es["high"] > self.bearish_smt_1h["es_level_price"]:
+                    self.bearish_smt_1h = None  # invalidate bearish smt if price has moved against it
+            elif self.bearish_smt_1h["sweeper"] == "es":
+                if last_closed_nq["high"] > self.bearish_smt_1h["nq_level_price"]:
+                    self.bearish_smt_1h = None  # invalidate bearish smt if price has moved against it
+        
     def update_ib_acceptance(self, close):
         if close > self.ib_high:
             self.current_above_ib += 1

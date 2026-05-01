@@ -56,7 +56,7 @@ def detect_hourly_smt_precise(
     
     nq_current = nq_candles[-1]
     es_current = es_candles[-1]
-
+    
     nq_prev = nq_candles[-(lookback+1):-1]
     es_prev = es_candles[-(lookback+1):-1]
     
@@ -65,9 +65,11 @@ def detect_hourly_smt_precise(
     # -------------------------
     nq_unswept_highs = filter_unswept_highs(nq_prev)
     nq_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in nq_unswept_highs]
+    # print("nq prevv hihgs: ", nq_prev_highs)
 
     es_unswept_highs = filter_unswept_highs(es_prev)
     es_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in es_unswept_highs]
+    # print("es prevv hihgs: ", es_prev_highs)
 
     nq_unswept_lows = filter_unswept_lows(nq_prev)
     nq_prev_lows = [{"low": c["low"], "timestamp": c["timestamp"]} for c in nq_unswept_lows]
@@ -117,7 +119,8 @@ def detect_hourly_smt_precise(
                 bearish_smt = {
                     "type": "bearish_smt",
                     "sweeper": "nq",
-                    "level_price": nq_high["high"],
+                    "nq_level_price": nq_high["high"],
+                    "es_level_price": es_high["high"],
                     "level_ts": nq_high["timestamp"]
                 }
 
@@ -136,7 +139,8 @@ def detect_hourly_smt_precise(
                 bearish_smt = {
                     "type": "bearish_smt",
                     "sweeper": "es",
-                    "level_price": es_high["high"],
+                    "nq_level_price": nq_high["high"],
+                    "es_level_price": es_high["high"],
                     "level_ts": es_high["timestamp"]
                 }
 
@@ -157,7 +161,8 @@ def detect_hourly_smt_precise(
                 bullish_smt = {
                     "type": "bullish_smt",
                     "sweeper": "nq",
-                    "level_price": nq_low["low"],
+                    "nq_level_price": nq_low["low"],
+                    "es_level_price": es_low["low"],
                     "level_ts": nq_low["timestamp"]
                 }
 
@@ -175,7 +180,8 @@ def detect_hourly_smt_precise(
                 bullish_smt = {
                     "type": "bullish_smt",
                     "sweeper": "es",
-                    "level_price": es_low["low"],
+                    "nq_level_price": nq_low["low"],
+                    "es_level_price": es_low["low"],
                     "level_ts": es_low["timestamp"]
                 }
             

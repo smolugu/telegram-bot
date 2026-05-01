@@ -9,7 +9,7 @@ from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
 from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
-from helpers.sessions import get_futures_session, get_session_high_low
+from helpers.sessions import get_futures_session, get_session_high_low, in_session
 from helpers.swing_points import get_valid_swings
 from helpers.time_windows import get_active_window
 from modules.imbalance_detector_old import detect_3m_fvg
@@ -62,16 +62,17 @@ def run_quick_test(test_date: str):
     # nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
     # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     nq_30m = get_futures_session(nq["30m"], test_date)
+    # print("nq_30m candles for date: ", nq_30m)
     nq_3m = get_futures_session(nq["3m"], test_date)
-    print("nq_3m candles for date: ", nq_3m)
-    
+    # print("nq_3m candles for date: ", nq_3m)
+    # 
     es_30m = get_futures_session(es["30m"], test_date)
     es_3m = get_futures_session(es["3m"], test_date)
     liquidity_nq = reset_liquidity()
     liquidity_es = reset_liquidity()
     # nq_30m = nq["30m"]
     # nq_3m = nq["3m"]
-    print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
+    # print("Sample 30m timestamp:", nq["30m"][0]["timestamp"])
     # print("Sample 3m timestamp:", nq_3m[0]["timestamp"])
 
     # es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
@@ -82,7 +83,7 @@ def run_quick_test(test_date: str):
     # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
     # es_3m = es["3m"]
-    print("Sample 30m timestamp:", es["30m"][0]["timestamp"])
+    
 
     # print("Total 30m candles:", len(nq_30m))
     # print("Total 3m candles:", len(nq_3m))
@@ -104,7 +105,7 @@ def run_quick_test(test_date: str):
     # print("nq 30m closes: ", nq_30m_closes)
     for candle_3m in nq_3m:
         ts = candle_3m["timestamp"]
-        print("3m candle timestamp: ", ts)
+        # print("3m candle timestamp: ", ts)
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
@@ -112,12 +113,21 @@ def run_quick_test(test_date: str):
                 print("\n---------------------------")
                 # reset setup candidates at the start of each 7h window
                 current_30m_start = nq_30m[i]["timestamp"]
-                
+                is_post_1AM_IB = in_session(current_30m_start, 2, 00, 8, 0)
+                print("is_post_1AM_IB: ", is_post_1AM_IB)
                 # previous 30m candle just closed
                 last_closed_nq = nq_30m[i - 1]
                 last_closed_es = es_30m[i - 1]
                 prev_last_closed_nq = nq_30m[i-2]
                 prev_last_closed_es = es_30m[i-2]
+                t1 = datetime.fromisoformat(nq_30m[i-1]["timestamp"])
+                t0 = datetime.fromisoformat(nq_30m[i-2]["timestamp"])
+                delta = t1 - t0
+                print("delta: ", delta, t1, t0)
+
+                if delta > timedelta(minutes=30):
+                    print("Irregular gap:", delta)
+                
 
                 print("i =", i)
                 print("NQ Last closed:", last_closed_nq["timestamp"], last_closed_nq["high"], last_closed_nq["low"])

@@ -15,6 +15,7 @@ def filter_hourly_candles(hourly_candles, current_ts):
 
     for c in hourly_candles:
         dt = datetime.fromisoformat(c["timestamp"])
+    
 
         if dt <= current_dt:
             filtered.append(c)
@@ -83,7 +84,7 @@ def fetch_symbol_data(symbol: str):
     ticker = yf.Ticker(symbol)
 
     # 30m
-    # df_30m = ticker.history(interval="30m", period="7d")
+    # df_30md = ticker.history(interval="30m", period="7d")
 
     # 1h
     df_1h = ticker.history(interval="60m", period="14d")
@@ -100,6 +101,7 @@ def fetch_symbol_data(symbol: str):
     df_3m = resample_to_3m(df_1m)
     df_30m = resample_to_30m(df_5m)
     df_15m = resample_to_15m(df_5m)
+    
 
     return {
         "15m": format_df(df_15m),

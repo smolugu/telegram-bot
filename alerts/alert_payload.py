@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from data.models.profit_targets import get_tp_levels
 
 
-def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
+def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current_time = None):
 
     if not candidate.fvg_confirmed and not candidate.sweep_and_ob_confirmed:
         return None
@@ -16,6 +16,9 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
         time = candidate.sweep_and_ob_confirmation_timestamp
     dt = datetime.fromisoformat(time) + timedelta(minutes=30)
     time_formatted = dt.strftime("%b %d, %Y %I:%M %p")
+
+    dt2 = datetime.fromisoformat(current_time)
+    time_formatted = dt2.strftime("%b %d, %Y %I:%M %p")
     default_risk = None
 
     instrument = candidate.instrument
@@ -44,7 +47,6 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None):
     elif candidate.sweep_type == "breakout" and candidate.ib_stop_loss is not None:
         stop = candidate.ib_stop_loss
         print("stop based on IB stop loss 1: ", stop)
-
     else:
         if candidate.ob_data is not None and candidate.ob_data["ob_high"] is not None:
             stop = candidate.ob_data["ob_high"] if side == "buy_side" else candidate.ob_data["ob_low"]

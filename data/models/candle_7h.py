@@ -8,16 +8,12 @@ def get_7h_label(timestamp):
 
     if 18 <= h <= 23 or h == 0:
         return "6PM"
-
     if 1 <= h < 8:
         return "1AM"
-
     if 8 <= h < 15:
         return "8AM"
-
     if 15 <= h < 18:
         return "3PM"
-
     return None
 
 
@@ -46,6 +42,8 @@ class SevenHourCandle:
         self.ib_high = None
         self.ib_low = None
         self.ib_ce = None
+        self.ib_open = None
+        self.ib_close = None
         self.ib_ready = False
 
         # track first hour candles
@@ -75,9 +73,11 @@ class SevenHourCandle:
             if self.ib_high is None:
                 self.ib_high = h
                 self.ib_low = l
+                self.ib_open = o
             else:
                 self.ib_high = max(self.ib_high, h)
                 self.ib_low = min(self.ib_low, l)
+                self.ib_close = c
             
             #  after second candle compute CE
             if self._candle_count == 1:

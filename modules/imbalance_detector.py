@@ -98,7 +98,12 @@ def detect_3m_imbalance_inside_ob_candle(
 
     ob = candidate.ob_data
 
+    # we are detecting imbalances in the current candle which created the OB
+    last_closed_candle_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
     confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+    
+    if last_closed_candle_ts > confirmation_ts:
+        confirmation_ts = last_closed_candle_ts
     ob_candle_start = confirmation_ts
     ob_candle_end = confirmation_ts + timedelta(minutes=30)  # look for imbalances in the 30m window after OB confirmation, not just before
     sweep_time = None
