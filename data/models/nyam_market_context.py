@@ -35,8 +35,17 @@ class NewYorkMarketContext:
         self.sweep = {
             "side": None,
             "time": None,
+            "tier": None,
             "is_external": False,
-            "count": 0
+            "count": 0,
+            "count_low": 0,
+            "count_high": 0,
+            "inducement_level_high": None,
+            "inducement_level_low": None,
+            "is_smt_low": False,
+            "sweeper_low": None,
+            "is_smt_high": False,
+            "sweeper_high": None
         }
 
         # -------- ACCEPTANCE --------
@@ -275,9 +284,15 @@ class NewYorkMarketContext:
         # -------------------------
         if low < self.structure["range_low"]:
             self.sweep["side"] = "sell_side"
-            # TODO: fix key candle "time"
             self.sweep["time"] = candle["timestamp"]
-            self.sweep["count"] += 1
+            if self.sweep['count_low'] == 0:
+                self.sweep["count_low"] += 1
+                self.sweep["count"] += 1
+                
+            elif low < self.sweep["inducement_level_low"]:
+                self.sweep["count_low"] += 1
+                self.sweep["count"] += 1
+                self.sweep["inducement_level_low"] = low
 
             # Priority check
             if levels.get("pdl") and low < levels["pdl"]["price"]:
@@ -301,7 +316,13 @@ class NewYorkMarketContext:
         elif high > self.structure["range_high"]:
             self.sweep["side"] = "buy_side"
             self.sweep["time"] = candle["timestamp"]
-            self.sweep["count"] += 1
+            if self.sweep['count_high'] == 0:
+                self.sweep["count_high"] += 1
+                self.sweep["count"] += 1
+            elif high > self.sweep["inducement_level_high"]:
+                self.sweep["count_high"] += 1
+                self.sweep["count"] += 1
+                self.sweep["inducement_level_high"] = high
 
             if levels.get("pdh") and high > levels["pdh"]["price"]:
                 self.sweep["level"] = "pdh"
@@ -342,8 +363,10 @@ class NewYorkMarketContext:
         # update deep retracement flag for engulfing Ib
         if self.structure["ib_relationship"] == "engulfing" and self.structure["ib_direction_8"] == "bullish":
             self.structure["engulfing_deep_retracement"] = close < self.ib_8["ce"]
+            self.phase = "recompression"
         elif self.structure["ib_relationship"] == "engulfing" and self.structure["ib_direction_8"] == "bearish":
             self.structure["engulfing_deep_retracement"] = close > self.ib_8["ce"]
+            self.phase = "recompression"
     
     # =========================================
     # 5. DETERMINE MARKET PHASE
@@ -384,7 +407,7 @@ class NewYorkMarketContext:
     def get_compression_data(self):
         is_compression = False
         compression_range = None
-        is_compression = self.structure["compression"]
+        is_compression = self.structure["compression"] or self.phase == "recompression"
         compression_range["high"] = self.structure["range_high"]
         compression_range["low"] = self.structure["range_low"]
-        return is_compression, compression_range
+        return is_compression, compression_range, self.sweep

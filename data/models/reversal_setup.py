@@ -463,13 +463,24 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # partial_overlap_bullish, partial_overlap_neutral, below_1_18, partial_overlap_bearish
         ib_relationship = newyork_context.structure["ib_relationship"]
         if ib_relationship in ("inside_1am", "inside_18"):
-            print("8am compression: ", ib_relationship)
-            # inside_1am compression
+            print("8am compression: ", ib_relationship, "sweep info: ", newyork_context.sweep)
+            print("ib18_above_ib1: ", newyork_context.structure["ib18_above_ib1"])
+            print("ib1_above_ib18: ", newyork_context.structure["ib18_below_ib1"])
+            # at this point both nq and es have swept range high or low, or there is an SMT
+            # in either case, allow both es and nq trades
+            # main objective is time - SMT makes the time A+
+            passed_atr_displacement_filter = displacement_atr_filter()
+            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+            reversal_confirmation = passed_atr_displacement_filter
+
+            # 8am_inside_1am compression
             # 1am_IB above 18 IB. -> reversal shorts when atr exhaustion or pdh taken
-            # 1am_IB below 18 Ib. -> reversal loongs when atr exhaustion or pdl taken
+            
+            # 1am_IB below 18 Ib. -> reversal longs when atr exhaustion or pdl taken
+            
             # if atr not exhausted, we need key level plus SMT
 
-            # inside_18 ib compression
+            # 8am_inside_18 ib compression
             # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
         elif ib_relationship in ("engulfing_1am", "engulfing_18"):
             print("8am early expansion: ", ib_relationship)
