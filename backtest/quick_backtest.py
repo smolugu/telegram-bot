@@ -333,7 +333,8 @@ def run_quick_backtest(test_date: str):
                 es_sweep_rejected_highs = True
                 nq_sweep_rejected_lows = True   
                 es_sweep_rejected_lows = True
-                invalidate_sweeps = False
+                invalidate_sweeps_highs = False
+                invalidate_sweeps_lows = False
                 # if compression - inside 1am ib inside 18 ib
                 
                 # nq_compression_or_recompression = compression_flags_nq["nested_1_in_18"] or compression_flags_nq["engulfing_1_over_18"]
@@ -341,7 +342,7 @@ def run_quick_backtest(test_date: str):
                 # compression or re-compression at 1am IB, trade only extremes
                 if is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
-                    invalidate_sweeps = True
+                    invalidate_sweeps_highs = True
                     nq_swept_level = (
                         max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs is not None and sweep_nq_highs_key_level is not None
                         else sweep_nq_highs["sweep_level"] if sweep_nq_highs is not None
@@ -368,7 +369,7 @@ def run_quick_backtest(test_date: str):
                             nq_sweep_rejected_highs = True
                 if is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
-                    invalidate_sweeps = True
+                    invalidate_sweeps_highs = True
                     es_swept_level = (
                         max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs is not None and sweep_es_highs_key_level is not None
                         else sweep_es_highs["sweep_level"] if sweep_es_highs is not None
@@ -390,31 +391,31 @@ def run_quick_backtest(test_date: str):
 
                 #  if both es and nq sweeps inside compression, invalidate sweeps
                 #  store smt with sweeper information
-                # if invalidate_sweeps and es_sweep_rejected_highs and nq_sweep_rejected_highs:
-                if es_sweep_rejected_highs and nq_sweep_rejected_highs:
-                    print("Both NQ and ES sweeps at highs rejected due to compression. no smt, invalidating all sweeps inside compression range")
-                    sweep_nq_highs = None
-                    sweep_nq_highs_key_level = None
-                    sweep_es_highs = None
-                    sweep_es_highs_key_level = None
-                elif es_sweep_rejected_highs and not nq_sweep_rejected_highs:
-                    # smt with NQ as sweeper
-                    nq_ny_market_context.sweep["is_smt_high"] = True
-                    es_ny_market_context.sweep["is_smt_high"] = True
-                    nq_ny_market_context.sweep["sweeper_high"] = "NQ"
-                    es_ny_market_context.sweep["sweeper_high"] = "NQ"
-                elif nq_sweep_rejected_highs and not es_sweep_rejected_highs:
-                    # smt with NQ as sweeper
-                    nq_ny_market_context.sweep["is_smt_high"] = True
-                    es_ny_market_context.sweep["is_smt_high"] = True
-                    nq_ny_market_context.sweep["sweeper_high"] = "ES"
-                    es_ny_market_context.sweep["sweeper_high"] = "ES"
-                else:
-                    # valid sweep with no smt
-                    nq_ny_market_context.sweep["is_smt_high"] = False
-                    es_ny_market_context.sweep["is_smt_high"] = False
-                    nq_ny_market_context.sweep["sweeper_high"] = None
-                    es_ny_market_context.sweep["sweeper_high"] = None
+                if invalidate_sweeps_highs:
+                    if es_sweep_rejected_highs and nq_sweep_rejected_highs:
+                        print("Both NQ and ES sweeps at highs rejected due to compression. no smt, invalidating all sweeps inside compression range")
+                        sweep_nq_highs = None
+                        sweep_nq_highs_key_level = None
+                        sweep_es_highs = None
+                        sweep_es_highs_key_level = None
+                    elif es_sweep_rejected_highs and not nq_sweep_rejected_highs:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_high"] = True
+                        es_ny_market_context.sweep["is_smt_high"] = True
+                        nq_ny_market_context.sweep["sweeper_high"] = "NQ"
+                        es_ny_market_context.sweep["sweeper_high"] = "NQ"
+                    elif nq_sweep_rejected_highs and not es_sweep_rejected_highs:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_high"] = True
+                        es_ny_market_context.sweep["is_smt_high"] = True
+                        nq_ny_market_context.sweep["sweeper_high"] = "ES"
+                        es_ny_market_context.sweep["sweeper_high"] = "ES"
+                    else:
+                        # valid sweep with no smt
+                        nq_ny_market_context.sweep["is_smt_high"] = False
+                        es_ny_market_context.sweep["is_smt_high"] = False
+                        nq_ny_market_context.sweep["sweeper_high"] = None
+                        es_ny_market_context.sweep["sweeper_high"] = None
                     
 
                 if is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
@@ -425,7 +426,7 @@ def run_quick_backtest(test_date: str):
                     print("last_closed_nq: ", last_closed_nq)
                     print("compression_range_nq: ", compression_range_nq)
                     # nq_swept_level = min(sweep_nq_lows["sweep_level"], sweep_nq_lows_key_level["sweep_level"]) if sweep_nq_lows and sweep_nq_lows_key_level else (sweep_nq_lows["sweep_level"] if sweep_nq_lows else sweep_nq_lows_key_level["sweep_level"])
-                    invalidate_sweeps = True
+                    invalidate_sweeps_lows = True
                     nq_swept_level = (
                         min(sweep_nq_lows["sweep_level"], sweep_nq_lows_key_level["sweep_level"])
                         if sweep_nq_lows is not None and sweep_nq_lows_key_level is not None
@@ -449,7 +450,7 @@ def run_quick_backtest(test_date: str):
                             nq_sweep_rejected_lows = True
                 if is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
-                    invalidate_sweeps = True
+                    invalidate_sweeps_lows = True
                     es_swept_level = (
                         min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"])
                         if sweep_es_lows is not None and sweep_es_lows_key_level is not None
@@ -472,31 +473,112 @@ def run_quick_backtest(test_date: str):
                             print("ES sweep at lows accepted but price near compression range. exercise caution", abs(last_closed_es["low"] - compression_range_es["low"]))
                             es_sweep_rejected_lows = True
                 #  if both es and nq sweeps at lows inside compression, invalidate sweeps
-                if es_sweep_rejected_lows and nq_sweep_rejected_lows:
-                    print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
-                    sweep_nq_lows = None
-                    sweep_nq_lows_key_level = None
-                    sweep_es_lows = None
-                    sweep_es_lows_key_level = None
-                elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
-                    # smt with NQ as sweeper
-                    nq_ny_market_context.sweep["is_smt_low"] = True
-                    es_ny_market_context.sweep["is_smt_low"] = True
-                    nq_ny_market_context.sweep["sweeper_low"] = "NQ"
-                    es_ny_market_context.sweep["sweeper_low"] = "NQ"
-                elif nq_sweep_rejected_lows and not es_sweep_rejected_lows:
-                    # smt with NQ as sweeper
-                    nq_ny_market_context.sweep["is_smt_low"] = True
-                    es_ny_market_context.sweep["is_smt_low"] = True
-                    nq_ny_market_context.sweep["sweeper_low"] = "ES"
-                    es_ny_market_context.sweep["sweeper_low"] = "ES"
-                else:
-                    # valid sweep with no smt
-                    nq_ny_market_context.sweep["is_smt_low"] = False
-                    es_ny_market_context.sweep["is_smt_low"] = False
-                    nq_ny_market_context.sweep["sweeper_low"] = None
-                    es_ny_market_context.sweep["sweeper_low"] = None
+                if invalidate_sweeps_lows:
+                    if es_sweep_rejected_lows and nq_sweep_rejected_lows:
+                        print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
+                        sweep_nq_lows = None
+                        sweep_nq_lows_key_level = None
+                        sweep_es_lows = None
+                        sweep_es_lows_key_level = None
+                    elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_low"] = True
+                        es_ny_market_context.sweep["is_smt_low"] = True
+                        nq_ny_market_context.sweep["sweeper_low"] = "NQ"
+                        es_ny_market_context.sweep["sweeper_low"] = "NQ"
+                    elif nq_sweep_rejected_lows and not es_sweep_rejected_lows:
+                        # smt with ES as sweeper
+                        nq_ny_market_context.sweep["is_smt_low"] = True
+                        es_ny_market_context.sweep["is_smt_low"] = True
+                        nq_ny_market_context.sweep["sweeper_low"] = "ES"
+                        es_ny_market_context.sweep["sweeper_low"] = "ES"
+                    else:
+                        # valid sweep with no smt
+                        nq_ny_market_context.sweep["is_smt_low"] = False
+                        es_ny_market_context.sweep["is_smt_low"] = False
+                        nq_ny_market_context.sweep["sweeper_low"] = None
+                        es_ny_market_context.sweep["sweeper_low"] = None
                 
+                nq_sweep_rejected_highs = True
+                es_sweep_rejected_highs = True
+                nq_sweep_rejected_lows = True   
+                es_sweep_rejected_lows = True
+                invalidate_sweeps_highs = False
+                invalidate_sweeps_lows = False
+                if is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                    nq_sweep_rejected_lows = False
+                    invalidate_sweeps_lows = True
+                if is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                    es_sweep_rejected_lows = False
+                    invalidate_sweeps_lows = True
+                
+                if is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                    nq_sweep_rejected_highs = False
+                    invalidate_sweeps_highs = True
+                if is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                    es_sweep_rejected_highs = False
+                    invalidate_sweeps_highs = True
+                
+                if invalidate_sweeps_lows:
+                    if nq_sweep_rejected_lows and es_sweep_rejected_lows:
+                        # invalidate sweeps
+                        print("partial_overlap_bullish_neutral not ready")
+                        print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
+                        sweep_nq_lows = None
+                        sweep_nq_lows_key_level = None
+                        sweep_es_lows = None
+                        sweep_es_lows_key_level = None
+                    elif nq_sweep_rejected_lows and not es_sweep_rejected_lows:
+                        # smt with ES as sweeper
+                        nq_ny_market_context.sweep["is_smt_low"] = True
+                        es_ny_market_context.sweep["is_smt_low"] = True
+                        nq_ny_market_context.sweep["sweeper_low"] = "ES"
+                        es_ny_market_context.sweep["sweeper_low"] = "ES"
+                    elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_low"] = True
+                        es_ny_market_context.sweep["is_smt_low"] = True
+                        nq_ny_market_context.sweep["sweeper_low"] = "NQ"
+                        es_ny_market_context.sweep["sweeper_low"] = "NQ"
+                    else:
+                        # valid sweep with no smt
+                        nq_ny_market_context.sweep["is_smt_low"] = False
+                        es_ny_market_context.sweep["is_smt_low"] = False
+                        nq_ny_market_context.sweep["sweeper_low"] = None
+                        es_ny_market_context.sweep["sweeper_low"] = None
+                
+                if invalidate_sweeps_highs:
+                    if nq_sweep_rejected_highs and es_sweep_rejected_highs:
+                        # invalidate sweeps
+                        print("partial_overlap_bearish_neutral not ready")
+                        print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
+                        sweep_nq_highs = None
+                        sweep_nq_highs_key_level = None
+                        sweep_es_highs = None
+                        sweep_es_highs_key_level = None
+                    elif nq_sweep_rejected_highs and not es_sweep_rejected_highs:
+                        # smt with ES as sweeper
+                        nq_ny_market_context.sweep["is_smt_high"] = True
+                        es_ny_market_context.sweep["is_smt_high"] = True
+                        nq_ny_market_context.sweep["sweeper_high"] = "ES"
+                        es_ny_market_context.sweep["sweeper_high"] = "ES"
+                    elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_high"] = True
+                        es_ny_market_context.sweep["is_smt_high"] = True
+                        nq_ny_market_context.sweep["sweeper_high"] = "NQ"
+                        es_ny_market_context.sweep["sweeper_high"] = "NQ"
+                    else:
+                        # valid sweep with no smt
+                        nq_ny_market_context.sweep["is_smt_high"] = False
+                        es_ny_market_context.sweep["is_smt_high"] = False
+                        nq_ny_market_context.sweep["sweeper_high"] = None
+                        es_ny_market_context.sweep["sweeper_high"] = None
+
+
+
+                
+
 
                 
                 # compression -> expansion -> re-compression

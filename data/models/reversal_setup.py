@@ -484,14 +484,40 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
         elif ib_relationship in ("engulfing_1am", "engulfing_18"):
             print("8am early expansion: ", ib_relationship)
+            # additional - pdh or pdl taken, atr exhausted, and onesided 8am IB
+
         elif ib_relationship == "sandwich":
             print("8am compression: ", ib_relationship)
+            # no need to check displacement or atr exhaustion
+            reversal_confirmation = True
+
         elif ib_relationship in ("above_1_18", "below_1_18"):
             print("8am market exhaustion or trending: ", ib_relationship)
+            passed_atr_displacement_filter = displacement_atr_filter()
+            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+            reversal_confirmation = passed_atr_displacement_filter and is_smt
+
         elif ib_relationship in ("partial_overlap_bullish", "partial_overlap_bearish"):
+            # ib18 < ib1 < ib8 or ib18 > ib1 > 1b8
+            # price movement in one direction
+            # if atr not exhausted, anticipate retracement towards rebalance level taking range_high (bearish) or range_low (bullish)
+            # if atr is exhausted, anticipate total reversal
             print("8am weak compression: ", ib_relationship)
+            passed_atr_displacement_filter = displacement_atr_filter()
+            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+            reversal_confirmation = passed_atr_displacement_filter and is_smt
+
         elif ib_relationship in ("partial_overlap_bullish_neutral", "partial_overlap_bearish_neutral"):
-            print("8am weak compression -> will range or rebalance: ", ib_relationship)
+            print("8am weak compression -> will range or continue from rebalance level: ", ib_relationship)
+            passed_atr_displacement_filter = displacement_atr_filter()
+            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+            reversal_confirmation = passed_atr_displacement_filter and is_smt
+            # high probability scenarios
+                # if ib1 is below ib18 with ib8 above ib18, anticipate rebalance towards rebalance level and continue higher
+                # if ib1 is above 1b18 with ib8 below ib18, anticipate rebalance towards rebalance level and continue lower
+            # low probability
+                # quick trade towards rebalance level as price is ranging
+                # quick or short trade to rebalance level and Ib
         else:
             print("ib relationship scenario not captured: ", ib_relationship)
 

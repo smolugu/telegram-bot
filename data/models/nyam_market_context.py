@@ -25,6 +25,8 @@ class NewYorkMarketContext:
             "is_strong_compression": False,
             "range_high": None,
             "range_low": None,
+            "range_ce": None,
+            "rebalance_level": None,
             "ib_direction_8": None,
             "is_ib_strong_body": False,
             "ib_body_range": None,
@@ -45,7 +47,8 @@ class NewYorkMarketContext:
             "is_smt_low": False,
             "sweeper_low": None,
             "is_smt_high": False,
-            "sweeper_high": None
+            "sweeper_high": None,
+            "is_valid_sweep": False,
         }
 
         # -------- ACCEPTANCE --------
@@ -147,6 +150,7 @@ class NewYorkMarketContext:
 
             self.structure["range_high"] = ib1_high
             self.structure["range_low"] = ib1_low
+            self.structure["range_ce"] = (ib1_high + ib1_low)/2
         # -----------------------------------
         # 1.1 INSIDE 18 IB → compression
         # -----------------------------------
@@ -157,6 +161,7 @@ class NewYorkMarketContext:
 
             self.structure["range_high"] = ib18_high
             self.structure["range_low"] = ib18_low
+            self.structure["range_ce"] = (ib18_high + ib18_low)/2
         # -----------------------------------
         # 2. ENGULFING 1am → expansion happened 
         # -----------------------------------
@@ -165,6 +170,7 @@ class NewYorkMarketContext:
             self.structure["compression"] = False
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low)/2
         # -----------------------------------
         # 2.1 ENGULFING 18 → expansion happened
         # -----------------------------------
@@ -173,6 +179,7 @@ class NewYorkMarketContext:
             self.structure["compression"] = False
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low)/2
         
         elif self.sandwich(self.ib_18, self.ib_1, self.ib_8):
             self.structure["ib_relationship"] = "sandwich"
@@ -180,6 +187,7 @@ class NewYorkMarketContext:
             self.structure["is_strong_compression"] = True
             self.structure["range_high"] = max(self.ib_18["high"], self.ib_1["high"])
             self.structure["range_low"] = min(self.ib_18["low"], self.ib_1["low"])
+            self.structure["range_ce"] =(self.structure["range_high"] + self.structure["range_low"])/2
 
         # -----------------------------------
         # 3. ABOVE → directional bullish no overlap 
@@ -190,6 +198,7 @@ class NewYorkMarketContext:
 
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low)/2
         # -----------------------------------
         # 3.1 ABOVE → directional bullish with partial overlap
         # -----------------------------------
@@ -203,6 +212,8 @@ class NewYorkMarketContext:
             self.structure["is_strong_compression"] = False
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib1_low
+            self.structure["range_ce"] = (ib1_low + ib8_high)/2
+            self.structure["rebalance_level"] = (ib8_high + ib18_low)/2
         # -----------------------------------
         # 3.2 ABOVE → below 18IB with partial overlap - neutral bias
         # -----------------------------------
@@ -214,6 +225,8 @@ class NewYorkMarketContext:
             self.structure["is_strong_compression"] = False
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib18_low
+            self.structure["range_ce"] = (ib8_high + ib18_low) / 2
+            self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
 
         # -----------------------------------
         # 4. BELOW → directional bearish no overlap
@@ -224,6 +237,8 @@ class NewYorkMarketContext:
 
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
 
         # -----------------------------------
         # 4.1 BELOW → directional bearish with partial overlap 
@@ -236,6 +251,8 @@ class NewYorkMarketContext:
             self.structure["is_strong_compression"] = False
             self.structure["range_high"] = ib1_high
             self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib1_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
         # -----------------------------------
         # 4.2 BELOW → above 18Ib with partial overlap - neutral bias
         # -----------------------------------
@@ -247,6 +264,8 @@ class NewYorkMarketContext:
             self.structure["is_strong_compression"] = False
             self.structure["range_high"] = ib18_high
             self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib18_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
 
             
 
@@ -344,6 +363,9 @@ class NewYorkMarketContext:
     # =========================================
     def update_acceptance(self, candle):
         close = candle["close"]
+        low = candle["low"]
+        high = candle["high"]
+        open = candle["open"]
 
         if self.sweep["side"] == "sell_side":
             if close < self.structure["range_low"]:
@@ -367,6 +389,25 @@ class NewYorkMarketContext:
         elif self.structure["ib_relationship"] == "engulfing" and self.structure["ib_direction_8"] == "bearish":
             self.structure["engulfing_deep_retracement"] = close > self.ib_8["ce"]
             self.phase = "recompression"
+        
+        # update if candle reaches rebalance level
+        if self.structure["ib_relationship"] == "partial_overlap_bullish_neutral":
+            if self.ib18_low > low >= self.structure["rebalance_level"]:
+                self.sweep["is_valid_sweep"] = True
+            elif low < self.structure["rebalance_level"] and close > self.structure["rebalance_level"]:
+                self.sweep["is_valid_sweep"] = True
+            else:
+                self.sweep["is_valid_sweep"] = False
+
+        elif self.structure["ib_relationship"] == "partial_overlap_bearish_neutral":
+            if self.ib18_high < high <= self.structure["rebalance_level"]:
+                self.sweep["is_valid_sweep"] = True
+            elif high > self.structure["rebalance_level"] and close < self.structure["rebalance_level"]:
+                self.sweep["is_valid_sweep"] = True
+            else:
+                self.sweep["is_valid_sweep"] = False
+
+
     
     # =========================================
     # 5. DETERMINE MARKET PHASE
