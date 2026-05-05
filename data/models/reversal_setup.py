@@ -319,8 +319,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
     # check session, identify session
     is_london_killzone = in_session(current_30m_start, 3, 0, 5, 0)
     is_post_london_killzone = in_session(current_30m_start, 5, 0, 6, 30)
-    is_post_1AM_IB = in_session(current_30m_start, 2, 0, 8, 0)
-    is_post_8AM_IB = in_session(current_30m_start, 9, 0, 15, 0 )
+    is_post_1AM_IB = in_session(current_30m_start, 2, 30, 8, 0)
+    is_post_8AM_IB = in_session(current_30m_start, 9, 30, 15, 0 )
     # in ny killzone lets include 8am wick window as out setup forms around 7hr wicks
     is_ny_am_killzone = in_session(current_30m_start, 8, 0, 11, 30)
     is_ny_lunch_time = in_session(current_30m_start, 12, 0, 13, 30)
@@ -344,7 +344,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
     
     session_direction = market_context.session_direction
     atr_usage = market_context.atr_usage
-    london_context = context_for_london(market_context)
+    london_context_from_market_context = context_for_london(market_context)
 
     # smt check
     is_smt = smt_check()
@@ -429,8 +429,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             ## re-compression
                 # deep retracement -> inside 1am IB extremes
 
-        elif london_context.struncture["ib_relationship"] == "overlap":
-            print("weak compression")
+        elif london_context.structure["ib_relationship"] == "overlap":
+            print("weak compression - london overlap")
+            reversal_confirmation = False
             # weak compression
             # continuation with HTF confirmation mainly 1h CISD after sweep of key level (PDH/L)
                 # bearish overlap
@@ -443,6 +444,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     # look for longs above 2am IB
         else:
             print(" no compression during london, wait for 8am IB formation")
+            reversal_confirmation = False
 
     elif is_post_8AM_IB:
         
@@ -484,15 +486,33 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
         elif ib_relationship in ("engulfing_1am", "engulfing_18"):
             print("8am early expansion: ", ib_relationship)
+            # ist scenario: deep retracement = re-compression, sweep is valid, checked after the initial
+            # sweep is detected
+            if newyork_context.phase == "recompression":
+                # handle similar to inside compression
+                passed_atr_displacement_filter = displacement_atr_filter()
+                print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+                reversal_confirmation = passed_atr_displacement_filter
+            else:
+                # not recompression, we have sweep below ce of compression range.
+                # we already have a valid ob. key OB similar to 2am IB is not required
+                # we just need smt
+                passed_atr_displacement_filter = displacement_atr_filter()
+                print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+                reversal_confirmation = passed_atr_displacement_filter and is_smt
+
+                
             # additional - pdh or pdl taken, atr exhausted, and onesided 8am IB
 
         elif ib_relationship == "sandwich":
             print("8am compression: ", ib_relationship)
             # no need to check displacement or atr exhaustion
+            # valid sweep accounted for including inducement
             reversal_confirmation = True
 
         elif ib_relationship in ("above_1_18", "below_1_18"):
             print("8am market exhaustion or trending: ", ib_relationship)
+            # main setup is reversal upon atr exhaustion
             passed_atr_displacement_filter = displacement_atr_filter()
             print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
             reversal_confirmation = passed_atr_displacement_filter and is_smt
@@ -508,18 +528,20 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             reversal_confirmation = passed_atr_displacement_filter and is_smt
 
         elif ib_relationship in ("partial_overlap_bullish_neutral", "partial_overlap_bearish_neutral"):
-            print("8am weak compression -> will range or continue from rebalance level: ", ib_relationship)
-            passed_atr_displacement_filter = displacement_atr_filter()
-            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-            reversal_confirmation = passed_atr_displacement_filter and is_smt
             # high probability scenarios
                 # if ib1 is below ib18 with ib8 above ib18, anticipate rebalance towards rebalance level and continue higher
                 # if ib1 is above 1b18 with ib8 below ib18, anticipate rebalance towards rebalance level and continue lower
             # low probability
                 # quick trade towards rebalance level as price is ranging
                 # quick or short trade to rebalance level and Ib
+            print("8am weak compression -> will range or continue from rebalance level: ", ib_relationship)
+            passed_atr_displacement_filter = displacement_atr_filter()
+            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+            reversal_confirmation = passed_atr_displacement_filter and is_smt
+            
         else:
             print("ib relationship scenario not captured: ", ib_relationship)
+            reversal_confirmation = False
 
         
 

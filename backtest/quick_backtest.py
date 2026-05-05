@@ -1,7 +1,7 @@
 from alerts.execute import execute_trade_and_log
 from data.models.candle_7h import SevenHourBuilder
 from data.models.compression import detect_compression
-from data.models.london_market_context import LondonMarketContext
+from data.models.london_market_context import LondonMarketContextES, LondonMarketContext
 from data.models.market_context import MarketContext
 from data.models.nyam_market_context import NewYorkMarketContext
 from data.sqlite.db import DB_FILE
@@ -108,8 +108,7 @@ def run_quick_backtest(test_date: str):
     es_london_market_context = LondonMarketContext("ES")
     nq_ny_market_context = NewYorkMarketContext("NQ")
     es_ny_market_context = NewYorkMarketContext("ES")
-    nq_market_context.set_daily_atr(nq_daily_atr)
-    es_market_context.set_daily_atr(es_daily_atr)
+    
     
     nq_current_session_high = float("-inf")
     nq_current_session_low = float("inf")
@@ -122,6 +121,21 @@ def run_quick_backtest(test_date: str):
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
+            if i == 0:
+                print("resetting liquidity at : ", i, ts)
+                liquidity_nq = reset_liquidity()
+                liquidity_es = reset_liquidity()
+                # print("resetting market context at : ", dt.hour)
+                print("daily atrs before reset: ", nq_market_context.daily_atr, es_market_context.daily_atr)
+                nq_market_context.reset()
+                es_market_context.reset()
+                nq_daily_atr = calculate_daily_atr(nq["30m"])
+                es_daily_atr = calculate_daily_atr(es["30m"])
+                
+                # update market context with new daily atrs
+                print("new atrs at 16:", nq_daily_atr, es_daily_atr)
+                nq_market_context.set_daily_atr(nq_daily_atr)
+                es_market_context.set_daily_atr(es_daily_atr)
             if i >= 3:
 
                 print("\n---------------------------")
@@ -208,19 +222,7 @@ def run_quick_backtest(test_date: str):
                 nq_seven_hour_builder.update(last_closed_nq)
                 es_seven_hour_builder.update(last_closed_es)
                 
-                # TODO: we need to reset the below at dt.hour == 18
-                if dt.hour > 17 and dt.hour < 19:
-                    print("resetting liquidity at : ", dt.hour)
-                    liquidity_nq = reset_liquidity()
-                    liquidity_es = reset_liquidity()
-                    print("resetting market context at : ", dt.hour)
-                    print("daily atrs before reset: ", nq_market_context.daily_atr, es_market_context.daily_atr)
-                    nq_market_context.reset()
-                    es_market_context.reset()
-                    nq_daily_atr = calculate_daily_atr(nq["30m"])
-                    es_daily_atr = calculate_daily_atr(es["30m"])
-                    print("new atrs at 16:", nq_daily_atr, es_daily_atr)
-                    # update new daily atrs
+                
                 # get liquidity levels at end of each 30m candle
                 historical_nq = nq_30m[:i]
                 historical_es = es_30m[:i]
@@ -229,30 +231,45 @@ def run_quick_backtest(test_date: str):
                 liquidity_es = get_liquidity_values(symbol= es_contract, candles_30m = historical_es, test_date=test_date, liquidity_levels=liquidity_es, current_start = current_30m_start, pdh = es_pdh, pdl = es_pdl)
 
                 # update london context with IBS
-                if dt.hour == 2 and dt.minute == 0:
-                    nq_london_market_context.set_18_1am_ibs(nq_seven_hour_builder.candles)
-                    es_london_market_context.set_18_1am_ibs(es_seven_hour_builder.candles)
+                if dt.hour == 1 and dt.minute == 30:
+                    nq_london_market_context.set_18_1am_ibs(nq_seven_hour_builder.candles["6PM"].values(),nq_seven_hour_builder.candles["1AM"].values())
+                    es_london_market_context.set_18_1am_ibs(es_seven_hour_builder.candles["6PM"].values(),es_seven_hour_builder.candles["1AM"].values())
+                    print("nq london structure: ", nq_london_market_context.structure)
+                    print("es london structure: ", es_london_market_context.structure)
+                    
                 # update london context with 2AM 4hr IB
-                if dt.hour == 2 and dt.minute == 30:
+                if dt.hour == 2 and dt.minute == 00:
                     nq_london_market_context.set_2am_ib(last_closed_nq)
                     es_london_market_context.set_2am_ib(last_closed_es)
-                # update new york context with IBs
-                if dt.hour == 9 and dt.minute == 0:
-                    nq_ny_market_context.set_8am_ib(nq_seven_hour_builder.candles, nq_london_market_context.ib_18, nq_london_market_context.ib_1)
-                    es_ny_market_context.set_8am_ib(es_seven_hour_builder.candles, es_london_market_context.ib_18, es_london_market_context.ib_1)
-                if dt.hour == 10 and dt.minute == 0:
-                    nq_ny_market_context.set_10am_ib(last_closed_nq)
-                    es_ny_market_context.set_10am_ib(last_closed_es)
-                # update market context for NQ and ES
-                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"])
-                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"], last_closed_es["open"], last_closed_es["close"])
+                    print("nq 2am IB: ", nq_london_market_context.ib_2)
+                    print("es 2am IB: ", es_london_market_context.ib_2)
+                
                 # update london context
                 if dt.hour > 1 and dt.hour < 8:
                     nq_london_market_context.update(last_closed_nq, liquidity_nq)
                     es_london_market_context.update(last_closed_es, liquidity_es)
+                
+                # update new york context with IBs
+                if dt.hour == 8 and dt.minute == 30:
+                    nq_ny_market_context.set_8am_ib(nq_seven_hour_builder.candles, nq_london_market_context.ib_18, nq_london_market_context.ib_1)
+                    es_ny_market_context.set_8am_ib(es_seven_hour_builder.candles, es_london_market_context.ib_18, es_london_market_context.ib_1)
+                    print("test 1: ", nq_ny_market_context.structure)
+                    print("rest es: ", es_ny_market_context.structure)
+                if dt.hour == 10 and dt.minute == 0:
+                    nq_ny_market_context.set_10am_ib(last_closed_nq)
+                    es_ny_market_context.set_10am_ib(last_closed_es)
+                    print("nq 10am IB: ", nq_ny_market_context. ib_10)
+                    print("es 10am IB: ", es_ny_market_context. ib_10)
+                # update market context for NQ and ES
+                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"])
+                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"], last_closed_es["open"], last_closed_es["close"])
+                # update Newyork Context
                 if dt.hour > 8 and dt.hour < 15:
                     nq_ny_market_context.update(last_closed_nq, liquidity_nq)
-                    es.ny_market_context.update(last_closed_es, liquidity_es)
+                    es_ny_market_context.update(last_closed_es, liquidity_es)
+                    print("nq market structure ny at each 30m candle: ", nq_ny_market_context.structure)
+                    print("es market structure ny at each 30m candle: ", es_ny_market_context.structure)
+                    
                 # update atr_usage based on daily atr and session range
                 nq_market_context.update_atr_usage(current_30m_start)
                 es_market_context.update_atr_usage(current_30m_start)
@@ -318,11 +335,27 @@ def run_quick_backtest(test_date: str):
                 if is_post_1AM_IB:
                     is_compression_nq, compression_range_nq, compression_sweep_data_nq = nq_london_market_context.get_compression_data()
                     is_compression_es, compression_range_es, compression_sweep_data_es = es_london_market_context.get_compression_data()
+                    # 
                 if is_post_8AM_IB:
                     is_compression_nq, compression_range_nq, compression_sweep_data_nq = nq_ny_market_context.get_compression_data()
                     is_compression_es, compression_range_es, compression_sweep_data_es = es_ny_market_context.get_compression_data()
-                
+                    
+                is_inside_ibs = is_post_8AM_IB or is_post_1AM_IB
 
+                print("is post 8am: ", is_post_8AM_IB)
+                print("is post 1am: ", is_post_1AM_IB)
+                print("compression data nq: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq)
+                print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es)
+
+                # flow for types of compression on both nq and es
+                # 1. if both nq and es strong compression => require inducement
+                # 2. either is weak or both weak => no inducement, strong displacement with smt
+                # 3. sandwich => require inducement
+                # 4. partial_overlap_neutral => no inducement required, sweep above rebalance level or between rebalance level and range high or low
+                # 5. if strong compression, expect one more sweep, inducement
+                # 6. no compression trend day => atr exhaustion
+                # 7. partial overlap => no inducement, smt + exhaustion + key level
+                
                 # store compression data in market context as they form and dont change
                 # compression range is the latest compression range
                 nq_market_context.update_compression_info(compression_flags_nq, compression_range_nq)
@@ -340,7 +373,7 @@ def run_quick_backtest(test_date: str):
                 # nq_compression_or_recompression = compression_flags_nq["nested_1_in_18"] or compression_flags_nq["engulfing_1_over_18"]
                 # es_compression_or_recompression = compression_flags_es["nested_1_in_18"] or compression_flags_es["engulfing_1_over_18"]
                 # compression or re-compression at 1am IB, trade only extremes
-                if is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                if is_inside_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
                     invalidate_sweeps_highs = True
                     nq_swept_level = (
@@ -367,9 +400,11 @@ def run_quick_backtest(test_date: str):
                         if abs(last_closed_nq["high"] - compression_range_nq["high"]) < 10:
                             print("NQ sweep at highs accepted but price near compression range. exercise caution")
                             nq_sweep_rejected_highs = True
-                if is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
+                if is_inside_ibs and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
                     invalidate_sweeps_highs = True
+
+                    print("compre3: ", compression_sweep_data_es)
                     es_swept_level = (
                         max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs is not None and sweep_es_highs_key_level is not None
                         else sweep_es_highs["sweep_level"] if sweep_es_highs is not None
@@ -418,7 +453,7 @@ def run_quick_backtest(test_date: str):
                         es_ny_market_context.sweep["sweeper_high"] = None
                     
 
-                if is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                if is_inside_ibs and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     print("sweep_nq_lows: ", sweep_nq_lows)
                     if sweep_nq_lows is not None:
                         print("key inside: ", sweep_nq_lows["sweep_level"])
@@ -448,7 +483,7 @@ def run_quick_backtest(test_date: str):
                         if abs(last_closed_nq["low"] - compression_range_nq["low"]) < 10:
                             print("NQ sweep at lows accepted but price near compression range. exercise caution: ", abs(last_closed_nq["low"] - compression_range_nq["low"]))
                             nq_sweep_rejected_lows = True
-                if is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
+                if is_inside_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
                     invalidate_sweeps_lows = True
                     es_swept_level = (
@@ -505,17 +540,17 @@ def run_quick_backtest(test_date: str):
                 es_sweep_rejected_lows = True
                 invalidate_sweeps_highs = False
                 invalidate_sweeps_lows = False
-                if is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                if is_inside_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
                     nq_sweep_rejected_lows = False
                     invalidate_sweeps_lows = True
-                if is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                if is_inside_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
                     es_sweep_rejected_lows = False
                     invalidate_sweeps_lows = True
                 
-                if is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                if is_inside_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
                     nq_sweep_rejected_highs = False
                     invalidate_sweeps_highs = True
-                if is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                if is_inside_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
                     es_sweep_rejected_highs = False
                     invalidate_sweeps_highs = True
                 

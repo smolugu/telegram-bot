@@ -188,8 +188,8 @@ class MarketContext:
         self.daily_atr = atr
 
     def update_atr_usage(self, current_30m_start, close=None):
-        # print("session_range: ", self.session_range)
-        # print("dauly_atr: ", self.daily_atr)
+        print("session_range: ", self.session_range)
+        print("dauly_atr: ", self.daily_atr)
         ts = datetime.fromisoformat(current_30m_start)
         if ts.hour == 9 and ts.minute == 30:
             self.overnight_atr_usage = self.session_range / self.daily_atr

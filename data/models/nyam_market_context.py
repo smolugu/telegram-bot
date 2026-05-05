@@ -1,12 +1,13 @@
 class NewYorkMarketContext:
 
-    def __init__(self, instrument, ib_18 = None, ib_1 = None):
+    def __init__(self, instrument, ib_18 = {}, ib_1 = {}):
         
         self.instrument = instrument
         self.ib_18 = ib_18
-        self.ib_2 = None
+        self.ib_2 = {}
         self.ib_1 = ib_1
-        self.ib_10 = None
+        self.ib_10 = {}
+        self.ib_8 = {}
         self.directional_mode = None
 
 
@@ -60,7 +61,7 @@ class NewYorkMarketContext:
         # -------- PHASE --------
         self.phase = "init"
     
-    def sandwich(ib_18, ib_1, ib_8):
+    def sandwich(self, ib_18, ib_1, ib_8):
     # Step 1: ensure one is fully above the other
         ib18_above_ib1 = (
             ib_18["low"] > ib_1["low"] and
@@ -94,6 +95,7 @@ class NewYorkMarketContext:
         self.ib_8["ce"] = seven_hour_candle_8am["ib_ce"]
         self.ib_8["open"] = seven_hour_candle_8am["ib_open"]
         self.ib_8["close"] = seven_hour_candle_8am["ib_close"]
+        print("setting ib8am: ", self.ib_8)
         self.ib_18 = ib_18
         self.ib_1 = ib_1
         self.update_ib_relationships()
@@ -107,6 +109,7 @@ class NewYorkMarketContext:
         self.ib_10["direction"] = "bullish" if last_closed["open"] < last_closed["close"] else "bearish"
     
     def update_ib_relationships(self):
+        print(" updating ib_8 relationships: ", self.instrument)
         ib18_high = self.ib_18["high"]
         ib18_low = self.ib_18["low"]
         ib1_high = self.ib_1["high"]
@@ -133,6 +136,9 @@ class NewYorkMarketContext:
             self.ib_18["low"] > self.ib_1["low"] and
             self.ib_18["high"] > self.ib_1["high"]
         )
+        print("ib18_above_ib1: ", self.structure["ib18_above_ib1"])
+        print("ib18_low, ib1_low: ", self.ib_18["low"], self.ib_1["low"])
+        print("ib18_high, ib1_high: ", self.ib_18["high"], self.ib_1["high"])
 
         self.structure["ib18_below_ib1"] = (
             self.ib_18["low"] < self.ib_1["low"] and
@@ -144,6 +150,7 @@ class NewYorkMarketContext:
         # 1. INSIDE 1am IB → compression
         # -----------------------------------
         if ib8_high <= ib1_high and ib8_low >= ib1_low:
+            print("compression inside 1am IB for: ", self.instrument)
             self.structure["ib_relationship"] = "inside_1am"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True
@@ -155,6 +162,7 @@ class NewYorkMarketContext:
         # 1.1 INSIDE 18 IB → compression
         # -----------------------------------
         elif ib8_high <= ib18_high and ib8_low >= ib18_low:
+            print("compression inside 18am IB for: ", self.instrument)
             self.structure["ib_relationship"] = "inside_18"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True
@@ -166,6 +174,7 @@ class NewYorkMarketContext:
         # 2. ENGULFING 1am → expansion happened 
         # -----------------------------------
         elif ib8_high > ib1_high and ib8_low < ib1_low:
+            print("engilfing 1am IB for: ", self.instrument)
             self.structure["ib_relationship"] = "engulfing_1am"
             self.structure["compression"] = False
             self.structure["range_high"] = ib8_high
@@ -175,6 +184,7 @@ class NewYorkMarketContext:
         # 2.1 ENGULFING 18 → expansion happened
         # -----------------------------------
         elif ib8_high > ib18_high and ib8_low < ib18_low:
+            print("engilfing 18am IB for: ", self.instrument)
             self.structure["ib_relationship"] = "engulfing_18"
             self.structure["compression"] = False
             self.structure["range_high"] = ib8_high
@@ -182,6 +192,7 @@ class NewYorkMarketContext:
             self.structure["range_ce"] = (ib8_high + ib8_low)/2
         
         elif self.sandwich(self.ib_18, self.ib_1, self.ib_8):
+            print("sandwich IB for: ", self.instrument)
             self.structure["ib_relationship"] = "sandwich"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True
@@ -193,6 +204,13 @@ class NewYorkMarketContext:
         # 3. ABOVE → directional bullish no overlap 
         # -----------------------------------
         elif ib18_high < ib1_low and ib8_low > ib1_high:
+            print("ib18_high: ", ib18_high)
+            print("ib1_low: ", ib1_low)
+            print("ib8_low: ", ib8_low)
+            print("ib1_high: ", ib1_high)
+            print("self ib18: ", self.ib_18)
+            print("seld ib1: ", self.ib_1)
+            print("above directional bullish for: ", self.instrument)
             self.structure["ib_relationship"] = "above_1_18"
             self.structure["compression"] = False
 
@@ -205,6 +223,7 @@ class NewYorkMarketContext:
         # if ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
         # elif ib18_high < ib1_low and ib8_low in (ib1_low, ib1_high):
         elif ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
+            print("above directional bullish partial overlap for: ", self.instrument)
         
             self.structure["ib_relationship"] = "partial_overlap_bullish"
             # weak compression
@@ -219,6 +238,7 @@ class NewYorkMarketContext:
         # -----------------------------------
         # elif ib18_low > ib1_high and ib8_low in (ib18_low, ib18_high):
         elif ib18_low > ib1_high and ib18_low <= ib8_low <= ib18_high:
+            print("partial_overlap_bullish_neutral for: ", self.instrument)
             self.structure["ib_relationship"] = "partial_overlap_bullish_neutral"
             # weak compression
             self.structure["compression"] = True
@@ -231,7 +251,8 @@ class NewYorkMarketContext:
         # -----------------------------------
         # 4. BELOW → directional bearish no overlap
         # -----------------------------------
-        elif ib18_low > ib1_low and ib8_high < ib1_low:
+        elif ib18_low > ib1_high and ib8_high < ib1_low:
+            print("below_1_18 for: ", self.instrument)
             self.structure["ib_relationship"] = "below_1_18"
             self.structure["compression"] = False
 
@@ -245,6 +266,7 @@ class NewYorkMarketContext:
         # -----------------------------------
         # elif ib18_low > ib1_high and ib8_high in (ib1_low, ib1_high):
         elif ib18_low > ib1_high and ib1_low <= ib8_high <= ib1_high:
+            print("partial_overlap_bearish for: ", self.instrument)
             self.structure["ib_relationship"] = "partial_overlap_bearish"
             # weak compression
             self.structure["compression"] = True
@@ -258,6 +280,7 @@ class NewYorkMarketContext:
         # -----------------------------------
         # elif ib18_high < ib1_low and ib8_high in (ib18_high, ib18_low):
         elif ib18_high < ib1_low and ib18_low <= ib8_high <= ib18_high:
+            print("partial_overlap_bearish_neutral for: ", self.instrument)
             self.structure["ib_relationship"] = "partial_overlap_bearish_neutral"
             # weak compression
             self.structure["compression"] = True
@@ -266,7 +289,8 @@ class NewYorkMarketContext:
             self.structure["range_low"] = ib8_low
             self.structure["range_ce"] = (ib18_high + ib8_low) / 2
             self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
-
+        else:
+            print("no relation found")
             
 
         self.directional_mode = self.structure["ib_relationship"] in ["above_1_18", "below_1_18"]
@@ -307,6 +331,7 @@ class NewYorkMarketContext:
             if self.sweep['count_low'] == 0:
                 self.sweep["count_low"] += 1
                 self.sweep["count"] += 1
+                self.sweep["inducement_level_low"] = low
                 
             elif low < self.sweep["inducement_level_low"]:
                 self.sweep["count_low"] += 1
@@ -338,6 +363,8 @@ class NewYorkMarketContext:
             if self.sweep['count_high'] == 0:
                 self.sweep["count_high"] += 1
                 self.sweep["count"] += 1
+                self.sweep["inducement_level_high"] = high
+
             elif high > self.sweep["inducement_level_high"]:
                 self.sweep["count_high"] += 1
                 self.sweep["count"] += 1
@@ -447,7 +474,7 @@ class NewYorkMarketContext:
     # =========================================
     def get_compression_data(self):
         is_compression = False
-        compression_range = None
+        compression_range = {"high": None, "low": None}
         is_compression = self.structure["compression"] or self.phase == "recompression"
         compression_range["high"] = self.structure["range_high"]
         compression_range["low"] = self.structure["range_low"]

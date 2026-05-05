@@ -120,7 +120,9 @@ class SevenHourCandle:
             "bias": self.bias,
             "ib_high": self.ib_high,
             "ib_low": self.ib_low,
-            "ib_ce": self.ib_ce
+            "ib_ce": self.ib_ce,
+            "ib_open": self.ib_open,
+            "ib_close": self.ib_close
         }
 
 class SevenHourBuilder:
