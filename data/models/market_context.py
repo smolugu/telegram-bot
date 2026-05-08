@@ -56,6 +56,15 @@ class MarketContext:
         self.atr_usage = None
         self.overnight_atr_usage = None
         self.atr_context = None
+        self.atr_used_above_open = False
+        self.atr_used_below_open = False
+        self.directional_exhaustion = None
+        self.atr_daily_bias = "neutral"
+        self.no_bearish_expansion_below_open = False
+        self.no_bullish_expansion_above_open = False
+        
+
+        
 
         # compression
         self.compression_flags = {
@@ -156,8 +165,6 @@ class MarketContext:
         self.ib_ce = (ib_high + ib_low) / 2
         self.ib_ready = True
 
-    def set_daily_atr(self, daily_atr):
-        self.daily_atr = daily_atr
 
     def update_compression_info(self, compression_flags, compression_range):
         self.compression_flags = compression_flags
@@ -188,6 +195,214 @@ class MarketContext:
         self.daily_atr = atr
 
     def update_atr_usage(self, current_30m_start, close=None):
+        """
+        Updates:
+        - ATR usage
+        - overnight exhaustion
+        - directional exhaustion
+        - efficiency
+        - daily bias
+        """
+
+        print("session_range: ", self.session_range)
+        print("daily_atr: ", self.daily_atr)
+
+        ts = datetime.fromisoformat(current_30m_start)
+
+        # =====================================================
+        # BASIC ATR USAGE
+        # =====================================================
+        self.atr_usage = (
+            self.session_range / self.daily_atr
+            if self.daily_atr
+            else 0
+        )
+
+        # =====================================================
+        # OVERNIGHT EXHAUSTION CHECK
+        # =====================================================
+        if ts.hour == 9 and ts.minute == 30:
+
+            self.overnight_atr_usage = self.atr_usage
+
+            if self.overnight_atr_usage > 0.8:
+                self.atr_context = "overnight_exhaustion"
+                self.expansion_origin = "overnight"
+                self.overnight_expansion = True
+
+        # =====================================================
+        # DIRECTIONAL ATR USAGE
+        # =====================================================
+        self.range_used_above_open = 0
+        self.range_used_below_open = 0
+
+        if self.session_open is not None:
+
+            # ---------------------------------------------
+            # RANGE USED ABOVE DAILY OPEN
+            # ---------------------------------------------
+            if self.session_high > self.session_open:
+                self.range_used_above_open = (
+                    self.session_high - self.session_open
+                )
+
+            # ---------------------------------------------
+            # RANGE USED BELOW DAILY OPEN
+            # ---------------------------------------------
+            if self.session_low < self.session_open:
+                self.range_used_below_open = (
+                    self.session_open - self.session_low
+                )
+
+        # Normalize by ATR
+        self.atr_used_above_open = (
+            self.range_used_above_open / self.daily_atr
+            if self.daily_atr
+            else 0
+        )
+
+        self.atr_used_below_open = (
+            self.range_used_below_open / self.daily_atr
+            if self.daily_atr
+            else 0
+        )
+
+        # =====================================================
+        # DIRECTIONAL EXHAUSTION
+        # =====================================================
+        self.directional_exhaustion = None
+
+        # Strong bullish expansion already happened
+        if self.atr_used_above_open >= 0.8:
+            self.directional_exhaustion = "bullish"
+
+        # Strong bearish expansion already happened
+        elif self.atr_used_below_open >= 0.8:
+            self.directional_exhaustion = "bearish"
+
+        # =====================================================
+        # DAILY BIAS
+        # =====================================================
+        self.atr_daily_bias = "neutral"
+
+        # Bias based on directional efficiency + location
+        if (
+            self.atr_used_above_open > self.atr_used_below_open
+            and self.atr_used_above_open >= 0.4
+        ):
+            self.atr_daily_bias = "bullish"
+
+        elif (
+            self.atr_used_below_open > self.atr_used_above_open
+            and self.atr_used_below_open >= 0.4
+        ):
+            self.atr_daily_bias = "bearish"
+
+        # =====================================================
+        # DIRECTIONAL MOVE / EFFICIENCY
+        # =====================================================
+        self.directional_move = None
+        self.efficiency = None
+
+        if close is not None and self.session_open is not None:
+
+            current_price = close
+            net_move = abs(current_price - self.session_open)
+            self.directional_move = (
+                net_move / self.daily_atr
+                if self.daily_atr
+                else 0
+            )
+
+            # ---------------------------------------------
+            # EFFICIENCY
+            # > 0.7 = trending
+            # 0.4-0.7 = mixed
+            # < 0.4 = choppy
+            # ---------------------------------------------
+            self.efficiency = (
+                self.directional_move / self.atr_usage
+                if self.atr_usage > 0
+                else None
+            )
+
+        # =====================================================
+        # CONTEXT FLAGS
+        # =====================================================
+
+        # Prevent bearish expansion below open
+        self.no_bearish_expansion_below_open = False
+
+        if (
+            self.directional_exhaustion == "bullish"
+            # and close is not None
+            # and close < self.session_open
+        ):
+            self.no_bearish_expansion_below_open = True
+
+        # Prevent bullish expansion above open
+        self.no_bullish_expansion_above_open = False
+
+        if (
+            self.directional_exhaustion == "bearish"
+            # and close is not None
+            # and close > self.session_open
+        ):
+            self.no_bullish_expansion_above_open = True
+
+        # =====================================================
+        # DEBUG
+        # =====================================================
+        # print(
+        #     f"""
+        #     {self.instrument}
+
+        #     daily_atr: {self.daily_atr}
+        #     atr_usage: {self.atr_usage}
+
+        #     session_high: {self.session_high}
+        #     session_low: {self.session_low}
+        #     session_open: {self.session_open}
+
+        #     atr_used_above_open: {self.atr_used_above_open}
+        #     atr_used_below_open: {self.atr_used_below_open}
+
+        #     directional_exhaustion: {self.directional_exhaustion}
+
+        #     atr_daily_bias: {self.atr_daily_bias}
+
+        #     directional_move: {self.directional_move}
+        #     efficiency: {self.efficiency}
+
+        #     atr_context: {self.atr_context}
+
+        #     no_bearish_expansion_below_open:
+        #         {self.no_bearish_expansion_below_open}
+
+        #     no_bullish_expansion_above_open:
+        #         {self.no_bullish_expansion_above_open}
+        #     """
+        # )
+    def get_atr_info(self):
+        return {
+            "instrument": self.instrument,
+            "daily_atr": self.daily_atr,
+            "atr_usage": self.atr_usage,
+            "session_high": self.session_high,
+            "session_low": self.session_low,
+            "atr_used_above_open": self.atr_used_above_open,
+            "atr_used_below_open": self.atr_used_below_open,
+            "directional_exhaustion": self.directional_exhaustion,
+            "atr_daily_bias": self.atr_daily_bias,
+            "directional_move": self.directional_move,
+            "efficiency": self.efficiency,
+            "atr_context": self.atr_context,
+            "no_bearish_expansion_below_open": self.no_bearish_expansion_below_open,
+            "no_bullish_expansion_above_open": self.no_bullish_expansion_above_open,
+
+        }
+
+    def update_atr_usage_old(self, current_30m_start, close=None):
         print("session_range: ", self.session_range)
         print("dauly_atr: ", self.daily_atr)
         ts = datetime.fromisoformat(current_30m_start)

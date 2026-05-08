@@ -164,6 +164,7 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, tolerance=0):
             # elif high >= price - tolerance and close >= price:
             elif high > price and close > price:
                 # potential sweep but no rejection, still mark as swept
+                sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
                 sweep_type = "breakout"
                 swept_levels.append({
@@ -221,6 +222,7 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, tolerance=0):
             # elif low <= price + tolerance and close <= price:
             elif low < price and close < price:
                 # potential sweep but no rejection, still mark as swept
+                sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
                 sweep_type = "breakout"
                 swept_levels.append({
@@ -229,7 +231,6 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, tolerance=0):
                     "side": "sell_side",
                     "type": "breakout"
                 })
-
     return sweep_at_key_level, swept_levels, sweep_type, sweep_max_level
 
 
@@ -257,8 +258,9 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         nq_sweep_and_ob_confirmed = False
         nq_sweep_and_ob_ce_confirmed = False
         nq_sweep_and_ob_confirmation_timestamp = None
+        points_tol = 3 if instrument == "NQ" else 1.5
         
-        nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] - 3
+        nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] - points_tol
         
         if nq_sweep_and_ob_confirmed:
             nq_sweep_and_ob_entry = last_closed_candle["open"]
@@ -293,7 +295,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         nq_sweep_and_ob_confirmed = False
         nq_sweep_and_ob_ce_confirmed = False
         nq_sweep_and_ob_confirmation_timestamp = None
-        nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + 3 
+        points_tol = 3 if instrument == "NQ" else 1.5
+        nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + points_tol
     
     
         if nq_sweep_and_ob_confirmed:

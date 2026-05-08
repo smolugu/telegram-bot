@@ -180,7 +180,7 @@ def context_for_london(market_context):
         "require_smt_confirmation": require_smt_confirmation,  # update with actual logic
     }
 
-def check_for_reversal_setup_confirmation(market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels_nq, liquidity_levels_es, candidate, last_closed_candle, current_30m_start, daily_atr, smt_summary):
+def check_for_reversal_setup_confirmation(market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, smt_summary, co_asset):
     # get session time
     # bias from previous 7hr candle (ex: bearish)
     # price is below (bearish) previous 7hr candle and (or) rejecting previous 7hr ib
@@ -225,13 +225,19 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         print("structure break: ", candidate.ob_data["structure_break"] if candidate.ob_data is not None else None, "strong_body_displacement: ", candidate.ob_data["strong_body_displacement"] if candidate.ob_data is not None else None)
         print("ob body range: ", candidate.ob_data["ob_body_range"] if candidate.ob_data is not None else None)
         if candidate.sweep_and_ob_ce_confirmed:
+            print("sweep_and_ob_ce_confirmed")
             filters_passed = True
             print("aksnkdna 2")
         elif candidate.sweep_and_ob_confirmed:
+            print("sweep_and_ob_confirmed")
             if candidate.ob_data is not None:
-                if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
+                # if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
+                if candidate.ob_data["ob_body_range"] > 0.5:
                     filters_passed = True
                     print("lklkl 2")
+            else:
+                filters_passed = True
+                print("lklkl 22")
         elif candidate.ob_data is not None:
             if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
                 filters_passed = True
@@ -429,19 +435,45 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             ## re-compression
                 # deep retracement -> inside 1am IB extremes
 
-        elif london_context.structure["ib_relationship"] == "overlap":
+        elif london_context.structure["ib_relationship"] == "partial_overlap":
             print("weak compression - london overlap")
             reversal_confirmation = False
+            # main confirmations: atr_usage_direction, 
             # weak compression
             # continuation with HTF confirmation mainly 1h CISD after sweep of key level (PDH/L)
-                # bearish overlap
+                # bearish overlap - continuation
                     # 1am IB overlapping with 18 IB lows
                     # htf bearish confirmation - sweep of pdh (smt) with 1h CISD
                     # look for shorts below 2am IB
-                # bullish overlap
+                    # skip continuation if no expansion shorts below open
+                # bullish overlap - continuation
                     # 1am IB overlapping with 18 IB highs
                     # htf bullish confirmation - sweep of pdl (smt) with 1h CISD
                     # look for longs above 2am IB
+                    # skip continuation if no expansion longs above open
+            # reversal - no htf 1h cisd after key level sweep (PDH/PDL)
+                # bearish overlap - reversal
+                    # sweep of lows + OB + 2am IB support + 3:30 continuation
+                    # no expansion continuation below open
+                # bullish overlap - reversal
+                    # sweep of highs + OB + 2am IB support + 3:30 continuation
+                    # no expansion continuation above open
+            allow_trade = True
+            no_bearish_expansion = market_context.no_bearish_expansion_below_open or co_asset["market_context"].no_bearish_expansion_below_open
+            no_bullish_expansion = market_context.no_bullish_expansion_above_open or co_asset["market_context"].no_bullish_expansion_above_open
+            if look_for_longs and no_bullish_expansion:
+                print("no bullish expansion above open")
+                allow_trade = False
+            elif look_for_shorts and no_bearish_expansion:
+                print("no bearish expansion below open")
+                allow_trade = False
+            
+            # additional filters
+            if allow_trade:
+                passed_atr_displacement_filter = displacement_atr_filter()
+                print("post 1AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+                reversal_confirmation = passed_atr_displacement_filter
+
         else:
             print(" no compression during london, wait for 8am IB formation")
             reversal_confirmation = False
@@ -575,7 +607,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             is_above_ib_1 = above_ib(last_closed_candle, ib_high_1)
             # asia sweep confirmation
             # update with smt. either es or nq or both should sweep asia
-            asia_swept = liquidity_levels_nq["asia_high"]["swept"] or liquidity_levels_es["asia_high"]["swept"]
+            asia_swept = liquidity_levels["asia_high"]["swept"] or co_asset["liquidity"]["asia_high"]["swept"]
             print("instrument, direction: ", candidate.instrument, "bearish")
             print("is_ib_rejection_18: ", is_ib_rejection_18)
             print("is_ib_rejection_1: ", is_ib_rejection_1)
@@ -688,7 +720,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             is_above_ib_1 = above_ib(last_closed_candle, ib_high_1)
             # asia sweep confirmation
             # update with smt. either es or nq or both should sweep asia
-            asia_swept = liquidity_levels_nq["asia_low"]["swept"] or liquidity_levels_es["asia_low"]["swept"]
+            asia_swept = liquidity_levels["asia_low"]["swept"] or co_asset["liquidity"]["asia_low"]["swept"]
             print("instrument, direction: ", candidate.instrument, "bullish")
             print("is_ib_rejection_18: ", is_ib_rejection_18)
             print("is_ib_rejection_1: ", is_ib_rejection_1)
@@ -1162,7 +1194,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         if look_for_shorts and not allow_shorts:
             print("market exhauted, not allowing shorts")
             reversal_confirmation = False
-        return reversal_confirmation
+        # return reversal_confirmation
+        return False
+    return reversal_confirmation
         
 
 

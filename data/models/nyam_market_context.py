@@ -237,7 +237,7 @@ class NewYorkMarketContext:
         # 3.2 ABOVE → below 18IB with partial overlap - neutral bias
         # -----------------------------------
         # elif ib18_low > ib1_high and ib8_low in (ib18_low, ib18_high):
-        elif ib18_low > ib1_high and ib18_low <= ib8_low <= ib18_high:
+        elif (ib18_low > ib1_high or ib1_high >= ib18_low >= ib1_low) and ib18_low <= ib8_low <= ib18_high:
             print("partial_overlap_bullish_neutral for: ", self.instrument)
             self.structure["ib_relationship"] = "partial_overlap_bullish_neutral"
             # weak compression
@@ -246,6 +246,17 @@ class NewYorkMarketContext:
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib18_low
             self.structure["range_ce"] = (ib8_high + ib18_low) / 2
+            self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
+
+        elif (ib18_low > ib1_high or ib1_high >= ib18_low >= ib1_low) and ib8_low >= ib18_high:
+            print("partial_overlap_bullish_neutral_shallow for : ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bullish_neutral_shallow"
+            # weak compression
+            self.structure["compression"] = False
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
             self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
 
         # -----------------------------------
@@ -279,8 +290,8 @@ class NewYorkMarketContext:
         # 4.2 BELOW → above 18Ib with partial overlap - neutral bias
         # -----------------------------------
         # elif ib18_high < ib1_low and ib8_high in (ib18_high, ib18_low):
-        elif ib18_high < ib1_low and ib18_low <= ib8_high <= ib18_high:
-            print("partial_overlap_bearish_neutral for: ", self.instrument)
+        elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib18_low <= ib8_high <= ib18_high:
+            print("partial_overlap_bearish_neutral (compression -> deep rebalance) for: ", self.instrument)
             self.structure["ib_relationship"] = "partial_overlap_bearish_neutral"
             # weak compression
             self.structure["compression"] = True
@@ -289,8 +300,21 @@ class NewYorkMarketContext:
             self.structure["range_low"] = ib8_low
             self.structure["range_ce"] = (ib18_high + ib8_low) / 2
             self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
+        elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib8_high <= ib18_low:
+            print("partial_overlap_bearish_neutral (compression -> shallow rebalance) for: ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bearish_neutral_shallow"
+            # weak compression
+            self.structure["compression"] = False
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
         else:
             print("no relation found")
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
             
 
         self.directional_mode = self.structure["ib_relationship"] in ["above_1_18", "below_1_18"]
@@ -419,7 +443,7 @@ class NewYorkMarketContext:
         
         # update if candle reaches rebalance level
         if self.structure["ib_relationship"] == "partial_overlap_bullish_neutral":
-            if self.ib18_low > low >= self.structure["rebalance_level"]:
+            if self.ib_18["low"] > low >= self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
             elif low < self.structure["rebalance_level"] and close > self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
@@ -427,7 +451,7 @@ class NewYorkMarketContext:
                 self.sweep["is_valid_sweep"] = False
 
         elif self.structure["ib_relationship"] == "partial_overlap_bearish_neutral":
-            if self.ib18_high < high <= self.structure["rebalance_level"]:
+            if self.ib_18["high"] < high <= self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
             elif high > self.structure["rebalance_level"] and close < self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True

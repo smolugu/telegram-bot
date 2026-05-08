@@ -2,12 +2,29 @@ from datetime import datetime
 
 from helpers.sessions import get_session_high_low
 
+def update_compression_range_levels(liquidity_levels, compression_range, session):
+    
+    if session == "1AM" and liquidity_levels["cr1am_high"]["price"] is None:
+        liquidity_levels["cr1am_high"]["price"] = compression_range["high"]
+        liquidity_levels["cr1am_low"]["price"] = compression_range["low"]
+        print("cr1am_high: ", liquidity_levels["cr1am_high"]["price"]) 
+    elif session == "8AM" and liquidity_levels["cr8am_high"]["price"] is None:
+        liquidity_levels["cr8am_high"]["price"] = compression_range["high"]
+        liquidity_levels["cr8am_low"]["price"] = compression_range["low"]
+    
+
 
 def reset_liquidity():
 
     return {
         "pdh": {"name": "pdh", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "pdl": {"name": "pdl","price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
+        "cr1am_high": {"name": "cr1am_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "cr1am_low": {"name": "cr1am_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
+        "cr8am_high": {"name": "cr8am_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "cr8am_low": {"name": "cr8am_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
 
         "asia_high": {"name": "asia_high","price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "asia_low": {"name": "asia_low","price": None, "side": "sell_side", "swept": False, "timestamp": None},

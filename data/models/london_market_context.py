@@ -13,6 +13,7 @@ class LondonMarketContext:
         self.structure = {
             "position_vs_18": None,
             "ib_relationship": None,
+            "overlap_type": None,
             "compression": False,
             "is_strong_compression": False,
             "range_high": None,
@@ -52,20 +53,20 @@ class LondonMarketContext:
     # =========================================
     # 1. UPDATE 1AM IB STRUCTURE
     # =========================================
-    def set_18_1am_ibs(self, ib_18x, ib_1x):
+    def set_18_1am_ibs(self, ib_18, ib_1):
         # seven_hour_candle_6pm = seven_hour_builder_candles["6PM"].values()
         # seven_hour_candle_1am = seven_hour_builder_candles["1AM"].values()
-        print("seven_hour_candle_6pm: ", ib_18x)
-        print("seven_hour_candle_1am: ", ib_1x)
-        self.ib_18["high"] = ib_18x["ib_high"]
-        print("self.ib_18Highx: ", self.ib_18["high"], "| ", self.instrument)
-        self.ib_18["low"] = ib_18x["ib_low"]
-        self.ib_18["ce"] = ib_18x["ib_ce"]
-        self.ib_1["high"] = ib_1x["ib_high"]
-        self.ib_1["low"] = ib_1x["ib_low"]
-        self.ib_1["ce"] = ib_1x["ib_ce"]
-        self.ib_1["open"] = ib_1x["ib_open"]
-        self.ib_1["close"] = ib_1x["ib_close"]
+        # print("seven_hour_candle_6pm: ", ib_18x)
+        # print("seven_hour_candle_1am: ", ib_1x)
+        self.ib_18["high"] = ib_18["ib_high"]
+        
+        self.ib_18["low"] = ib_18["ib_low"]
+        self.ib_18["ce"] = ib_18["ib_ce"]
+        self.ib_1["high"] = ib_1["ib_high"]
+        self.ib_1["low"] = ib_1["ib_low"]
+        self.ib_1["ce"] = ib_1["ib_ce"]
+        self.ib_1["open"] = ib_1["ib_open"]
+        self.ib_1["close"] = ib_1["ib_close"]
         self.update_ib_relationships()
     
     def set_2am_ib(self, last_closed):
@@ -97,7 +98,7 @@ class LondonMarketContext:
         # 1. INSIDE → compression
         # -----------------------------------
         if ib1_high <= ib18_high and ib1_low >= ib18_low:
-            print("ib1 inside ib18")
+            print("Ib relationship: ib1 inside ib18")
             self.structure["ib_relationship"] = "inside"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True
@@ -109,7 +110,7 @@ class LondonMarketContext:
         # 2. ENGULFING → expansion happened
         # -----------------------------------
         elif ib1_high > ib18_high and ib1_low < ib18_low:
-            print("ib1 engulfs ib18")
+            print("Ib relationship: ib1 engulfs ib18")
             self.structure["ib_relationship"] = "engulfing"
             self.structure["compression"] = False
 
@@ -123,7 +124,7 @@ class LondonMarketContext:
         # 3. ABOVE → directional bullish
         # -----------------------------------
         elif ib1_low > ib18_high:
-            print("ib1 above ib18")
+            print("Ib relationship: ib1 above ib18")
             self.structure["ib_relationship"] = "above_18"
             self.structure["compression"] = False
 
@@ -134,7 +135,7 @@ class LondonMarketContext:
         # 4. BELOW → directional bearish
         # -----------------------------------
         elif ib1_high < ib18_low:
-            print("ib1 below ib18")
+            print("Ib relationship: ib1 below ib18")
             self.structure["ib_relationship"] = "below_18"
             self.structure["compression"] = False
             
@@ -145,8 +146,9 @@ class LondonMarketContext:
         # 5. PARTIAL OVERLAP (true overlap)
         # -----------------------------------
         else:
-            print("partial overlap")
+            print("Ib relationship: partial overlap")
             self.structure["ib_relationship"] = "partial_overlap"
+            self.structure["overlap_type"] = "bearish" if ib1_low < ib18_low else "bullish"
 
             # treat as weak compression
             self.structure["compression"] = True
@@ -200,7 +202,7 @@ class LondonMarketContext:
                 self.sweep["inducement_level_low"] = low
 
             # Priority check
-            print("levels: ", levels)
+            # print("levels: ", levels)
             if levels.get("pdl") and low < levels["pdl"]["price"]:
                 self.sweep["level"] = "pdl"
                 self.sweep["tier"] = 1
@@ -660,8 +662,8 @@ class LondonMarketContextES:
                 self.sweep["count"] += 1
                 self.sweep["inducement_level_low"] = low
 
-            # Priority check
-            print("levels: ", levels)
+            # # Priority check
+            # print("levels: ", levels)
             if levels.get("pdl") and low < levels["pdl"]["price"]:
                 self.sweep["level"] = "pdl"
                 self.sweep["tier"] = 1
