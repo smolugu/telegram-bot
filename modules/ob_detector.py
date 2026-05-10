@@ -1,16 +1,18 @@
 from datetime import datetime, timedelta
 
 
-def detect_30m_order_block(candles, candidate):
+def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_candle):
 
     # if not candidate.active:
     #     return None
     if candidate.ob_confirmed:
+        print("30m OB1: ", candidate.instrument)
         return candidate.ob_data
 
     direction = candidate.side  # "buy_side" or "sell_side"
 
     if len(candles) < 2:
+        print("30m OB2: ", candidate.instrument)
         return None
 
     # We evaluate the last closed candle
@@ -25,6 +27,7 @@ def detect_30m_order_block(candles, candidate):
     # Bearish Setup (buy-side sweep first)
     # ---------------------------------------
     if direction == "buy_side":
+        print("30m OB3: ", candidate.instrument)
 
         # find most recent bullish candle
         for i in range(len(candles) - 2, -1, -1):
@@ -64,7 +67,16 @@ def detect_30m_order_block(candles, candidate):
                     elif candidate.sweep_type == "breakout" and last_closed["close"] < candidate.sweep_candle["open"]:
                         print("breakout sweep ob confirmed")
                         return ob_found
+                    elif co_asset.sweep_type == "rejection":
+                        print("ggg")
+                        return ob_found
+                    elif co_asset.sweep_type == "breakout" and co_asset_last_closed_candle["close"] < co_asset.sweep_candle["open"]:
+                        print("breakout sweep ob confirmed - ggg")
+                        
+                        return ob_found
+                    
                     else:
+                        print("lllll")
                         return None
 
                 break
@@ -72,7 +84,8 @@ def detect_30m_order_block(candles, candidate):
     # ---------------------------------------
     # Bullish Setup (sell-side sweep first)
     # ---------------------------------------
-    if direction == "sell_side":
+    elif direction == "sell_side":
+        print("30m OB4: ", candidate.instrument)
         break_loop = True
 
         # find most recent bearish candle
@@ -104,15 +117,21 @@ def detect_30m_order_block(candles, candidate):
                             "strong_body_displacement": strong_body,
                             "ob_body_range": ob_body_range
                         }
-                    
+                    print("sweep_type: ", candidate.sweep_type, candidate.instrument)
                     if candidate.sweep_type == "rejection":
                         return ob_found
                     elif candidate.sweep_type == "breakout" and last_closed["close"] > candidate.sweep_candle["open"]:
                         return ob_found
+                    elif co_asset.sweep_type == "rejection":
+                        return ob_found
+                    elif co_asset.sweep_type == "breakout" and co_asset_last_closed_candle["close"] > co_asset.sweep_candle["open"]:
+                        return ob_found
                     else:
+                        print("sweep NOOO: ", candidate.instrument)
                         return None
                     
                 
                 break
-
+    else:
+        print("sweep side not set: ", candidate.instrument )
     return None

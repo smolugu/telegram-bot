@@ -88,7 +88,7 @@ def main():
     init_db()  # initialize database if needed
     
     if MODE == "BACKTEST":
-        run_quick_backtest("2026-05-01")
+        run_quick_backtest("2026-05-07")
         # run_quick_test("2026-04-21")
         return
     token = os.getenv("BOT_TOKEN")

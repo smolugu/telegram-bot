@@ -21,7 +21,8 @@ class LondonMarketContext:
             "ib_direction_1": None,
             "is_strong_body": False,
             "ib_body_range": None,
-            "engulfing_deep_retracement": False
+            "engulfing_deep_retracement": False,
+            "pattern": None
         }
 
         # -------- SWEEP --------
@@ -310,6 +311,7 @@ class LondonMarketContext:
         self.detect_sweep(candle, levels)
         self.update_acceptance(candle)
         self.update_phase()
+        # self.update_pattern()
 
     
     # =========================================

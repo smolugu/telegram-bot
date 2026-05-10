@@ -31,7 +31,8 @@ class NewYorkMarketContext:
             "ib_direction_8": None,
             "is_ib_strong_body": False,
             "ib_body_range": None,
-            "engulfing_deep_retracement": False
+            "engulfing_deep_retracement": False,
+            "is_staircase": False
         }
 
         # -------- SWEEP --------
@@ -222,17 +223,30 @@ class NewYorkMarketContext:
         # -----------------------------------
         # if ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
         # elif ib18_high < ib1_low and ib8_low in (ib1_low, ib1_high):
-        elif ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
+        # elif ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
+        elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib1_low <= ib8_low <= ib1_high:
             print("above directional bullish partial overlap for: ", self.instrument)
         
             self.structure["ib_relationship"] = "partial_overlap_bullish"
             # weak compression
             self.structure["compression"] = True
-            self.structure["is_strong_compression"] = False
+            self.structure["is_strong_compression"] = False if ib18_high < ib1_low else True
+            self.structure["is_staircase"] = ib1_low <= ib18_high <= ib1_high
             self.structure["range_high"] = ib8_high
             self.structure["range_low"] = ib1_low
             self.structure["range_ce"] = (ib1_low + ib8_high)/2
             self.structure["rebalance_level"] = (ib8_high + ib18_low)/2
+        # elif ib18_low < ib1_low < ib18_high and ib1_low <= ib8_low <= ib1_high:
+        #     print("staircase directional bullish partial overlap for: ", self.instrument)
+        
+        #     self.structure["ib_relationship"] = "staircase_overlap_bullish"
+        #     # weak compression
+        #     self.structure["compression"] = True
+        #     self.structure["is_strong_compression"] = True
+        #     self.structure["range_high"] = ib8_high
+        #     self.structure["range_low"] = ib18_low
+        #     self.structure["range_ce"] = (ib18_low + ib8_high)/2
+        #     self.structure["rebalance_level"] = (ib8_high + ib18_low)/2
         # -----------------------------------
         # 3.2 ABOVE → below 18IB with partial overlap - neutral bias
         # -----------------------------------
@@ -286,6 +300,16 @@ class NewYorkMarketContext:
             self.structure["range_low"] = ib8_low
             self.structure["range_ce"] = (ib1_high + ib8_low) / 2
             self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
+        # elif ib1_high >= ib18_low >= ib1_low and ib1_low <= ib8_high <= ib1_high:
+        #     print("staircase_overlap_bearish for: ", self.instrument)
+        #     self.structure["ib_relationship"] = "staircase_overlap_bearish"
+        #     # weak compression
+        #     self.structure["compression"] = True
+        #     self.structure["is_strong_compression"] = True
+        #     self.structure["range_high"] = ib18_high
+        #     self.structure["range_low"] = ib8_low
+        #     self.structure["range_ce"] = (ib18_high + ib8_low) / 2
+        #     self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
         # -----------------------------------
         # 4.2 BELOW → above 18Ib with partial overlap - neutral bias
         # -----------------------------------

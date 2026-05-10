@@ -259,11 +259,17 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
     def smt_check():
         is_smt = False
         print("smt summary: ", smt_summary)
+        # if look_for_shorts:
+        #     if market_context.bearish_smt_1h is not None or market_context.bearish_smt_30m is not None:
+        #         is_smt = True
+        # elif look_for_longs:
+        #     if market_context.bullish_smt_1h is not None or market_context.bullish_smt_30m is not None:
+        #         is_smt = True
         if look_for_shorts:
-            if market_context.bearish_smt_1h is not None or market_context.bearish_smt_30m is not None:
+            if smt_summary["bearish_smt_1h"] is not None or smt_summary["bearish_smt_key_level"] is not None or smt_summary["bearish_smt_30m_swing"] is not None:
                 is_smt = True
         elif look_for_longs:
-            if market_context.bullish_smt_1h is not None or market_context.bullish_smt_30m is not None:
+            if smt_summary["bullish_smt_1h"] is not None or smt_summary["bullish_smt_key_level"] is not None or smt_summary["bullish_smt_30m_swing"] is not None:
                 is_smt = True
         return is_smt
     
@@ -550,14 +556,50 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             reversal_confirmation = passed_atr_displacement_filter and is_smt
 
         elif ib_relationship in ("partial_overlap_bullish", "partial_overlap_bearish"):
-            # ib18 < ib1 < ib8 or ib18 > ib1 > 1b8
-            # price movement in one direction
-            # if atr not exhausted, anticipate retracement towards rebalance level taking range_high (bearish) or range_low (bullish)
-            # if atr is exhausted, anticipate total reversal
-            print("8am weak compression: ", ib_relationship)
-            passed_atr_displacement_filter = displacement_atr_filter()
-            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-            reversal_confirmation = passed_atr_displacement_filter and is_smt
+            # where is the sweep happening at compression high or rebalance level?
+            
+            # scanario 1:
+            # no overlap between ib1 and ib8. there is a gap. 
+            # so price can rebalance to this gap and expand higher
+            # we need smt at rebalance level and atr not exhausted(optional) in the direction of asia and london
+                # two options:
+                # option1: if setup is forming at compressin high or low, then anticipate reversal to daily open. no expansion below
+                # daily open as atr is already used up
+                # option2: if setup is forming at rebalance level, expect continuation higher towards pre-market highs and atr 0.95%
+                 
+            if not newyork_context.structure["is_staircase"] and not co_asset["newyork_context"].structure["is_staircase"]:
+                print("no staricase on both assets: ", newyork_context.structure["ib_relationship"])
+                # there is a gap on both es and nq, price movement in one direction
+                # sweep is already validated
+                # need to check atr exhaustion for continuation, smt at rebalance level
+                # additional: rejecting rebalance level and or IB1
+                # option1:
+                passed_atr_displacement_filter = displacement_atr_filter()
+                print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+                print("is_smt: ", is_smt)
+                reversal_confirmation = passed_atr_displacement_filter and is_smt
+                print("xxx1: ", reversal_confirmation)
+                print("targets: pre-market high/low and 0.95 atr")
+            else:
+                print("staricase on both assets: ", newyork_context.structure["ib_relationship"])
+                # there is no gap on both es and nq, asia and london build LRLR on staircase asset
+                # allow only reversal = Ping Flush. 
+                # additional: 
+                    # liquidity purge at key levels PDH/L or London H/L
+                    # atr exhaustion (optional)
+                    # smt
+                key_level_swept = False
+                if look_for_longs:
+                    key_level_swept = liquidity_levels["pdl"]["swept"] or liquidity_levels["london_low"]["swept"] or co_asset["liquidity"]["pdl"]["swept"] or co_asset["liquidity"]["london_low"]["swept"]
+                elif look_for_shorts:
+                    key_level_swept = liquidity_levels["pdh"]["swept"] or liquidity_levels["london_high"]["swept"] or co_asset["liquidity"]["pdh"]["swept"] or co_asset["liquidity"]["london_high"]["swept"]
+                passed_atr_displacement_filter = displacement_atr_filter()
+                print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
+                print("is_smt: ", is_smt)
+                reversal_confirmation = passed_atr_displacement_filter and is_smt and key_level_swept
+                print("xxx1: ", reversal_confirmation)
+                print("targets: pre-market high/low and 0.95 atr")
+
 
         elif ib_relationship in ("partial_overlap_bullish_neutral", "partial_overlap_bearish_neutral"):
             # high probability scenarios
@@ -1196,6 +1238,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             reversal_confirmation = False
         # return reversal_confirmation
         return False
+    print("final return: ", reversal_confirmation)
     return reversal_confirmation
         
 

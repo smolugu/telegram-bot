@@ -297,14 +297,18 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         nq_sweep_and_ob_confirmation_timestamp = None
         points_tol = 3 if instrument == "NQ" else 1.5
         nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + points_tol
-    
+        body = abs(last_closed_candle["close"] - last_closed_candle["open"])
+        range_ = last_closed_candle["high"] - last_closed_candle["low"]
+        strong_body = body/range_ > 0.5
+        print("sweep ob strong_body: ", strong_body, body/range_)
     
         if nq_sweep_and_ob_confirmed:
             nq_sweep_and_ob_entry = last_closed_candle["open"]
             # confirmation timestamp is current timestamp
             nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
     
-        if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
+        # if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
+        if nq_sweep_and_ob_confirmed and strong_body:
             nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
             nq_sweep_and_ob_ce_confirmed = True
         

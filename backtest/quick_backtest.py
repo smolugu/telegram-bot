@@ -400,7 +400,10 @@ def run_quick_backtest(test_date: str):
                 # es_compression_or_recompression = compression_flags_es["nested_1_in_18"] or compression_flags_es["engulfing_1_over_18"]
                 # compression or re-compression at 1am IB, trade only extremes
                 if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                    # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
+                    # below we have a separate block for sweep outside compression range and candle outside compression range
                     # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
+                    print("101:")
                     invalidate_sweeps_highs = True
                     nq_swept_level = (
                         max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs is not None and sweep_nq_highs_key_level is not None
@@ -429,6 +432,7 @@ def run_quick_backtest(test_date: str):
                 if is_post_1am_8am_ibs and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
                     invalidate_sweeps_highs = True
+                    print("102:")
 
                     print("compre3: ", compression_sweep_data_es)
                     es_swept_level = (
@@ -453,6 +457,7 @@ def run_quick_backtest(test_date: str):
                 #  if both es and nq sweeps inside compression, invalidate sweeps
                 #  store smt with sweeper information
                 if invalidate_sweeps_highs:
+                    print("103:")
                     if es_sweep_rejected_highs and nq_sweep_rejected_highs:
                         print("Both NQ and ES sweeps at highs rejected due to compression. no smt, invalidating all sweeps inside compression range")
                         sweep_nq_highs = None
@@ -481,6 +486,7 @@ def run_quick_backtest(test_date: str):
 
                 if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     print("sweep_nq_lows: ", sweep_nq_lows)
+                    print("104:")
                     if sweep_nq_lows is not None:
                         print("sweep_nq_lows: ", sweep_nq_lows["sweep_level"])
                     print("sweep_nq_lows_key_level: ", sweep_nq_lows_key_level)
@@ -528,6 +534,7 @@ def run_quick_backtest(test_date: str):
                 if is_post_1am_8am_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
                     invalidate_sweeps_lows = True
+                    print("105:")
                     es_swept_level = (
                         min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"])
                         if sweep_es_lows is not None and sweep_es_lows_key_level is not None
@@ -551,6 +558,7 @@ def run_quick_backtest(test_date: str):
                             es_sweep_rejected_lows = True
                 #  if both es and nq sweeps at lows inside compression, invalidate sweeps
                 if invalidate_sweeps_lows:
+                    print("106:")
                     if es_sweep_rejected_lows and nq_sweep_rejected_lows:
                         print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
                         sweep_nq_lows = None
@@ -597,6 +605,7 @@ def run_quick_backtest(test_date: str):
                     invalidate_sweeps_highs = True
                 
                 if invalidate_sweeps_lows:
+                    print("107:")
                     if nq_sweep_rejected_lows and es_sweep_rejected_lows:
                         # invalidate sweeps
                         print("partial_overlap_bullish_neutral not ready")
@@ -625,6 +634,7 @@ def run_quick_backtest(test_date: str):
                         es_ny_market_context.sweep["sweeper_low"] = None
                 
                 if invalidate_sweeps_highs:
+                    print("108:")
                     if nq_sweep_rejected_highs and es_sweep_rejected_highs:
                         # invalidate sweeps
                         print("partial_overlap_bearish_neutral not ready")
@@ -653,7 +663,55 @@ def run_quick_backtest(test_date: str):
                         es_ny_market_context.sweep["sweeper_high"] = None
 
 
+                
+                # block for ib_relationship is directional partial_overlap directional
+                    # Rule: Structure
+                    # invalidate sweeps at lows, market is already directional and is compressing so a ping flush is high probable
+                
+                invalidate_sweeps = False
+                # invalidate if either nq or es is a staircase (each IB overlapping others, strong compression)
+                if nq_ny_market_context.structure["is_staircase"] or es_ny_market_context.structure["is_staircase"]:
+                    invalidate_sweeps = True
 
+                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                    # invalidate nq sweep lows
+                    sweep_nq_lows = None
+                    sweep_nq_lows_key_level = None
+                    
+                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                    # invalidate es sweep lows
+                    sweep_es_lows = None
+                    sweep_es_lows_key_level = None
+                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                    # invalidate nq sweep highs
+                    sweep_nq_highs = None
+                    sweep_nq_highs_key_level = None
+                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                    # invalidate es sweep highs
+                    sweep_es_highs = None
+                    sweep_es_highs_key_level = None
+
+
+                # if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and nq_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bearish" and last_closed_nq["open"] > compression_range_nq["high"]:
+                #     # staricase compression and candle above compression range high
+                #     # sweep is valid
+                #     print("NQ: staircase_overlap_bearish - location above - valid sweep")
+                
+                # if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and nq_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bullish" and last_closed_nq["open"] < compression_range_nq["low"]:
+                #     # staricase compression and candle below compression range low
+                #     # sweep is valid
+                #     print("NQ: staircase_overlap_bullish - location below - valid sweep")
+                
+                # if is_post_1am_8am_ibs and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and es_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bearish" and last_closed_es["open"] > compression_range_es["high"]:
+                #     # staricase compression and candle above compression range high
+                #     # sweep is valid
+                #     print("ES: staircase_overlap_bearish - location above - valid sweep")
+                
+                # if is_post_1am_8am_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and es_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bullish" and last_closed_es["open"] < compression_range_es["low"]:
+                #     # staricase compression and candle below compression range low
+                #     # sweep is valid
+                #     print("ES: staircase_overlap_bullish - location below - valid sweep")
+                
             
                 
                 # compression -> expansion -> re-compression
@@ -765,22 +823,23 @@ def run_quick_backtest(test_date: str):
                 # if nq_buy_candidate.active and not nq_buy_candidate.sweep_and_ob_confirmed or es_buy_candidate.active and not es_buy_candidate.sweep_and_ob_confirmed:
                 if nq_buy_candidate.active or es_buy_candidate.active:
 
-                    nq_ob = detect_30m_order_block(nq_30m[:i], nq_buy_candidate)
+                    nq_ob = detect_30m_order_block(nq_30m[:i], nq_buy_candidate, es_buy_candidate, last_closed_es)
 
                     if nq_ob:
                         nq_buy_candidate.register_ob(nq_ob)
 
-                    es_ob = detect_30m_order_block(es_30m[:i], es_buy_candidate)
+                    es_ob = detect_30m_order_block(es_30m[:i], es_buy_candidate, nq_buy_candidate, last_closed_nq)
                     if es_ob:
                         es_buy_candidate.register_ob(es_ob)
 
                 if nq_sell_candidate.active or es_sell_candidate.active:
-
-                    nq_ob = detect_30m_order_block(nq_30m[:i], nq_sell_candidate)
+                    print("calling detect 30m OB")
+                    nq_ob = detect_30m_order_block(nq_30m[:i], nq_sell_candidate, es_sell_candidate, last_closed_es)
+                    print("nq ob: ", nq_ob)
                     if nq_ob:
                         nq_sell_candidate.register_ob(nq_ob)
 
-                    es_ob = detect_30m_order_block(es_30m[:i], es_sell_candidate)
+                    es_ob = detect_30m_order_block(es_30m[:i], es_sell_candidate, nq_sell_candidate, last_closed_nq)
                     if es_ob:
                         es_sell_candidate.register_ob(es_ob)
                         print("es sell candidate OB: ", es_sell_candidate.ob_data)
@@ -824,7 +883,7 @@ def run_quick_backtest(test_date: str):
                     print("key_level_bullish_smt_result: ", key_level_bullish_smt_result)
                     print("key_level_bearish_smt_result: ", key_level_bearish_smt_result)
                 # detect smt at key level
-                print("nq keys: ", nq.keys())
+                # print("nq keys: ", nq.keys())
                 nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
                 # print("nq_1h_filtered: ", nq_1h_filtered)
                 
@@ -857,7 +916,7 @@ def run_quick_backtest(test_date: str):
                 fvg = None
                 
                 if nq_buy_candidate.final_ob_confirmed:
-                    # print("Processing FVG for NQ Buy candidate")
+                    print("Processing FVG for NQ Buy candidate")
                     #  imbalance should be present between sweep time and Ob time
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
@@ -871,7 +930,7 @@ def run_quick_backtest(test_date: str):
                         print("Bullish FVG detected:", fvg)
                 
                 if nq_sell_candidate.final_ob_confirmed:
-                    # print("Processing FVG for NQ Sell candidate")
+                    print("Processing FVG for NQ Sell candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         nq_3m,
@@ -884,7 +943,7 @@ def run_quick_backtest(test_date: str):
                         print("Bearish FVG detected:", fvg)
                 
                 if es_buy_candidate.final_ob_confirmed:
-                    # print("Processing FVG for ES Buy candidate")
+                    print("Processing FVG for ES Buy candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         es_3m,
@@ -897,7 +956,7 @@ def run_quick_backtest(test_date: str):
                         print("Bullish FVG detected:", fvg)
 
                 if es_sell_candidate.final_ob_confirmed:
-                    # print("Processing FVG for ES Sell candidate")
+                    print("Processing FVG for ES Sell candidate")
 
                     fvg = detect_3m_imbalance_inside_ob_candle(
                         es_3m,
@@ -940,13 +999,13 @@ def run_quick_backtest(test_date: str):
                 es_context = {
                     "market_context": es_market_context,
                     "london_context": es_london_market_context,
-                    "ny_context": es_ny_market_context,
+                    "newyork_context": es_ny_market_context,
                     "liquidity": liquidity_es,
                 }
                 nq_context = {
                     "market_context": nq_market_context,
                     "london_context": nq_london_market_context,
-                    "ny_context": nq_ny_market_context,
+                    "newyork_context": nq_ny_market_context,
                     "liquidity": liquidity_nq,
                 }
 
@@ -1063,6 +1122,7 @@ def run_quick_backtest(test_date: str):
                     # atr for move
                     send = False                    
                     send = check_for_reversal_setup_confirmation(es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bearish_smt, nq_context)
+                    print("send 1: ", send)
                     # if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                     #     send = True
                     #     print("es sell: step 2")
@@ -1109,6 +1169,7 @@ def run_quick_backtest(test_date: str):
                             else:
                                 send = False
                                 print("not allowing counter trend trade as one of the candidates do not have OB confirmed")
+                    print("send 2: ", send)
                     if send:
                         print("ES Market Context: ", es_market_context.values())
                         # send alert for ES sell candidate
@@ -1126,6 +1187,7 @@ def run_quick_backtest(test_date: str):
                     # if es_market_context.atr_usage > 0.8:
                     #     send = True
                     send = check_for_reversal_setup_confirmation(es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, nq_context)
+                    print("send 3: ", send)
                     # check for alert at 9:30
                     if send:
                         result = is_blocked_time(current_30m_start)
@@ -1155,6 +1217,7 @@ def run_quick_backtest(test_date: str):
                                 send = False
                                 print("not allowing counter trend trade as one of the candidates do not have OB confirmed")
                             
+                    print("send 4: ", send)
                     if send:
                         print("ES Market Context: ", es_market_context.values())
                         # send alert for ES buy candidate
