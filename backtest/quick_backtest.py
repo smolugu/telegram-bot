@@ -691,6 +691,10 @@ def run_quick_backtest(test_date: str):
                     sweep_es_highs = None
                     sweep_es_highs_key_level = None
 
+                # block where there is gap on both directional partial overlap
+                # allow reversal sweeps at rebalance levels
+                if not nq_ny_market_context.structure["is_staircase"] and not es_ny_market_context.structure["is_staircase"]:
+                    invalidate_sweeps = False
 
                 # if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and nq_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bearish" and last_closed_nq["open"] > compression_range_nq["high"]:
                 #     # staricase compression and candle above compression range high

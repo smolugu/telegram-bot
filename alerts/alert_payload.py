@@ -201,7 +201,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     # rr = 1.5
 
     alert_message = f"""
- ⚡️Ping A++ Time
+ ⚡️Ping Time - {candidate.ping_type}
 
 Instrument: {instrument}
 Bias: {bias}

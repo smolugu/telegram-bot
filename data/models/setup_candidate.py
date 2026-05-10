@@ -39,6 +39,8 @@ class SetupCandidate:
         self.window_name = None
         self.trade_status = None
         self.insert_trade_data = None
+        self.ping_type = None
+        self.final_target = None
         
 
     # --------------------------------------------------
