@@ -30,10 +30,13 @@ def get_futures_session(candles, test_date):
     session_start = test_dt - timedelta(hours=6)
     session_end = test_dt + timedelta(hours=16)
     filtered = []
+    # print("candles all: ", candles)
 
     for c in candles:
         ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+        # print("ts before: ", ts)
         if session_start <= ts <= session_end:
+            # print("ts session: ", ts)
             filtered.append(c)
 
     print("start, end: ", session_start, session_end)

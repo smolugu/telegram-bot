@@ -150,7 +150,6 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, tolerance=0):
             # check for valid sweep (rejection off level)
             # if high >= price - tolerance and close < price:
             if high > price and close <= price:
-
                 sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
                 sweep_type = "rejection"
@@ -300,15 +299,18 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         body = abs(last_closed_candle["close"] - last_closed_candle["open"])
         range_ = last_closed_candle["high"] - last_closed_candle["low"]
         strong_body = body/range_ > 0.5
+        print("last closed candle sweep: ", last_closed_candle)
         print("sweep ob strong_body: ", strong_body, body/range_)
     
         if nq_sweep_and_ob_confirmed:
+            print("oooo")
             nq_sweep_and_ob_entry = last_closed_candle["open"]
             # confirmation timestamp is current timestamp
             nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
     
         # if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
         if nq_sweep_and_ob_confirmed and strong_body:
+            print("pppp")
             nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
             nq_sweep_and_ob_ce_confirmed = True
         
@@ -357,13 +359,20 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["high"], "buy_side")
             sweep, levels, sweep_type_kl, swl = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels)
             # print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
-            
+            wick_ratio = abs(last_closed_candle["close"] - last_closed_candle["high"]) / abs(last_closed_candle["high"]-last_closed_candle["low"])
+            print("wick ration: ", wick_ratio)
             if sweep:
-                nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + 3 
+                print("2022")
+                print("last_closed_candle close: ", last_closed_candle["close"])
+                print("last_closed_candle open: ", last_closed_candle["open"])
+                
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] + 3  or wick_ratio > 0.6
             else:
-                nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"]
+                print("2023")
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] < last_closed_candle["open"] or wick_ratio > 0.6
             
             if nq_sweep_and_ob_confirmed:
+                print("2024")
                 nq_sweep_and_ob_entry = last_closed_candle["open"]
                 # confirmation timestamp is current timestamp
                 nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
@@ -414,11 +423,12 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["low"], "sell_side")
             sweep, levels, sweep_type_kl, swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels)
             # print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
-
+            wick_ratio = abs(last_closed_candle["close"] - last_closed_candle["low"]) / abs(last_closed_candle["high"]-last_closed_candle["low"])
+            print("wick ration: ", wick_ratio)
             if sweep:
-                nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] - 3
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] - 3 or wick_ratio > 0.6
             else:
-                nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"]
+                nq_sweep_and_ob_confirmed = last_closed_candle["close"] > last_closed_candle["open"] or wick_ratio > 0.6
             
             if nq_sweep_and_ob_confirmed:
                 nq_sweep_and_ob_entry = last_closed_candle["open"]

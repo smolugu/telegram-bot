@@ -86,6 +86,10 @@ def fetch_symbol_data(symbol: str):
     # 30m
     # df_30md = ticker.history(interval="30m", period="7d")
 
+    # 1d
+    df_1d = ticker.history(interval="1d", period="14d", auto_adjust=False)
+    print("direct daily candles: ", df_1d.head(20).to_string())
+
     # 1h
     df_1h = ticker.history(interval="60m", period="14d")
 
@@ -97,17 +101,37 @@ def fetch_symbol_data(symbol: str):
     if df_1h.empty or df_1m.empty or df_5m.empty:
         print(f"No intraday data for {symbol}. Possibly weekend.")
         return None
+    # print("1m candles: ", df_1m)
 
+    # date = "2026-05-11"
+
+    # filtered = df_1m.loc[date]
+
+    # candles_1800 = filtered.between_time("18:00", "23:59")
+
+    # print(candles_1800.head(50).to_string())
     df_3m = resample_to_3m(df_1m)
-    df_30m = resample_to_30m(df_5m)
-    df_15m = resample_to_15m(df_5m)
+    date = "2026-05-11"
+
+    filtered = df_3m.loc[date]
+
+    candles_1800 = filtered.between_time("18:00", "23:59")
+    # print("3m candles all: ", df_3m)
+    # print("3m candles after resample")
+    # print(candles_1800.head(50).to_string())
     
+    df_30m = resample_to_30m(df_5m)
+    # df_30m = resample_to_30m(df_1m)
+    df_15m = resample_to_15m(df_5m)
+    # print("formatted candles: ", format_df(df_3m))
+    # df_1d = resample_to_1d(df_5m)
 
     return {
         "15m": format_df(df_15m),
         "30m": format_df(df_30m),
         "1h": format_df(df_1h),
         "3m": format_df(df_3m),
+        "1d": format_df(df_1d),
         "protected_high": None,
         "protected_low": None
     }
@@ -165,7 +189,11 @@ def resample_to_3m(df):
     # Ensure datetime index
     if not isinstance(df.index, pd.DatetimeIndex):
         df.index = pd.to_datetime(df.index)
-    df = df.resample("3min").agg({
+    df = df.resample("3min",
+        label="left",
+        closed="left"
+        # origin="start_day", offset="18h"
+        ).agg({
         "Open": "first",
         "High": "max",
         "Low": "min",
@@ -178,6 +206,58 @@ def resample_to_3m(df):
     return df
 
 def resample_to_30m(df):
+
+    df = df.copy()
+
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+
+    # # Shift 5m candles to actual opening boundary
+    # df.index = df.index + pd.Timedelta(minutes=5)
+
+    df = df.resample(
+        "30min",
+        # label="left",
+        # closed="left",
+        # origin="start_day",
+        # offset="18h"
+    ).agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    return df.dropna()
+
+def resample_to_1d(df):
+
+    df = df.copy()
+
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+
+    # # Shift 5m candles to actual opening boundary
+    # df.index = df.index + pd.Timedelta(minutes=5)
+
+    df = df.resample(
+        "720min",
+        # label="left",
+        # closed="left",
+        # origin="start_day",
+        # offset="18h"
+    ).agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    return df.dropna()
+
+def resample_to_30m_old(df):
 
     df = df.copy()
     # Ensure datetime index
@@ -217,6 +297,20 @@ def resample_to_15m(df):
 # ---------------------------
 # Format DataFrame
 # ---------------------------
+
+
+# daily_candles = []
+
+# for ts, row in df_1d.iterrows():
+#     daily_candles.append({
+#         "timestamp": ts.isoformat(),
+#         "open": row["Open"],
+#         "high": row["High"],
+#         "low": row["Low"],
+#         "close": row["Close"],
+#         "volume": row["Volume"]
+#     })
+
 
 def format_df(df):
 

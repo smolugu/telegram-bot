@@ -212,12 +212,14 @@ class MarketContext:
         # =====================================================
         # BASIC ATR USAGE
         # =====================================================
+        
         self.atr_usage = (
             self.session_range / self.daily_atr
             if self.daily_atr
             else 0
         )
-
+        # self.atr_usage = self.session_range / self.daily_atr
+        
         # =====================================================
         # OVERNIGHT EXHAUSTION CHECK
         # =====================================================

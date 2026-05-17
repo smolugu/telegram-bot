@@ -180,7 +180,11 @@ def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
             tp2 = tp1 - (tp1 - tp3) / 2
         else:
             tp2 = tp1 + (tp3 - tp1) / 2
-
+    else:
+        if direction == "bearish":
+            tp2 = tp2+2
+        else:
+            tp2 = tp2-2
 
     
     return tp1, tp2, tp3

@@ -222,6 +222,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
         return expansion_type
     # displacement and atr check function
+    # TODO: integrated 3m FVG detected in 30m OB candle,
+    # we are currently looking at OB size only
     def displacement_atr_filter():
         allow_shorts = True
         allow_longs = True
@@ -350,7 +352,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # sweep is valid, already checked
         # check for displacement and structure break
         expansion_setup = True
-    if window_name is "7h_wick_0800" and is_ny_am_killzone:
+    if window_name == "7h_wick_0800" and is_ny_am_killzone:
         is_ny_am_killzone = False
     print("----------------------------------------")
     print(f"Candidate: {candidate.instrument} {candidate.side}")
@@ -398,6 +400,39 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             # there is a candidate -> valid sweep. check for bias, ib rejection, compression context, smt, 
             # expansion trade confirmation
             # get ib reaction data
+        # check cross ib relationships between nq and es
+        continue_with_candidate = True
+        if london_context.structure["compression"] and co_asset["london_context"].structure["compression"]:
+            continue_with_candidate = True
+        elif london_context.structure["compression"] and not co_asset["london_context"].structure["compression"]:
+            # allow trades in the direction of co_asset or session direction
+            if co_asset["london_context"].structure["ib_relationship"] == "above_18" \
+                and look_for_shorts and co_asset["market_context"].atr_usage < 0.7:
+                continue_with_candidate = False
+            elif co_asset["london_context"].structure["ib_relationship"] == "below_18" \
+                and look_for_longs and co_asset["market_context"].atr_usage < 0.7:
+                continue_with_candidate = False
+        elif not london_context.structure["compression"] and co_asset["london_context"].structure["compression"]:
+            # allow trades in the direction of co_asset or session direction
+            if london_context.structure["ib_relationship"] == "above_18" \
+                and look_for_shorts and market_context.atr_usage < 0.7:
+                continue_with_candidate = False
+            elif london_context.structure["ib_relationship"] == "below_18" \
+                and look_for_longs and market_context.atr_usage < 0.7:
+                continue_with_candidate = False
+        elif not london_context.structure["compression"] and not co_asset["london_context"].structure["compression"]:
+            if london_context.structure["iib_relationship"] == "above_18" and co_asset["london_context"].structure["ib_relationship"] == "above_18"\
+                and look_for_shorts:
+                continue_with_candidate = False
+            elif london_context.structure["iib_relationship"] == "below_18" and co_asset["london_context"].structure["ib_relationship"] == "below_18"\
+                and look_for_longs:
+                continue_with_candidate = False
+            else:
+                continue_with_candidate = False
+            
+                
+
+
         if london_context.structure["compression"] and london_context.structure["ib_relationship"] == "inside":
             # trade ready for expansion.
             # get htf bias, displacement, fvg imbalance, smt.
@@ -405,7 +440,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             # apply atr and displacement filter
             passed_atr_displacement_filter = displacement_atr_filter()
             print("post 1AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-            reversal_confirmation = passed_atr_displacement_filter
+            reversal_confirmation = passed_atr_displacement_filter and continue_with_candidate
             candidate.ping_type = "Rocket" if look_for_longs and is_smt else "Flush" if look_for_shorts and is_smt else "Expansion"
             candidate.final_target = "ATR"
 
@@ -438,7 +473,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif london_context.ib_2["direction"] == "bullish" and not last_closed_candle["close"] < london_context.ib_2["open"]:
                     rejection_of_ib_2 = True
                 
-            if allow_trade and rejection_of_ib_2 and london_context.structure["is_strong_body"] and not london_context.structure["engulfing_deep_retracement"]:
+            if continue_with_candidate and allow_trade and rejection_of_ib_2 and london_context.structure["is_strong_body"]\
+                and not london_context.structure["engulfing_deep_retracement"]:
                 reversal_confirmation = True
 
                 
@@ -485,7 +521,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             if allow_trade:
                 passed_atr_displacement_filter = displacement_atr_filter()
                 print("post 1AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-                reversal_confirmation = passed_atr_displacement_filter
+                reversal_confirmation = passed_atr_displacement_filter and continue_with_candidate
 
         else:
             print(" no compression during london, wait for 8am IB formation")
@@ -510,6 +546,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # partial_overlap_bullish, partial_overlap_neutral, below_1_18, partial_overlap_bearish
         ib_relationship = newyork_context.structure["ib_relationship"]
         # if ib_relationship in ("inside_1am", "inside_18"):
+        # get relative IB relationship context
+        # for example nq sandwich and es not. if sandwich by 9. ignore trade at 9 we need a sweep of extreme
+        # reset IBs
+
         if ib_relationship == "inside_1am":
             # re-accumulation or re-compression
             print("ib8am is inside ib1am")
@@ -649,9 +689,20 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             print("8am compression: ", ib_relationship)
             # no need to check displacement or atr exhaustion
             # valid sweep accounted for including inducement
+            mini = False
+
+            if co_asset["newyork_context"].structure["ib_relationship"] != "sandwich":
+                if not co_asset["newyork_context"].structure["compression"]:
+                    mini = True
             reversal_confirmation = True
-            candidate.ping_type = "Rocket" if look_for_longs else "Flush"
-            candidate.final_target = "ATR"
+            if last_closed_candle["open"] > newyork_context.structure["range_high"] or last_closed_candle["open"] < newyork_context.structure["range_low"]:
+                # sweep is not at compression range extremes
+                mini = False
+            if mini:
+                candidate.ping_type = "Mini Rocket" if look_for_longs else "Mini Flush"
+            else:
+                candidate.ping_type = "Rocket" if look_for_longs else "Flush"
+            candidate.final_target = "LIQUIDITY"
 
         elif ib_relationship in ("above_1_18", "below_1_18"):
             print("8am market exhaustion or trending: ", ib_relationship)
@@ -1293,7 +1344,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         candidate.set_ib_entry(ib_entry, ib_stop_loss)
         return reversal_confirmation
             
+    # TODO: implement this block after implementing IB blocks
     elif window_name == "7h_wick_0100":
+
         # approach : 
         # - 1am starts inside 18 IB and then moves outside of it with rejection, strong confirmation
         # - 1am starts outside 18 IB and then moves inside of it with rejection, strong confirmation

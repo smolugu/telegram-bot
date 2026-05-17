@@ -56,7 +56,7 @@ class SevenHourCandle:
         h = candle["high"]
         l = candle["low"]
         c = candle["close"]
-
+        
         if self.open is None:
             self.open = o
             self.high = h

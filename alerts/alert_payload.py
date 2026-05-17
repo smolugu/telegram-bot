@@ -199,23 +199,39 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         return None
 
     # rr = 1.5
+    if candidate.final_target == "LIQUIDITY":
+        alert_message = f"""
+        ⚡️Ping Time - {candidate.ping_type}
 
-    alert_message = f"""
- ⚡️Ping Time - {candidate.ping_type}
+        Instrument: {instrument}
+        Bias: {bias}
+        Time: {time_formatted}
 
-Instrument: {instrument}
-Bias: {bias}
-Time: {time_formatted}
+        Entry: {round(entry, 2)}
+        Stop Loss: {round(stop, 2)}
+        Take Profit 1 - {rr} RR: {round(tp1, 2)}
+        Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+        
+        Risk (tp1): {round(risk, 2)}
+        RR (tp1): {rr}
+        """
+    else:
+        alert_message = f"""
+        ⚡️Ping Time - {candidate.ping_type}
 
-Entry: {round(entry, 2)}
-Stop Loss: {round(stop, 2)}
-Take Profit 1 - {rr} RR: {round(tp1, 2)}
-Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
-Take Profit 3 - ATR: {round(tp3, 2)}
+        Instrument: {instrument}
+        Bias: {bias}
+        Time: {time_formatted}
 
-Risk (tp1): {round(risk, 2)}
-RR (tp1): {rr}
-"""
+        Entry: {round(entry, 2)}
+        Stop Loss: {round(stop, 2)}
+        Take Profit 1 - {rr} RR: {round(tp1, 2)}
+        Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+        Take Profit 3 - ATR: {round(tp3, 2)}
+
+        Risk (tp1): {round(risk, 2)}
+        RR (tp1): {rr}
+        """
 
     return alert_message
 

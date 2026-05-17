@@ -10,6 +10,12 @@ class NewYorkMarketContext:
         self.ib_8 = {}
         self.directional_mode = None
 
+        # -------- SUMMARY --------
+        self.structure_type = None
+        self.delivery = None
+        self.preferred_sweep = None
+        self.quality = None
+        self.note = None
 
         # -------- STRUCTURE --------
         # Ib_relationship: inside_1am, inside_18, engulfing_1am, engulfing_18, sandwich, above_1_18,
@@ -344,6 +350,135 @@ class NewYorkMarketContext:
         self.directional_mode = self.structure["ib_relationship"] in ["above_1_18", "below_1_18"]
     
     
+
+    # review function
+    def classify_structure(self):
+
+        # -----------------------------------------
+        # IB8 inside BOTH IB18 and IB1
+        # -----------------------------------------
+        if (
+            self.ib8_inside_ib18
+            and self.ib8_inside_ib1
+        ):
+            return "sandwich_compression"
+
+        # -----------------------------------------
+        # IB1 above IB18 + IB8 inside IB1
+        # -----------------------------------------
+        if (
+            self.ib1_above_ib18
+            and self.ib8_inside_ib1
+        ):
+            return "continuation_recompression_bullish"
+
+        # -----------------------------------------
+        # IB1 below IB18 + IB8 inside IB1
+        # -----------------------------------------
+        if (
+            self.ib1_below_ib18
+            and self.ib8_inside_ib1
+        ):
+            return "continuation_recompression_bearish"
+
+        # -----------------------------------------
+        # failed expansion bullish
+        # -----------------------------------------
+        if (
+            self.ib1_above_ib18
+            and self.ib8_overlap_ib18_low
+        ):
+            return "failed_bullish_expansion"
+
+        # -----------------------------------------
+        # failed expansion bearish
+        # -----------------------------------------
+        if (
+            self.ib1_below_ib18
+            and self.ib8_overlap_ib18_high
+        ):
+            return "failed_bearish_expansion"
+
+        return "mixed_overlap"
+    
+    # review function
+    def determine_expected_delivery(self):
+
+        structure = self.structure_type
+
+        # =================================================
+        # CONTINUATION RECOMPRESSION
+        # =================================================
+        if structure == "continuation_recompression_bullish":
+
+            if self.upside_atr_available:
+
+                return {
+                    "delivery": "continuation_expansion",
+                    "preferred_sweep": "compression_lows",
+                    "quality": "rocket_candidate"
+                    if self.smt_aligned
+                    else "normal_expansion"
+                }
+
+            else:
+
+                return {
+                    "delivery": "rebalance_only",
+                    "quality": "limited"
+                }
+
+        # =================================================
+        # SANDWICH COMPRESSION
+        # =================================================
+        if structure == "sandwich_compression":
+
+            return {
+                "delivery": "expansion_to_liquidity",
+                "preferred_sweep": "either_side",
+                "quality": "normal",
+                "note": "expect move completion at first liquidity target"
+            }
+
+        # =================================================
+        # FAILED EXPANSION
+        # =================================================
+        if structure == "failed_bullish_expansion":
+
+            return {
+                "delivery": "sweep_and_reverse",
+                "preferred_sweep": "highs_first",
+                "quality": "flush_candidate"
+                if self.smt_aligned
+                else "normal_expansion"
+            }
+
+        return {
+            "delivery": "mixed",
+            "quality": "low_conviction"
+        }
+    
+    # review function
+    def generate_summary(self):
+
+        d = self.expected_delivery
+
+        return f'''
+            Structure:
+            {self.structure_type}
+
+            Expected Delivery:
+            {d["delivery"]}
+
+            Preferred Sweep:
+            {d.get("preferred_sweep")}
+
+            Expansion Quality:
+            {d.get("quality")}
+
+            Notes:
+            {d.get("note", "")}
+            '''
     # =========================================
     # 2. POSITION RELATIVE TO IB
     # =========================================
