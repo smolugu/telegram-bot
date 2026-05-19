@@ -4,6 +4,7 @@
 #  2. Reintegration revisits old value — value flip establishes new value on the opposite side
 #  3. Early reversals migrate value or flip value — late reversals usually only rebalance or reintegrate value
 #  4. Reintegration weakens direction — SMT determines whether continuation still survives
+#  5. Direction preserves migration origin — categories describe how stable that migration remains
 
 def classify_ib_structure(
     ib18,
@@ -177,8 +178,8 @@ def classify_ib_structure(
             "category": "decompression",
             "direction": "bullish",
             "is_compression": False,
-            "is_decompression": True,
             "compression_strength": None,
+            "is_decompression": True,
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
@@ -334,13 +335,17 @@ def classify_ib_structure(
             "direction": "neutral",
             "is_compression": False,
             "compression_strength": None,
+            "is_decompression": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
 
             "note_internal":
                 "8AM IB engulfed 18 IB from mixed positioning. "
                 "Large purge of overnight value.",
 
             "note":
-                "Mixed decompression before NY open. "
+                "Mixed bias and early signs of market expansion before NY open. "
                 "Liquidity purge environment."
         }
     # =====================================================
@@ -364,6 +369,10 @@ def classify_ib_structure(
             "direction": "bullish",
             "is_compression": False,
             "compression_strength": None,
+            "is_decompression": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
 
             "note_internal":
                 "1AM IB engulfed 18 IB and 8AM continued higher. "
@@ -371,7 +380,7 @@ def classify_ib_structure(
 
             "note":
                 "Bullish early expansion during London session. "
-                "Higher pricing accepted before NY open."
+                "Higher pricing accepted before NY open. Expect price to rebalance towards london equilibrium or sweep of lows before continuation higher."
         }
 
     # =====================================================
@@ -389,6 +398,10 @@ def classify_ib_structure(
             "direction": "bearish",
             "is_compression": False,
             "compression_strength": None,
+            "is_decompression": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
 
             "note_internal":
                 "1AM IB engulfed 18 IB and 8AM continued lower. "
@@ -396,11 +409,13 @@ def classify_ib_structure(
 
             "note":
                 "Bearish decompression during London session. "
-                "Lower pricing accepted before NY open."
+                "Lower pricing accepted before NY open. Expect price to rebalance towards london equilibrium or sweep of highs before continuation lower."
         }
 
     # =====================================================
     # MIXED EARLY DECOMPRESSION
+    # When compression forms inside decompression, the market is stabilizing after volatility expansion — not yet confirming direction
+    # IB8 inside IB1. ib8 neither above or below ib1
     # =====================================================
 
     if ib1_engulf_ib18:
@@ -409,22 +424,26 @@ def classify_ib_structure(
             "structure": "mixed_early_decompression",
             "category": "decompression",
             "direction": "neutral",
-            "is_compression": False,
-            "compression_strength": None,
+            "is_compression": True,
+            "compression_strength": "Strong",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
 
             "note_internal":
                 "1AM IB engulfed 18 IB but 8AM did not confirm "
                 "directional continuation.",
 
             "note":
-                "Mixed decompression during London session. "
+                "Market stabilized after early expansion during London session. "
                 "Liquidity event likely before direction."
         }
 
     # =====================================================
     # DUAL INSIDE COMPRESSION
     # =====================================================
-
+    # TODO: check again
     if (
         ib1_inside_ib18
         and ib8_inside_ib1
@@ -436,6 +455,10 @@ def classify_ib_structure(
             "direction": "neutral",
             "is_compression": True,
             "compression_strength": "Strong",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
                 "Nested compression. "
                 "IB1 inside IB18 and IB8 inside IB1.",
@@ -458,13 +481,17 @@ def classify_ib_structure(
             "direction": "bullish",
             "is_compression": False,
             "compression_strength": None,
-            
-            "note":
-                "Strong bullish trend with small retracements. "
-                "Market aggressively accepting higher pricing.",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
                 "Strong bullish staircase with gaps. "
+                "Market aggressively accepting higher pricing.",
+            "note":
+                "Strong bullish trend with small retracements. "
                 "Market aggressively accepting higher pricing."
+            
         }
 
     # =====================================================
@@ -482,12 +509,16 @@ def classify_ib_structure(
             "direction": "bearish",
             "is_compression": False,
             "compression_strength": None,
-            "note":
-                "Strong bearish trend with small retracements. "
-                "Market aggressively accepting higher pricing.",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
                 "Strong bearish staircase with gaps. "
-                "Market aggressively accepting lower pricing."
+                "Market aggressively accepting lower pricing.",
+            "note":
+                "Strong bearish trend with small retracements. "
+                "Market aggressively accepting higher pricing."
         }
 
     # =====================================================
@@ -496,7 +527,7 @@ def classify_ib_structure(
     # here there could be no gaps or atmost one gap between ibs
 
     if (
-        ib1["low"] >= ib18["low"]
+        ib1["low"] > ib18["high"]
         and ib8["low"] >= ib1["low"]
         and ib8["high"] > ib1["high"]
     ):
@@ -505,14 +536,27 @@ def classify_ib_structure(
             "structure": "staircase_overlap_bullish",
             "category": "bullish_acceptance",
             "direction": "bullish",
-            "is_compression": False,
-            "compression_strength": None,
+            "is_compression": True,
+            "compression_strength": "Weak",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
-                "Bullish staircase overlap. "
-                "Higher pricing accepted with rebalance.",
+                "Bullish staircasing continued overnight, "
+                "but premarket migration weakened slightly "
+                "as price remained connected to prior value.",
+
+            # "note":
+            #     "Gradual bullish migration developed overnight. "
+            #     "Premarket upside efficiency weakened slightly, "
+            #     "which can create clean downside flush conditions "
+            #     "if reversal confirms."
+            # "note_internal":
+            #     "Bullish staircase overlap. "
+            #     "Higher pricing accepted with rebalance.",
             "note":
-                "Bullish trend with deeper retracements. "
-                "Higher pricing accepted with rebalance."
+                "Gradual bullish migration during asia and london sessions with efficiency weakening slightly during premarket. "
         }
 
     # =====================================================
@@ -521,7 +565,7 @@ def classify_ib_structure(
     # # here there could be no gaps or atmost one gap between ibs
 
     if (
-        ib1["high"] <= ib18["high"]
+        ib1["high"] < ib18["low"]
         and ib8["high"] <= ib1["high"]
         and ib8["low"] < ib1["low"]
     ):
@@ -530,18 +574,90 @@ def classify_ib_structure(
             "structure": "staircase_overlap_bearish",
             "category": "bearish_acceptance",
             "direction": "bearish",
-            "is_compression": False,
-            "compression_strength": None,
+            "is_compression": True,
+            "compression_strength": "Weak",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
-                "Bearish staircase overlap. "
-                "Lower pricing accepted with rebalance.",
+                "Bearish staircasing continued overnight, "
+                "but premarket migration weakened slightly "
+                "as price remained connected to prior value.",
             "note":
-                "Bearish trend with deeper retracements. "
-                "Lower pricing accepted with rebalance."    
+                "Gradual bearish migration during asia and london sessions with efficiency weakening slightly during premarket."
+        }
+    
+    # =====================================================
+    # STAIRCASE BULLISH
+    # =====================================================
+    # here there could be no gaps between ibs
+    # this structure generates low resistance liquidity runs
+    # ib8 > ib1 > ib18
+
+    if (
+        ib18["low"] < ib1["low"] < ib18["high"]
+        and ib1["low"] < ib8["low"] < ib1["high"]
+    ):
+
+        return {
+            "structure": "staircase_bullish",
+            "category": "acceptance",
+            "direction": "bullish",
+            "is_compression": True,
+            "compression_strength": "Weak",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            "note_internal":
+                "Higher value continued being accepted overnight, "
+                "but migration remained inefficient as price "
+                "continued overlapping prior value.",
+
+            # "note":
+            #     "Orderly bullish staircasing formed overnight. "
+            #     "Price continued accepting higher value while "
+            #     "remaining connected to prior liquidity. "
+            #     "If reversal confirms, downside flushes can "
+            #     "accelerate quickly due to gradually engineered liquidity."
+            
+            "note":
+                "Bullish trend accepting higher prices with less efficiency. "
+        }
+    
+    # =====================================================
+    # STAIRCASE BEARISH
+    # =====================================================
+    # here there could be no gaps between ibs
+    # this structure generates low resistance liquidity runs
+    # ib8 < ib1 < ib18
+
+    if (
+        ib18["high"] > ib1["high"] > ib18["low"]
+        and ib1["high"] > ib8["high"] > ib1["low"]
+    ):
+
+        return {
+            "structure": "staircase_bearish",
+            "category": "acceptance",
+            "direction": "bearish",
+            "is_compression": True,
+            "compression_strength": "Weak",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            "note_internal":
+                "Lower value continued being accepted overnight, "
+                "but migration remained inefficient as price "
+                "continued overlapping prior value.",
+            "note":
+                "Bearish trend continued accepting lower prices with less efficiency. "
         }
 
     # =====================================================
-    # BULLISH RECOMPRESSION
+    # BULLISH ACCEPTANCE COMPRESSION
     # =====================================================
 
     if (
@@ -550,19 +666,23 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_recompression",
+            "structure": "bullish_acceptance_compression",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_compression": True,
             "compression_strength": "Strong",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
-                "Bullish recompression after prior expansion.",
+                "Bullish acceptance and compression at new value after prior expansion.",
             "note":
-                "Bullish redistribution after prior expansion."
+                "Bullish redistribution after prior expansion. Expect sweep of lows before continuation higher."
         }
 
     # =====================================================
-    # BEARISH RECOMPRESSION
+    # BEARISH ACCEPTANCE COMPRESSION
     # =====================================================
 
     if (
@@ -571,15 +691,19 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_recompression",
+            "structure": "bearish_acceptance_compression",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_compression": True,
             "compression_strength": "Strong",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
             "note_internal":
-                "Bearish recompression after prior expansion.",
+                "Bearish acceptance and compression at new value after prior expansion.",
             "note":
-                "Bearish redistribution after prior expansion."
+                "Bearish redistribution after prior expansion. Expect sweep of highs before continuation lower."
         }
 
     # =====================================================
@@ -597,10 +721,14 @@ def classify_ib_structure(
             "direction": "bullish",
             "is_compression": True,
             "compression_strength": "Strong",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": True,
+            "is_value_flip": False,
             "note_internal":
                 "Bullish expansion weakened into rebalance.",
             "note":
-                "Bullish expansion weakened into rebalance."    
+                "Bullish expansion weakened into rebalance near daily open."    
         }
 
     # =====================================================
@@ -618,10 +746,14 @@ def classify_ib_structure(
             "direction": "bearish",
             "is_compression": True,
             "compression_strength": "Strong",
+            "is_decompression": False,
+            "is_reintegration": False,
+            "is_rebalance": True,
+            "is_value_flip": False,
             "note_internal":
                 "Bearish expansion weakened into rebalance.",
             "note":
-                "Bearish expansion weakened into rebalance."
+                "Bearish expansion weakened into rebalance at daily open."
         }
 
     # =====================================================
@@ -647,6 +779,8 @@ def classify_ib_structure(
             "is_compression": True,
             "is_reintegration": True,
             "is_rebalance": False,
+            "is_decompression": False,
+            "is_value_flip": False,
             "compression_strength": "Weak",
             "note_internal":
                 "Bullish expansion weakened into reintegration.",
@@ -677,6 +811,8 @@ def classify_ib_structure(
             "compression_strength": "Weak",
             "is_reintegration": True,
             "is_rebalance": False,
+            "is_decompression": False,
+            "is_value_flip": False,
             "note_internal":
                 "Bearish expansion weakened into reintegration.",
             "note":
@@ -705,6 +841,7 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_value_flip": True,
             "is_rebalance": False,
+            "is_decompression": False,
             "note_internal":
                 "Bullish expansion failed with ib8 flipping value and transitioning direction.",
             "note":
@@ -732,6 +869,7 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": True,
+            "is_decompression": False,
             "note_internal":
                 "Bearish expansion failed with ib8 flipping value and transitioning direction.",
             "note":
@@ -759,6 +897,10 @@ def classify_ib_structure(
             "direction": "bullish",
             "is_compression": True,
             "compression_strength": "Strong",
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            "is_decompression": False,
             "note_internal":
                 "Bullish sandwich compression between separated ranges.",
             "note":
@@ -876,6 +1018,7 @@ def classify_ib_structure(
 
     # =====================================================
     # SANDWICH OVERLAP BULLISH
+    # all ibs overlapping with each other, or gap between ib1 and ib18, with ib8 overlapping ib1 and ib18
     # =====================================================
 
     if (
@@ -917,7 +1060,62 @@ def classify_ib_structure(
             "note": 
                 "Price is consolidating at eq of asia and london range after bearish separation."
         }
+    # =====================================================
+    # SANDWICH BULLISH
+    # all ibs overlapping with each other with no gaps between them
+    # tight and energetic compression with explosive move after sweep of compression extremes
+    # =====================================================
 
+    if (
+        ib1["high"] >  ib18["high"] and ib18["low"] < ib1["low"] < ib18["high"]
+        and ib1["low"] < ib8["high"] < ib1["high"]
+        and ib18["high"] > ib8["low"] > ib18["low"]
+    ):
+
+        return {
+            "structure": "sandwich_bullish",
+            "category": "compression",
+            "direction": "neutral",
+            "is_compression": True,
+            "compression_strength": "Strong",
+            "is_rebalance": False,
+            "is_reintegration": False,
+            "is_value_flip": False,
+            "is_decompression": False,
+            "note_internal":
+                "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
+            "note": 
+                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of compression extremes."
+        }
+    
+    # =====================================================
+    # SANDWICH BEARISH
+    # all ibs overlapping with each other with no gaps between them
+    # tight and energetic compression with explosive move after sweep of compression extremes
+    # =====================================================
+
+    if (
+        ib18["high"] > ib1["high"] and ib1["low"] < ib18["low"] < ib1["high"]
+        and ib18["low"] < ib8["high"] < ib18["high"]
+        and ib1["high"] > ib8["low"] > ib1["low"]
+    ):
+
+        return {
+            "structure": "sandwich_bearish",
+            "category": "compression",
+            "direction": "neutral",
+            "is_compression": True,
+            "compression_strength": "Strong",
+            "is_rebalance": False,
+            "is_reintegration": False,
+            "is_value_flip": False,
+            "is_decompression": False,
+            "note_internal":
+                "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
+            "note": 
+                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of compression extremes."
+        }
+    
     # =====================================================
     # CENTERED COMPRESSION
     # =====================================================
