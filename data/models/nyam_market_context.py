@@ -157,7 +157,7 @@ class NewYorkMarketContext:
         # 1. INSIDE 1am IB → compression
         # -----------------------------------
         if ib8_high <= ib1_high and ib8_low >= ib1_low:
-            print("compression inside 1am IB for: ", self.instrument)
+            print("compression 1am IB inside 8amIB for: ", self.instrument)
             self.structure["ib_relationship"] = "inside_1am"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True
