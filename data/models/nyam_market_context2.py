@@ -1,6 +1,3 @@
-from data.models.ib_classification import classify_ib_structure
-
-
 class NewYorkMarketContext:
 
     def __init__(self, instrument, ib_18 = {}, ib_1 = {}):
@@ -24,28 +21,6 @@ class NewYorkMarketContext:
         # Ib_relationship: inside_1am, inside_18, engulfing_1am, engulfing_18, sandwich, above_1_18,
         # partial_overlap_bullish, partial_overlap_neutral, below_1_18, partial_overlap_bearish
         self.structure = {
-            "name": None,
-            "category": None,
-            "direction": None,
-            "migration_strength": None,
-            "is_compression": False,
-            "is_strong_compression": False,
-            "compression_strength": None,
-            "is_acceptance": False,
-            "is_decompression": False,
-            "is_reintegration": False,
-            "is_rebalance": False,
-            "is_value_flip": False,
-            "note_internal": None,
-            "note": None,
-            "range_high": None,
-            "range_low": None,
-            "range_ce": None,
-            "mitigation_level": None,
-            "ib_direction_8": None,
-            "is_ib_strong_body": False,
-            "ib_body_range": None,
-
             "position_vs_1": None,
             "position_vs_18_1": None,
             "ib_relationship": None,
@@ -54,10 +29,14 @@ class NewYorkMarketContext:
             "ib18_above_ib1": False,
             "ib18_below_ib1": False,
             "compression": False,
-            
-            
+            "is_strong_compression": False,
+            "range_high": None,
+            "range_low": None,
+            "range_ce": None,
             "rebalance_level": None,
-            
+            "ib_direction_8": None,
+            "is_ib_strong_body": False,
+            "ib_body_range": None,
             "engulfing_deep_retracement": False,
             "is_staircase": False
         }
@@ -114,7 +93,7 @@ class NewYorkMarketContext:
         )
 
     # =========================================
-    # 1. UPDATE 8AM IB STRUCTURE AND RELATIONSHIPS
+    # 1. UPDATE 1AM IB STRUCTURE
     # =========================================
     def set_8am_ib(self, seven_hour_builder_candles, ib_18, ib_1):
         seven_hour_candle_8am = seven_hour_builder_candles["8AM"].values()
@@ -172,222 +151,255 @@ class NewYorkMarketContext:
             self.ib_18["low"] < self.ib_1["low"] and
             self.ib_18["high"] < self.ib_1["high"]
         )
-        ib_classification_data = classify_ib_structure(self.ib_18, self.ib_1, self.ib_8)
-        self.structure["name"] = ib_classification_data["name"]
-        self.structure["category"] = ib_classification_data["category"]
-        self.structure["direction"] = ib_classification_data["direction"]
-        self.structure["is_compression"] = ib_classification_data["is_compression"]
-        self.structure["is_strong_compression"] = ib_classification_data["is_strong_compression"]
-        self.structure["compression_strength"] = ib_classification_data["compression_strength"]
-        self.structure["is_acceptance"] = ib_classification_data["is_acceptance"]
-        self.structure["is_decompression"] = ib_classification_data["is_decompression"]
-        self.structure["is_reintegration"] = ib_classification_data["is_reintegration"]
-        self.structure["is_rebalance"] = ib_classification_data["is_rebalance"]
-        self.structure["is_value_flip"] = ib_classification_data["is_value_flip"]
-        self.structure["note"] = ib_classification_data["note"]
-        self.structure["note_internal"] = ib_classification_data["note_internal"]
-        self.structure["range_high"] = ib_classification_data["range"]["high"]
-        self.structure["range_low"] = ib_classification_data["range"]["low"]
-        self.structure["range_ce"] = ib_classification_data["range"]["ce"]
-        self.structure["mitigation_level"] = ib_classification_data["mitigation_level"]
-        self.structure["migration_strength"] = ib_classification_data["migration_strength"]
 
-        # # -----------------------------------
-        # # 1. INSIDE 1am IB → compression
-        # # -----------------------------------
-        # if ib8_high <= ib1_high and ib8_low >= ib1_low:
-        #     print("compression 1am IB inside 8amIB for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "inside_1am"
-        #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = True
 
-        #     self.structure["range_high"] = ib1_high
-        #     self.structure["range_low"] = ib1_low
-        #     self.structure["range_ce"] = (ib1_high + ib1_low)/2
-        # # -----------------------------------
-        # # 1.1 INSIDE 18 IB → compression
-        # # -----------------------------------
-        # elif ib8_high <= ib18_high and ib8_low >= ib18_low:
-        #     print("compression inside 18am IB for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "inside_18"
-        #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = True
+        # -----------------------------------
+        # 1. INSIDE 1am IB → compression
+        # -----------------------------------
+        if ib8_high <= ib1_high and ib8_low >= ib1_low:
+            print("compression 1am IB inside 8amIB for: ", self.instrument)
+            self.structure["ib_relationship"] = "inside_1am"
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = True
 
-        #     self.structure["range_high"] = ib18_high
-        #     self.structure["range_low"] = ib18_low
-        #     self.structure["range_ce"] = (ib18_high + ib18_low)/2
-        # # -----------------------------------
-        # # 2. ENGULFING 1am → expansion happened 
-        # # -----------------------------------
-        # elif ib8_high > ib1_high and ib8_low < ib1_low:
-        #     print("engilfing 1am IB for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "engulfing_1am"
-        #     self.structure["compression"] = False
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low)/2
-        # # -----------------------------------
-        # # 2.1 ENGULFING 18 → expansion happened
-        # # -----------------------------------
-        # elif ib8_high > ib18_high and ib8_low < ib18_low:
-        #     print("engilfing 18am IB for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "engulfing_18"
-        #     self.structure["compression"] = False
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low)/2
+            self.structure["range_high"] = ib1_high
+            self.structure["range_low"] = ib1_low
+            self.structure["range_ce"] = (ib1_high + ib1_low)/2
+        # -----------------------------------
+        # 1.1 INSIDE 18 IB → compression
+        # -----------------------------------
+        elif ib8_high <= ib18_high and ib8_low >= ib18_low:
+            print("compression inside 18am IB for: ", self.instrument)
+            self.structure["ib_relationship"] = "inside_18"
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = True
+
+            self.structure["range_high"] = ib18_high
+            self.structure["range_low"] = ib18_low
+            self.structure["range_ce"] = (ib18_high + ib18_low)/2
+        # -----------------------------------
+        # 2. ENGULFING 1am → expansion happened 
+        # -----------------------------------
+        elif ib8_high > ib1_high and ib8_low < ib1_low:
+            print("engilfing 1am IB for: ", self.instrument)
+            self.structure["ib_relationship"] = "engulfing_1am"
+            self.structure["compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low)/2
+        # -----------------------------------
+        # 2.1 ENGULFING 18 → expansion happened
+        # -----------------------------------
+        elif ib8_high > ib18_high and ib8_low < ib18_low:
+            print("engilfing 18am IB for: ", self.instrument)
+            self.structure["ib_relationship"] = "engulfing_18"
+            self.structure["compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low)/2
         
-        # elif self.sandwich(self.ib_18, self.ib_1, self.ib_8):
-        #     print("sandwich IB for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "sandwich"
-        #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = True
-        #     self.structure["range_high"] = max(self.ib_18["high"], self.ib_1["high"])
-        #     self.structure["range_low"] = min(self.ib_18["low"], self.ib_1["low"])
-        #     self.structure["range_ce"] =(self.structure["range_high"] + self.structure["range_low"])/2
+        elif self.sandwich(self.ib_18, self.ib_1, self.ib_8):
+            print("sandwich IB for: ", self.instrument)
+            self.structure["ib_relationship"] = "sandwich"
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = True
+            self.structure["range_high"] = max(self.ib_18["high"], self.ib_1["high"])
+            self.structure["range_low"] = min(self.ib_18["low"], self.ib_1["low"])
+            self.structure["range_ce"] =(self.structure["range_high"] + self.structure["range_low"])/2
 
-        # # -----------------------------------
-        # # 3. ABOVE → directional bullish no overlap 
-        # # -----------------------------------
-        # elif ib18_high < ib1_low and ib8_low > ib1_high:
-        #     print("ib18_high: ", ib18_high)
-        #     print("ib1_low: ", ib1_low)
-        #     print("ib8_low: ", ib8_low)
-        #     print("ib1_high: ", ib1_high)
-        #     print("self ib18: ", self.ib_18)
-        #     print("seld ib1: ", self.ib_1)
-        #     print("above directional bullish for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "above_1_18"
-        #     self.structure["compression"] = False
+        # -----------------------------------
+        # 3. ABOVE → directional bullish no overlap 
+        # -----------------------------------
+        elif ib18_high < ib1_low and ib8_low > ib1_high:
+            print("ib18_high: ", ib18_high)
+            print("ib1_low: ", ib1_low)
+            print("ib8_low: ", ib8_low)
+            print("ib1_high: ", ib1_high)
+            print("self ib18: ", self.ib_18)
+            print("seld ib1: ", self.ib_1)
+            print("above directional bullish for: ", self.instrument)
+            self.structure["ib_relationship"] = "above_1_18"
+            self.structure["compression"] = False
 
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low)/2
-        # # -----------------------------------
-        # # 3.1 ABOVE → directional bullish with partial overlap
-        # # -----------------------------------
-        # # if ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
-        # # elif ib18_high < ib1_low and ib8_low in (ib1_low, ib1_high):
-        # # elif ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
-        # elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib1_low <= ib8_low <= ib1_high:
-        #     print("above directional bullish partial overlap for: ", self.instrument)
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low)/2
+        # -----------------------------------
+        # 3.1 ABOVE → directional bullish with partial overlap
+        # -----------------------------------
+        # if ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
+        # elif ib18_high < ib1_low and ib8_low in (ib1_low, ib1_high):
+        # elif ib18_high < ib1_low and ib1_low <= ib8_low <= ib1_high:
+        elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib1_low <= ib8_low <= ib1_high:
+            print("above directional bullish partial overlap for: ", self.instrument)
         
-        #     self.structure["ib_relationship"] = "partial_overlap_bullish"
+            self.structure["ib_relationship"] = "partial_overlap_bullish"
+            # weak compression
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = False if ib18_high < ib1_low else True
+            self.structure["is_staircase"] = ib1_low <= ib18_high <= ib1_high
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib1_low
+            self.structure["range_ce"] = (ib1_low + ib8_high)/2
+            self.structure["rebalance_level"] = (ib8_high + ib18_low)/2
+        # elif ib18_low < ib1_low < ib18_high and ib1_low <= ib8_low <= ib1_high:
+        #     print("staircase directional bullish partial overlap for: ", self.instrument)
+        
+        #     self.structure["ib_relationship"] = "staircase_overlap_bullish"
         #     # weak compression
         #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = False if ib18_high < ib1_low else True
-        #     self.structure["is_staircase"] = ib1_low <= ib18_high <= ib1_high
+        #     self.structure["is_strong_compression"] = True
         #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib1_low
-        #     self.structure["range_ce"] = (ib1_low + ib8_high)/2
+        #     self.structure["range_low"] = ib18_low
+        #     self.structure["range_ce"] = (ib18_low + ib8_high)/2
         #     self.structure["rebalance_level"] = (ib8_high + ib18_low)/2
-        # # elif ib18_low < ib1_low < ib18_high and ib1_low <= ib8_low <= ib1_high:
-        # #     print("staircase directional bullish partial overlap for: ", self.instrument)
-        
-        # #     self.structure["ib_relationship"] = "staircase_overlap_bullish"
-        # #     # weak compression
-        # #     self.structure["compression"] = True
-        # #     self.structure["is_strong_compression"] = True
-        # #     self.structure["range_high"] = ib8_high
-        # #     self.structure["range_low"] = ib18_low
-        # #     self.structure["range_ce"] = (ib18_low + ib8_high)/2
-        # #     self.structure["rebalance_level"] = (ib8_high + ib18_low)/2
-        # # -----------------------------------
-        # # 3.2 ABOVE → below 18IB with partial overlap - neutral bias
-        # # -----------------------------------
-        # # elif ib18_low > ib1_high and ib8_low in (ib18_low, ib18_high):
-        # elif (ib18_low > ib1_high or ib1_high >= ib18_low >= ib1_low) and ib18_low <= ib8_low <= ib18_high:
-        #     print("partial_overlap_bullish_neutral for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "partial_overlap_bullish_neutral"
+        # -----------------------------------
+        # 3.2 ABOVE → below 18IB with partial overlap - neutral bias
+        # -----------------------------------
+        # elif ib18_low > ib1_high and ib8_low in (ib18_low, ib18_high):
+        elif (ib18_low > ib1_high or ib1_high >= ib18_low >= ib1_low) and ib18_low <= ib8_low <= ib18_high:
+            print("partial_overlap_bullish_neutral for: ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bullish_neutral"
+            # weak compression
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib18_low
+            self.structure["range_ce"] = (ib8_high + ib18_low) / 2
+            self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
+
+        elif (ib18_low > ib1_high or ib1_high >= ib18_low >= ib1_low) and ib8_low >= ib18_high:
+            print("partial_overlap_bullish_neutral_shallow for : ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bullish_neutral_shallow"
+            # weak compression
+            self.structure["compression"] = False
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
+
+        # -----------------------------------
+        # 4. BELOW → directional bearish no overlap
+        # -----------------------------------
+        elif ib18_low > ib1_high and ib8_high < ib1_low:
+            print("below_1_18 for: ", self.instrument)
+            self.structure["ib_relationship"] = "below_1_18"
+            self.structure["compression"] = False
+
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
+
+        # -----------------------------------
+        # 4.1 BELOW → directional bearish with partial overlap 
+        # -----------------------------------
+        # elif ib18_low > ib1_high and ib8_high in (ib1_low, ib1_high):
+        elif ib18_low > ib1_high and ib1_low <= ib8_high <= ib1_high:
+            print("partial_overlap_bearish for: ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bearish"
+            # weak compression
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib1_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib1_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
+        # elif ib1_high >= ib18_low >= ib1_low and ib1_low <= ib8_high <= ib1_high:
+        #     print("staircase_overlap_bearish for: ", self.instrument)
+        #     self.structure["ib_relationship"] = "staircase_overlap_bearish"
         #     # weak compression
         #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = False
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib18_low
-        #     self.structure["range_ce"] = (ib8_high + ib18_low) / 2
-        #     self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
-
-        # elif (ib18_low > ib1_high or ib1_high >= ib18_low >= ib1_low) and ib8_low >= ib18_high:
-        #     print("partial_overlap_bullish_neutral_shallow for : ", self.instrument)
-        #     self.structure["ib_relationship"] = "partial_overlap_bullish_neutral_shallow"
-        #     # weak compression
-        #     self.structure["compression"] = False
-        #     self.structure["is_strong_compression"] = False
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low) / 2
-        #     self.structure["rebalance_level"] = (ib1_low + ib8_high) / 2
-
-        # # -----------------------------------
-        # # 4. BELOW → directional bearish no overlap
-        # # -----------------------------------
-        # elif ib18_low > ib1_high and ib8_high < ib1_low:
-        #     print("below_1_18 for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "below_1_18"
-        #     self.structure["compression"] = False
-
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low) / 2
-        #     self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
-
-        # # -----------------------------------
-        # # 4.1 BELOW → directional bearish with partial overlap 
-        # # -----------------------------------
-        # # elif ib18_low > ib1_high and ib8_high in (ib1_low, ib1_high):
-        # elif ib18_low > ib1_high and ib1_low <= ib8_high <= ib1_high:
-        #     print("partial_overlap_bearish for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "partial_overlap_bearish"
-        #     # weak compression
-        #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = False
-        #     self.structure["range_high"] = ib1_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib1_high + ib8_low) / 2
-        #     self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
-        # # elif ib1_high >= ib18_low >= ib1_low and ib1_low <= ib8_high <= ib1_high:
-        # #     print("staircase_overlap_bearish for: ", self.instrument)
-        # #     self.structure["ib_relationship"] = "staircase_overlap_bearish"
-        # #     # weak compression
-        # #     self.structure["compression"] = True
-        # #     self.structure["is_strong_compression"] = True
-        # #     self.structure["range_high"] = ib18_high
-        # #     self.structure["range_low"] = ib8_low
-        # #     self.structure["range_ce"] = (ib18_high + ib8_low) / 2
-        # #     self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
-        # # -----------------------------------
-        # # 4.2 BELOW → above 18Ib with partial overlap - neutral bias
-        # # -----------------------------------
-        # # elif ib18_high < ib1_low and ib8_high in (ib18_high, ib18_low):
-        # elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib18_low <= ib8_high <= ib18_high:
-        #     print("partial_overlap_bearish_neutral (compression -> deep rebalance) for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "partial_overlap_bearish_neutral"
-        #     # weak compression
-        #     self.structure["compression"] = True
-        #     self.structure["is_strong_compression"] = False
+        #     self.structure["is_strong_compression"] = True
         #     self.structure["range_high"] = ib18_high
         #     self.structure["range_low"] = ib8_low
         #     self.structure["range_ce"] = (ib18_high + ib8_low) / 2
-        #     self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
-        # elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib8_high <= ib18_low:
-        #     print("partial_overlap_bearish_neutral (compression -> shallow rebalance) for: ", self.instrument)
-        #     self.structure["ib_relationship"] = "partial_overlap_bearish_neutral_shallow"
-        #     # weak compression
-        #     self.structure["compression"] = False
-        #     self.structure["is_strong_compression"] = False
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low) / 2
-        #     self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
-        # else:
-        #     print("no relation found")
-        #     self.structure["range_high"] = ib8_high
-        #     self.structure["range_low"] = ib8_low
-        #     self.structure["range_ce"] = (ib8_high + ib8_low) / 2
+        #     self.structure["rebalance_level"] = (ib18_high + ib8_low) / 2
+        # -----------------------------------
+        # 4.2 BELOW → above 18Ib with partial overlap - neutral bias
+        # -----------------------------------
+        # elif ib18_high < ib1_low and ib8_high in (ib18_high, ib18_low):
+        elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib18_low <= ib8_high <= ib18_high:
+            print("partial_overlap_bearish_neutral (compression -> deep rebalance) for: ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bearish_neutral"
+            # weak compression
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib18_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib18_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
+        elif (ib18_high < ib1_low or ib1_low <= ib18_high <= ib1_high) and ib8_high <= ib18_low:
+            print("partial_overlap_bearish_neutral (compression -> shallow rebalance) for: ", self.instrument)
+            self.structure["ib_relationship"] = "partial_overlap_bearish_neutral_shallow"
+            # weak compression
+            self.structure["compression"] = False
+            self.structure["is_strong_compression"] = False
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
+            self.structure["rebalance_level"] = (ib1_high + ib8_low) / 2
+        else:
+            print("no relation found")
+            self.structure["range_high"] = ib8_high
+            self.structure["range_low"] = ib8_low
+            self.structure["range_ce"] = (ib8_high + ib8_low) / 2
             
 
         self.directional_mode = self.structure["ib_relationship"] in ["above_1_18", "below_1_18"]
     
+    
+
+    # review function
+    def classify_structure(self):
+
+        # -----------------------------------------
+        # IB8 inside BOTH IB18 and IB1
+        # -----------------------------------------
+        if (
+            self.ib8_inside_ib18
+            and self.ib8_inside_ib1
+        ):
+            return "sandwich_compression"
+
+        # -----------------------------------------
+        # IB1 above IB18 + IB8 inside IB1
+        # -----------------------------------------
+        if (
+            self.ib1_above_ib18
+            and self.ib8_inside_ib1
+        ):
+            return "continuation_recompression_bullish"
+
+        # -----------------------------------------
+        # IB1 below IB18 + IB8 inside IB1
+        # -----------------------------------------
+        if (
+            self.ib1_below_ib18
+            and self.ib8_inside_ib1
+        ):
+            return "continuation_recompression_bearish"
+
+        # -----------------------------------------
+        # failed expansion bullish
+        # -----------------------------------------
+        if (
+            self.ib1_above_ib18
+            and self.ib8_overlap_ib18_low
+        ):
+            return "failed_bullish_expansion"
+
+        # -----------------------------------------
+        # failed expansion bearish
+        # -----------------------------------------
+        if (
+            self.ib1_below_ib18
+            and self.ib8_overlap_ib18_high
+        ):
+            return "failed_bearish_expansion"
+
+        return "mixed_overlap"
     
     # review function
     def determine_expected_delivery(self):
@@ -581,26 +593,26 @@ class NewYorkMarketContext:
                 self.acceptance["status"] = "rejected"
         
         # update deep retracement flag for engulfing Ib
-        if (self.structure["ib_relationship"] == "engulfing" or self.structure["category"] == "decompression") and self.structure["ib_direction_8"] == "bullish":
+        if self.structure["ib_relationship"] == "engulfing" and self.structure["ib_direction_8"] == "bullish":
             self.structure["engulfing_deep_retracement"] = close < self.ib_8["ce"]
             self.phase = "recompression"
-        elif (self.structure["ib_relationship"] == "engulfing" or self.structure["category"] == "decompression") and self.structure["ib_direction_8"] == "bearish":
+        elif self.structure["ib_relationship"] == "engulfing" and self.structure["ib_direction_8"] == "bearish":
             self.structure["engulfing_deep_retracement"] = close > self.ib_8["ce"]
             self.phase = "recompression"
         
-        # update if candle reaches rebalance (mitigation or equilibrium) level
-        if self.structure["name"] == "bearish_reintegration" or self.structure["ib_relationship"] == "partial_overlap_bullish_neutral": 
-            if self.ib_18["low"] > low >= self.structure["mitigation_level"]:
+        # update if candle reaches rebalance level
+        if self.structure["ib_relationship"] == "partial_overlap_bullish_neutral":
+            if self.ib_18["low"] > low >= self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
-            elif low < self.structure["mitigation_level"] and close > self.structure["mitigation_level"]:
+            elif low < self.structure["rebalance_level"] and close > self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
             else:
                 self.sweep["is_valid_sweep"] = False
 
-        elif self.structure["name"] == "bullish_reintegration" or self.structure["ib_relationship"] == "partial_overlap_bearish_neutral":
-            if self.ib_18["high"] < high <= self.structure["mitigation_level"]:
+        elif self.structure["ib_relationship"] == "partial_overlap_bearish_neutral":
+            if self.ib_18["high"] < high <= self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
-            elif high > self.structure["mitigation_level"] and close < self.structure["mitigation_level"]:
+            elif high > self.structure["rebalance_level"] and close < self.structure["rebalance_level"]:
                 self.sweep["is_valid_sweep"] = True
             else:
                 self.sweep["is_valid_sweep"] = False
