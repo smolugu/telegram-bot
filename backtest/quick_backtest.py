@@ -163,8 +163,7 @@ def run_quick_backtest(test_date: str):
                 es_market_context.set_daily_atr(es_daily_atr)
             
             if i >= 3:
-                continue
-
+                
                 print("\n---------------------------")
                 t1 = datetime.fromisoformat(nq_30m[i-1]["timestamp"])
                 t0 = datetime.fromisoformat(nq_30m[i-2]["timestamp"])
@@ -472,6 +471,7 @@ def run_quick_backtest(test_date: str):
                 # nq_compression_or_recompression = compression_flags_nq["nested_1_in_18"] or compression_flags_nq["engulfing_1_over_18"]
                 # es_compression_or_recompression = compression_flags_es["nested_1_in_18"] or compression_flags_es["engulfing_1_over_18"]
                 # compression or re-compression at 1am IB, trade only extremes
+                # TODO: inducement sweep count for stroon compression vs weak compression
                 if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
                     # below we have a separate block for sweep outside compression range and candle outside compression range
@@ -678,17 +678,21 @@ def run_quick_backtest(test_date: str):
                 es_sweep_rejected_lows = True
                 invalidate_sweeps_highs = False
                 invalidate_sweeps_lows = False
-                if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                
+                # if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["name"] == "bearish_reintegration" and compression_sweep_data_nq["is_valid_sweep"]:
                     nq_sweep_rejected_lows = False
                     invalidate_sweeps_lows = True
-                if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                # if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["name"] == "bearish_reintegration" and compression_sweep_data_es["is_valid_sweep"]:
                     es_sweep_rejected_lows = False
                     invalidate_sweeps_lows = True
                 
-                if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                # if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["name"] == "bullish_reintegration" and compression_sweep_data_nq["is_valid_sweep"]:
                     nq_sweep_rejected_highs = False
                     invalidate_sweeps_highs = True
-                if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["name"] == "bullish_reintegration" and compression_sweep_data_es["is_valid_sweep"]:
                     es_sweep_rejected_highs = False
                     invalidate_sweeps_highs = True
                 
@@ -754,30 +758,48 @@ def run_quick_backtest(test_date: str):
                 
                 # block for ib_relationship is directional partial_overlap directional
                     # Rule: Structure
+                    # this applies to staircase bullish, bearish where there are no gaps between IBs
                     # invalidate sweeps at lows, market is already directional and is compressing so a ping flush is high probable
                 
                 invalidate_sweeps = False
                 # invalidate if either nq or es is a staircase (each IB overlapping others, strong compression)
                 if nq_ny_market_context.structure["is_staircase"] or es_ny_market_context.structure["is_staircase"]:
                     invalidate_sweeps = True
-
-                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                # london session
+                #  TODO
+                # nyam session
+                if invalidate_sweeps and is_post_8AM_IB and nq_ny_market_context.structure["direction"] == "bullish":
                     # invalidate nq sweep lows
                     sweep_nq_lows = None
-                    sweep_nq_lows_key_level = None
-                    
-                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                    sweep_nq_lows_key_level = None    
                     # invalidate es sweep lows
                     sweep_es_lows = None
-                    sweep_es_lows_key_level = None
-                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                    sweep_es_lows_key_level = None    
+                if invalidate_sweeps and is_post_8AM_IB and nq_ny_market_context.structure["direction"] == "bearish":
                     # invalidate nq sweep highs
-                    sweep_nq_highs = None
-                    sweep_nq_highs_key_level = None
-                if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                    sweep_nq_lows = None
+                    sweep_nq_lows_key_level = None    
                     # invalidate es sweep highs
-                    sweep_es_highs = None
-                    sweep_es_highs_key_level = None
+                    sweep_es_lows = None
+                    sweep_es_lows_key_level = None    
+
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                #     # invalidate nq sweep lows
+                #     sweep_nq_lows = None
+                #     sweep_nq_lows_key_level = None
+                    
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                #     # invalidate es sweep lows
+                #     sweep_es_lows = None
+                #     sweep_es_lows_key_level = None
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                #     # invalidate nq sweep highs
+                #     sweep_nq_highs = None
+                #     sweep_nq_highs_key_level = None
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                #     # invalidate es sweep highs
+                #     sweep_es_highs = None
+                #     sweep_es_highs_key_level = None
 
                 # block where there is gap on both directional partial overlap
                 # allow reversal sweeps at rebalance levels
@@ -803,8 +825,6 @@ def run_quick_backtest(test_date: str):
                 #     # staricase compression and candle below compression range low
                 #     # sweep is valid
                 #     print("ES: staircase_overlap_bullish - location below - valid sweep")
-                
-            
                 
                 # compression -> expansion -> re-compression
                 # 1am Ib is engulfing - reset candidates. price will go into re-compression and then manipulate 
@@ -876,7 +896,7 @@ def run_quick_backtest(test_date: str):
                         print("Sweep detected ES Lows:", sweep_es_lows)
                         es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"])
                 
-                
+       
                 #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
                     continue

@@ -27,6 +27,7 @@ class NewYorkMarketContext:
             "name": None,
             "category": None,
             "direction": None,
+            "is_staircase": False,
             "migration_strength": None,
             "is_compression": False,
             "is_strong_compression": False,
@@ -54,12 +55,7 @@ class NewYorkMarketContext:
             "ib18_above_ib1": False,
             "ib18_below_ib1": False,
             "compression": False,
-            
-            
-            "rebalance_level": None,
-            
             "engulfing_deep_retracement": False,
-            "is_staircase": False
         }
 
         # -------- SWEEP --------
@@ -191,6 +187,7 @@ class NewYorkMarketContext:
         self.structure["range_ce"] = ib_classification_data["range"]["ce"]
         self.structure["mitigation_level"] = ib_classification_data["mitigation_level"]
         self.structure["migration_strength"] = ib_classification_data["migration_strength"]
+        self.structure["is_staircase"] = ib_classification_data["is_staircase"]
 
         # # -----------------------------------
         # # 1. INSIDE 1am IB → compression
@@ -646,7 +643,7 @@ class NewYorkMarketContext:
     def get_compression_data(self):
         is_compression = False
         compression_range = {"high": None, "low": None}
-        is_compression = self.structure["compression"] or self.phase == "recompression"
+        is_compression = self.structure["is_compression"] or self.phase == "recompression"
         compression_range["high"] = self.structure["range_high"]
         compression_range["low"] = self.structure["range_low"]
         return is_compression, compression_range, self.sweep
