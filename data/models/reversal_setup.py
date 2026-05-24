@@ -550,6 +550,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # get relative IB relationship context
         # for example nq sandwich and es not. if sandwich by 9. ignore trade at 9 we need a sweep of extreme
         # reset IBs
+        # split different filters like displacement, atr_usage, smt, direction, htf bias, 
         passed_atr_displacement_filter = displacement_atr_filter()
         # if ib_relationship == "inside_1am":
         if structure_name == "bullish_acceptance_compression":
