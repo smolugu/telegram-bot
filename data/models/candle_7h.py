@@ -57,12 +57,15 @@ class SevenHourCandle:
         l = candle["low"]
         c = candle["close"]
         
+        
         if self.open is None:
+            
             self.open = o
             self.high = h
             self.low = l
 
         else:
+            
             self.high = max(self.high, h)
             self.low = min(self.low, l)
 
@@ -71,10 +74,12 @@ class SevenHourCandle:
         #  Ib detection
         if self._candle_count <2:
             if self.ib_high is None:
+                
                 self.ib_high = h
                 self.ib_low = l
                 self.ib_open = o
             else:
+                
                 self.ib_high = max(self.ib_high, h)
                 self.ib_low = min(self.ib_low, l)
                 self.ib_close = c
@@ -83,7 +88,7 @@ class SevenHourCandle:
             if self._candle_count == 1:
                 self.ib_ce = (self.ib_high + self.ib_low) / 2
                 self.ib_ready = True
-        
+            
         self._candle_count += 1
 
 
@@ -143,12 +148,14 @@ class SevenHourBuilder:
     def update(self, candle):
 
         label = get_7h_label(candle["timestamp"])
+        print("label: ", label)
 
         if label is None:
             return
 
         # new 7h block starting
         if label != self.current_label:
+            print("7h new block: ", label)
 
             if self.current_label is not None:
                 self.candles[self.current_label].compute_bias()

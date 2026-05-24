@@ -88,7 +88,7 @@ def fetch_symbol_data(symbol: str):
 
     # 1d
     df_1d = ticker.history(interval="1d", period="14d", auto_adjust=False)
-    print("direct daily candles: ", df_1d.head(20).to_string())
+    # print("direct daily candles: ", df_1d.head(20).to_string())
 
     # 1h
     df_1h = ticker.history(interval="60m", period="14d")
@@ -103,19 +103,19 @@ def fetch_symbol_data(symbol: str):
         return None
     # print("1m candles: ", df_1m)
 
-    # date = "2026-05-11"
+    date = "2026-05-18"
 
-    # filtered = df_1m.loc[date]
-
-    # candles_1800 = filtered.between_time("18:00", "23:59")
-
-    # print(candles_1800.head(50).to_string())
-    df_3m = resample_to_3m(df_1m)
-    date = "2026-05-11"
-
-    filtered = df_3m.loc[date]
+    filtered = df_5m.loc[date]
 
     candles_1800 = filtered.between_time("18:00", "23:59")
+    # print("raw 5m candles for date: ", date)
+    # print(candles_1800.head(50).to_string())
+    df_3m = resample_to_3m(df_1m)
+    # date = "2026-05-18"
+
+    # filtered = df_3m.loc[date]
+
+    # candles_1800 = filtered.between_time("18:00", "23:59")
     # print("3m candles all: ", df_3m)
     # print("3m candles after resample")
     # print(candles_1800.head(50).to_string())

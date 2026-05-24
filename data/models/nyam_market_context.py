@@ -31,6 +31,8 @@ class NewYorkMarketContext:
             "migration_strength": None,
             "is_compression": False,
             "is_strong_compression": False,
+            "range_high_swept": False,
+            "range_low_swept": False,
             "compression_strength": None,
             "is_acceptance": False,
             "is_decompression": False,
@@ -169,7 +171,8 @@ class NewYorkMarketContext:
             self.ib_18["high"] < self.ib_1["high"]
         )
         ib_classification_data = classify_ib_structure(self.ib_18, self.ib_1, self.ib_8)
-        self.structure["name"] = ib_classification_data["name"]
+        print("ib_data: ", ib_classification_data)
+        self.structure["name"] = ib_classification_data["structure_name"]
         self.structure["category"] = ib_classification_data["category"]
         self.structure["direction"] = ib_classification_data["direction"]
         self.structure["is_compression"] = ib_classification_data["is_compression"]
@@ -495,6 +498,7 @@ class NewYorkMarketContext:
         # -------------------------
         if low < self.structure["range_low"]:
             self.sweep["side"] = "sell_side"
+            self.range_low_swept = True
             self.sweep["time"] = candle["timestamp"]
             if self.sweep['count_low'] == 0:
                 self.sweep["count_low"] += 1
@@ -527,6 +531,7 @@ class NewYorkMarketContext:
         # -------------------------
         elif high > self.structure["range_high"]:
             self.sweep["side"] = "buy_side"
+            self.range_high_swept = True
             self.sweep["time"] = candle["timestamp"]
             if self.sweep['count_high'] == 0:
                 self.sweep["count_high"] += 1

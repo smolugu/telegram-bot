@@ -44,7 +44,7 @@ def classify_ib_structure(
     RETURNS
     -------
     {
-        "structure": str,
+        "structure_name": str,
         "category": str,
         "direction": str,
         "note": str
@@ -190,7 +190,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_decompression",
+            "structure_name": "bullish_decompression",
             "category": "decompression",
             "direction": "bullish",
             "is_staircase": False,
@@ -235,7 +235,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_decompression",
+            "structure_name": "bearish_decompression",
             "category": "decompression",
             "direction": "bearish",
             "is_staircase": False,
@@ -275,7 +275,7 @@ def classify_ib_structure(
     if ib8_engulf_ib1:
 
         return {
-            "structure": "mixed_decompression",
+            "structure_name": "mixed_decompression",
             "category": "decompression",
             "direction": "neutral",
             "is_staircase": False,
@@ -332,7 +332,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_macro_decompression",
+            "structure_name": "bullish_macro_decompression",
             "category": "decompression",
             "direction": "bullish",
             "is_staircase": False,
@@ -405,7 +405,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_macro_decompression",
+            "structure_name": "bearish_macro_decompression",
             "category": "decompression",
             "direction": "bearish",
             "is_staircase": False,
@@ -448,7 +448,7 @@ def classify_ib_structure(
     if ib8_engulf_ib18:
 
         return {
-            "structure": "mixed_macro_decompression",
+            "structure_name": "mixed_macro_decompression",
             "category": "decompression",
             "direction": "neutral",
             "is_staircase": False,
@@ -492,7 +492,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_early_decompression",
+            "structure_name": "bullish_early_decompression",
             "category": "decompression",
             "direction": "bullish",
             "is_staircase": False,
@@ -528,7 +528,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_early_decompression",
+            "structure_name": "bearish_early_decompression",
             "category": "decompression",
             "direction": "bearish",
             "is_staircase": False,
@@ -599,7 +599,7 @@ def classify_ib_structure(
         
 
         return {
-            "structure": "mixed_early_decompression",
+            "structure_name": "mixed_early_decompression",
             "category": "decompression",
             "direction": "neutral",
             "is_staircase": False,
@@ -632,7 +632,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "dual_inside_compression",
+            "structure_name": "dual_inside_compression",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
@@ -674,7 +674,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_gap_bullish",
+            "structure_name": "staircase_gap_bullish",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -718,7 +718,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_gap_bearish",
+            "structure_name": "staircase_gap_bearish",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -765,7 +765,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_early_overlap_bullish",
+            "structure_name": "staircase_early_overlap_bullish",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -819,7 +819,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_late_overlap_bullish",
+            "structure_name": "staircase_late_overlap_bullish",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -874,7 +874,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_early_overlap_bearish",
+            "structure_name": "staircase_early_overlap_bearish",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -919,7 +919,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_late_overlap_bearish",
+            "structure_name": "staircase_late_overlap_bearish",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -969,7 +969,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_bullish",
+            "structure_name": "staircase_bullish",
             "category": "acceptance",
             "direction": "bullish",
             "is_staircase": True,
@@ -1025,7 +1025,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "staircase_bearish",
+            "structure_name": "staircase_bearish",
             "category": "acceptance",
             "direction": "bearish",
             "is_staircase": True,
@@ -1069,7 +1069,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_acceptance_compression",
+            "structure_name": "bullish_acceptance_compression",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -1110,7 +1110,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_acceptance_compression",
+            "structure_name": "bearish_acceptance_compression",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -1151,7 +1151,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_rebalance",
+            "structure_name": "bullish_rebalance",
             "category": "rebalance",
             "direction": "bullish",
             "is_staircase": False,
@@ -1191,7 +1191,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_rebalance",
+            "structure_name": "bearish_rebalance",
             "category": "rebalance",
             "direction": "bearish",
             "is_staircase": False,
@@ -1236,7 +1236,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_reintegration",
+            "structure_name": "bullish_reintegration",
             "category": "reintegration",
             "direction": "bullish",
             "is_staircase": False,
@@ -1283,7 +1283,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_reintegration",
+            "structure_name": "bearish_reintegration",
             "category": "reintegration",
             "direction": "bearish",
             "is_staircase": False,
@@ -1331,7 +1331,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bullish_value_flip",
+            "structure_name": "bullish_value_flip",
             "category": "value_flip",
             "direction": "bearish",
             "is_staircase": False,
@@ -1366,7 +1366,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "bearish_value_flip",
+            "structure_name": "bearish_value_flip",
             "category": "value_flip",
             "direction": "bullish",
             "is_staircase": False,
@@ -1405,7 +1405,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_gap_bullish",
+            "structure_name": "sandwich_gap_bullish",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1448,7 +1448,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_gap_bearish",
+            "structure_name": "sandwich_gap_bearish",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1499,7 +1499,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_partial_overlap_bullish",
+            "structure_name": "sandwich_partial_overlap_bullish",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1536,7 +1536,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_partial_overlap_bullish",
+            "structure_name": "sandwich_partial_overlap_bullish",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1576,7 +1576,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_partial_overlap_bearish",
+            "structure_name": "sandwich_partial_overlap_bearish",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1613,7 +1613,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_partial_overlap_bearish",
+            "structure_name": "sandwich_partial_overlap_bearish",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1655,7 +1655,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_overlap_bullish",
+            "structure_name": "sandwich_overlap_bullish",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1696,7 +1696,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_overlap_bearish",
+            "structure_name": "sandwich_overlap_bearish",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1739,7 +1739,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_bullish",
+            "structure_name": "sandwich_bullish",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
@@ -1782,7 +1782,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "sandwich_bearish",
+            "structure_name": "sandwich_bearish",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
@@ -1831,7 +1831,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure": "centered_compression",
+            "structure_name": "centered_compression",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
@@ -1857,7 +1857,7 @@ def classify_ib_structure(
     # =====================================================
 
     return {
-        "structure": "mixed_overlap",
+        "structure_name": "mixed_overlap",
         "category": "mixed",
         "direction": "neutral",
         "is_staircase": False,

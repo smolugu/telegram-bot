@@ -142,6 +142,7 @@ def run_quick_backtest(test_date: str):
     
     #  looping through 30m candles from 18:00 futures start
     for candle_3m in nq_3m:
+        
         ts = candle_3m["timestamp"]
         if ts in nq_30m_closes:
             i = nq_30m_closes[ts]
@@ -225,12 +226,16 @@ def run_quick_backtest(test_date: str):
                     nq_seven_hour_builder.update(nq_30m[2])
                     print("nq 7h before: ", nq_seven_hour_builder.candles["6PM"].values())                
                  
-                    nq_seven_hour_builder.candles["6PM"].ib_high = 29320
+                    nq_seven_hour_builder.candles["6PM"].ib_high = 29283.75
+                    nq_seven_hour_builder.candles["6PM"].ib_low = 29110
+                    nq_seven_hour_builder.candles["6PM"].ib_ce = (29110+29283.75)/2
                     es_seven_hour_builder.update(es_30m[0])
                     es_seven_hour_builder.update(es_30m[1])
                     es_seven_hour_builder.update(es_30m[2])
                     print("es 7h before: ", es_seven_hour_builder.candles["6PM"].values())                   
-                    es_seven_hour_builder.candles["6PM"].ib_high = 7409.75
+                    es_seven_hour_builder.candles["6PM"].ib_high = 7435
+                    es_seven_hour_builder.candles["6PM"].ib_low = 7408.5
+                    es_seven_hour_builder.candles["6PM"].ib_ce = (7408.5+7435)/2
                     nq_market_context.update_session_range(nq_30m[0]["high"], nq_30m[0]["low"], nq_30m[0]["open"], nq_30m[0]["close"])
                     nq_market_context.update_session_range(nq_30m[1]["high"], nq_30m[1]["low"], nq_30m[1]["open"], nq_30m[1]["close"])
                     nq_market_context.update_session_range(nq_30m[2]["high"], nq_30m[2]["low"], nq_30m[2]["open"], nq_30m[2]["close"])
@@ -240,6 +245,40 @@ def run_quick_backtest(test_date: str):
                 # print("nq 7h: ", nq_seven_hour_builder.candles["6PM"].values())                
                 # print("es 7h: ", es_seven_hour_builder.candles["6PM"].values())                    
                 
+                # at the start of each new candle check if there is a sweep candidate with type = breakout and if the current candle closes above the sweep_candle open, then confirm the breakout sweep and update the type to rejection
+                # changing breakout to rejection if the next candle closes above or below the sweep level
+                if nq_buy_candidate.active and nq_buy_candidate.check_breakout_rejection:
+                    print("checking breakout rejection for nq buy candidate")
+                    if last_closed_nq["close"] > nq_buy_candidate.sweep_level:
+                        nq_buy_candidate.is_breakout_rejection = True
+                        nq_buy_candidate.sweep_type = "rejection"
+                        print("breakout sweep ob confirmed for nq buy candidate")
+                    nq_buy_candidate.check_breakout_rejection = False
+                if nq_sell_candidate.active and nq_sell_candidate.check_breakout_rejection:
+                    print("checking breakout rejection for nq sell candidate")
+                    if last_closed_nq["close"] < nq_sell_candidate.sweep_level:
+                        nq_sell_candidate.is_breakout_rejection = True
+                        nq_sell_candidate.sweep_type = "rejection"
+                        print("breakout sweep ob confirmed for nq sell candidate")
+                    nq_sell_candidate.check_breakout_rejection = False
+                        
+                if es_buy_candidate.active and es_buy_candidate.check_breakout_rejection:
+                    print("checking breakout rejection for es buy candidate")
+                    if last_closed_es["close"] > es_buy_candidate.sweep_level:
+                        es_buy_candidate.is_breakout_rejection = True
+                        es_buy_candidate.sweep_type = "rejection"
+                        print("breakout sweep ob confirmed for es buy candidate")
+                    es_buy_candidate.check_breakout_rejection = False
+                        
+                if es_sell_candidate.active and es_sell_candidate.check_breakout_rejection:
+                    print("checking breakout rejection for es sell candidate")
+                    if last_closed_es["close"] < es_sell_candidate.sweep_level:
+                        es_sell_candidate.is_breakout_rejection = True
+                        es_sell_candidate.sweep_type = "rejection"
+                        print("breakout sweep ob confirmed for es sell candidate")
+                    es_sell_candidate.check_breakout_rejection = False
+                        
+
                 #  track current current day high and low (HOD, LOD)
                 if last_closed_nq["high"] > nq_current_session_high:
                     nq_current_session_high = last_closed_nq["high"]
@@ -255,6 +294,7 @@ def run_quick_backtest(test_date: str):
                 # update 7hr candle through seven hour builder
                 # he 18:00 7hr candle is not complete with the first 3 30m candles
                 nq_seven_hour_builder.update(last_closed_nq)
+                print("nq 7h after ib ready: ", nq_seven_hour_builder.candles["6PM"].values())   
                 es_seven_hour_builder.update(last_closed_es)
                 
                 
@@ -286,15 +326,20 @@ def run_quick_backtest(test_date: str):
                 
                 # update new york context with IBs
                 if dt.hour == 8 and dt.minute == 30:
+                    print("nq ibs: ")
+                    print("ib18: ",  nq_seven_hour_builder.candles["6PM"].values())
                     nq_ny_market_context.set_8am_ib(nq_seven_hour_builder.candles, nq_london_market_context.ib_18, nq_london_market_context.ib_1)
                     es_ny_market_context.set_8am_ib(es_seven_hour_builder.candles, es_london_market_context.ib_18, es_london_market_context.ib_1)
                     print("test 1: ", nq_ny_market_context.structure)
                     print("rest es: ", es_ny_market_context.structure)
                 if dt.hour == 10 and dt.minute == 0:
+                    print("es ibs: ")
+                    print("ib18: ",  es_seven_hour_builder.candles["6PM"].values())
                     nq_ny_market_context.set_10am_ib(last_closed_nq)
                     es_ny_market_context.set_10am_ib(last_closed_es)
                     print("nq 10am IB: ", nq_ny_market_context. ib_10)
                     print("es 10am IB: ", es_ny_market_context. ib_10)
+                
                 # update market context for NQ and ES
                 nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"])
                 es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"], last_closed_es["open"], last_closed_es["close"])
@@ -337,6 +382,7 @@ def run_quick_backtest(test_date: str):
                 # print("ES Market Context: ", es_market_context.values())
                 
                 #  check if there is already a sweep
+
                 sweep_nq_highs = None
                 sweep_nq_lows = None
                 sweep_es_highs = None
@@ -491,6 +537,12 @@ def run_quick_backtest(test_date: str):
                         # sweep_nq_highs_key_level = None
                         # here rejected highs implies price is still inside compression range
                         nq_sweep_rejected_highs = True
+                    elif compression_sweep_data_nq["count_high"] == 1 and nq_ny_market_context.structure["range_low_swept"]:
+                        print("1012-1:")
+                        # price already swept compression low and is out of inducement phase, 
+                        # so expect sharp rejection because of liquidity
+                        nq_sweep_rejected_highs = False
+
                     elif compression_sweep_data_nq["count_high"] >= 2:
                         print("1012:")
                         # here count_high == 1 => inducecment level
@@ -524,6 +576,11 @@ def run_quick_backtest(test_date: str):
                         # sweep_es_highs = None
                         # sweep_es_highs_key_level = None
                         es_sweep_rejected_highs = True
+                    elif compression_sweep_data_es["count_high"] == 1 and es_ny_market_context.structure["range_low_swept"]:
+                        print("1012-1:")
+                        # price already swept compression low and is out of inducement phase, 
+                        # so expect sharp rejection because of liquidity
+                        es_sweep_rejected_highs = False
                     elif compression_sweep_data_es["count_high"] >= 2:
                         print("1022:")
                         es_sweep_rejected_highs = False
@@ -599,6 +656,11 @@ def run_quick_backtest(test_date: str):
                         # sweep_nq_lows = None
                         # sweep_nq_lows_key_level = None
                         nq_sweep_rejected_lows = True
+                    elif compression_sweep_data_nq["count_low"] == 1 and nq_ny_market_context.structure["range_high_swept"]:
+                        print("1012-1:")
+                        # price already swept compression low and is out of inducement phase, 
+                        # so expect sharp rejection because of liquidity
+                        nq_sweep_rejected_lows = False
                     elif compression_sweep_data_nq["count_low"] >= 2:
                         print("section 5")
                         # if sweep is previous candle low then be cautious, wait for displacement or one more sweep
@@ -635,6 +697,11 @@ def run_quick_backtest(test_date: str):
                         # sweep_es_lows = None
                         # sweep_es_lows_key_level = None
                         es_sweep_rejected_lows = True
+                    elif compression_sweep_data_es["count_low"] == 1 and es_ny_market_context.structure["range_high_swept"]:
+                        print("1012-1:")
+                        # price already swept compression low and is out of inducement phase, 
+                        # so expect sharp rejection because of liquidity
+                        es_sweep_rejected_lows = False
                     elif compression_sweep_data_es["count_low"] >= 2:
                         es_sweep_rejected_highs = False
                     else:
@@ -867,34 +934,34 @@ def run_quick_backtest(test_date: str):
                 if sweep_nq_highs or sweep_nq_highs_key_level:
                     if sweep_nq_highs_key_level:
                         print("SWEEP DETECTED NQ Highs at Key Level:", sweep_nq_highs_key_level)
-                        nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"], sweep_nq_highs_key_level["sweep_candle"])
+                        nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"], sweep_nq_highs_key_level["sweep_candle"], sweep_nq_highs_key_level["sweep_level"])
                     elif sweep_nq_highs:
                         print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
-                        nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"], sweep_nq_highs["sweep_candle"])
-                
+                        nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"], sweep_nq_highs["sweep_candle"], sweep_nq_highs["sweep_level"])
+
                 if sweep_nq_lows or sweep_nq_lows_key_level:
                     if sweep_nq_lows_key_level:
                         print("SWEEP DETECTED NQ Lows at Key Level:", sweep_nq_lows_key_level)
-                        nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"], sweep_nq_lows_key_level["sweep_candle"])
+                        nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"], sweep_nq_lows_key_level["sweep_candle"], sweep_nq_lows_key_level["sweep_level"])
                     elif sweep_nq_lows:
                         print("Sweep detected NQ Lows:", sweep_nq_lows)
-                        nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"], sweep_nq_lows["sweep_candle"])
+                        nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"], sweep_nq_lows["sweep_candle"], sweep_nq_lows["sweep_level"])
 
                 if sweep_es_highs or sweep_es_highs_key_level:
                     if sweep_es_highs_key_level:
                         print("SWEEP DETECTED ES Highs at Key Level:", sweep_es_highs_key_level)
-                        es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"])
+                        es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"], sweep_es_highs_key_level["sweep_level"])
                     elif sweep_es_highs:     
                         print("SWEEP DETECTED ES Highs:", sweep_es_highs)
-                        es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"])
+                        es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"], sweep_es_highs["sweep_level"])
                 
                 if sweep_es_lows or sweep_es_lows_key_level:
                     if sweep_es_lows_key_level:
                         print("SWEEP DETECTED ES Lows at Key Level:", sweep_es_lows_key_level)
-                        es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"], sweep_es_lows_key_level["sweep_candle"])
+                        es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"], sweep_es_lows_key_level["sweep_candle"], sweep_es_lows_key_level["sweep_level"])
                     elif sweep_es_lows:
                         print("Sweep detected ES Lows:", sweep_es_lows)
-                        es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"])
+                        es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"], sweep_es_lows["sweep_level"])
                 
        
                 #  continue if there are no active candidates

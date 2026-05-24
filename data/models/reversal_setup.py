@@ -421,10 +421,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 and look_for_longs and market_context.atr_usage < 0.7:
                 continue_with_candidate = False
         elif not london_context.structure["compression"] and not co_asset["london_context"].structure["compression"]:
-            if london_context.structure["iib_relationship"] == "above_18" and co_asset["london_context"].structure["ib_relationship"] == "above_18"\
+            if london_context.structure["ib_relationship"] == "above_18" and co_asset["london_context"].structure["ib_relationship"] == "above_18"\
                 and look_for_shorts:
                 continue_with_candidate = False
-            elif london_context.structure["iib_relationship"] == "below_18" and co_asset["london_context"].structure["ib_relationship"] == "below_18"\
+            elif london_context.structure["ib_relationship"] == "below_18" and co_asset["london_context"].structure["ib_relationship"] == "below_18"\
                 and look_for_longs:
                 continue_with_candidate = False
             else:
@@ -1346,6 +1346,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             
     # TODO: implement this block after implementing IB blocks
     elif window_name == "7h_wick_0100":
+        print("window trade: ", window_name)
 
         # approach : 
         # - 1am starts inside 18 IB and then moves outside of it with rejection, strong confirmation
@@ -1365,6 +1366,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         return reversal_confirmation
     
     elif window_name == "7h_wick_0800":
+        print("window trade: ", window_name)
+        # sweep should be inside the 7h wick window. this window is only to capture 7h wick reversals
+        # at least sweep should be in this window
+        sweep_window_name = get_active_window(candidate.sweep_timestamp)
+        print("sweep window: ", sweep_window_name)
+
         allow_shorts = True
         allow_longs = True
         print("overnight expansion: ", market_context.overnight_expansion, "exhaustion: ", market_context.exhaustion, "bias: ", market_context.bias )
@@ -1379,7 +1386,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # check if the setup passes displacement and atr filters
 
         passed_atr_displacement_filter = displacement_atr_filter()
-        if passed_atr_displacement_filter:
+        if passed_atr_displacement_filter and window_name == sweep_window_name:
             reversal_confirmation = True
 
         # if (market_context.overnight_expansion or market_context.exhaustion):
@@ -1430,6 +1437,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         #     reversal_confirmation = False
         return reversal_confirmation
     elif is_post_london_killzone:
+        print("window trade: ", "post london killzone")
         allow_longs = filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt)
         allow_shorts = filter_shorts_london(look_for_shorts, session_direction, atr_usage, is_smt)
         if look_for_longs and allow_longs:
@@ -1444,6 +1452,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 reversal_confirmation = True
         return reversal_confirmation
     else:
+        print("window trade: ", "no window")
         print("inside last: ", candidate.instrument, candidate.sweep_and_ob_ce_confirmed)
         print("structure break: ", candidate.ob_data["structure_break"] if candidate.ob_data is not None else None, "strong_body_displacement: ", candidate.ob_data["strong_body_displacement"] if candidate.ob_data is not None else None)
         print("ob body range: ", candidate.ob_data["ob_body_range"] if candidate.ob_data is not None else None)

@@ -357,7 +357,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["high"], "buy_side")
-            sweep, levels, sweep_type_kl, swl = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels)
+            sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels)
             # print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
             wick_ratio = abs(last_closed_candle["close"] - last_closed_candle["high"]) / abs(last_closed_candle["high"]-last_closed_candle["low"])
             print("wick ration: ", wick_ratio)
@@ -390,7 +390,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_candle_high": last_closed_candle["high"],
                 "sweep_candle": {"open": last_closed_candle["open"], "close": last_closed_candle["close"], "high": last_closed_candle["high"], "low": last_closed_candle["low"]},
                 "sweep_time": sweep_time,
-                "sweep_level": swing["high"],
+                "sweep_level": max(swing["high"], max_swl) if max_swl else swing["high"],
                 "sweep_key_level": sweep,
                 "swept_levels": levels,
                 "sweep_type": sweep_type,
@@ -421,7 +421,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, last_closed_candle["low"], "sell_side")
-            sweep, levels, sweep_type_kl, swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels)
+            sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels)
             # print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
             wick_ratio = abs(last_closed_candle["close"] - last_closed_candle["low"]) / abs(last_closed_candle["high"]-last_closed_candle["low"])
             print("wick ration: ", wick_ratio)
@@ -445,7 +445,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_candle_low": last_closed_candle["low"],
                 "sweep_candle": {"open": last_closed_candle["open"], "close": last_closed_candle["close"], "high": last_closed_candle["high"], "low": last_closed_candle["low"]},
                 "sweep_time": sweep_time,
-                "sweep_level": swing["low"],
+                "sweep_level": min(swing["low"], max_swl) if max_swl else swing["low"],
                 "sweep_key_level": sweep,
                 "swept_levels": levels,
                 "sweep_type": sweep_type,
