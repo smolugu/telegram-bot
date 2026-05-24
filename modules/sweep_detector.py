@@ -284,7 +284,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "sweep_and_ob_entry": nq_sweep_and_ob_entry,
             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
-            "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp
+            "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
+            "caution": False
         }
 
     if sweep_highs:
@@ -329,7 +330,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "sweep_and_ob_entry": nq_sweep_and_ob_entry,
             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
-            "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp
+            "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
+            "caution": False
         }
 
     return sweep_highs_key_levels_info, sweep_lows_key_levels_info
@@ -398,7 +400,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_and_ob_entry": nq_sweep_and_ob_entry,
                 "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
                 "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
-                "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp
+                "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
+                "caution": False
             }
             break
 
@@ -453,7 +456,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_and_ob_entry": nq_sweep_and_ob_entry,
                 "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
                 "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
-                "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp
+                "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
+                "caution": False
             }
             break
 

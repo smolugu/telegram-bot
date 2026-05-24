@@ -427,9 +427,9 @@ def run_quick_backtest(test_date: str):
                         es_sell_candidate.reset()
 
                 if dt.hour == 8 and dt.minute == 30:
-                    if nq_ny_market_context.structure["is_strong_compression"] or es_ny_market_context.structure["is_strong_compression"]:
+                    if nq_ny_market_context.structure["is_strong_compression"] or es_ny_market_context.structure["is_strong_compression"] or nq_ny_market_context.structure["is_compression"] or es_ny_market_context.structure["is_compression"] :
                         # invalidate all previous sweeps and candidates
-                        print("New 8am Ib with strong compression: Clearing sweeps and resetting candidates")
+                        print("New 8am Ib with strong or weak compression: Clearing previous sweeps and resetting candidates")
                         sweep_nq_highs = None
                         sweep_nq_highs_key_level = None
                         sweep_es_highs = None
@@ -557,7 +557,14 @@ def run_quick_backtest(test_date: str):
                         if abs(last_closed_nq["high"] - compression_range_nq["high"]) < 10:
                             print("1014:")
                             print("NQ sweep at highs accepted but price near compression range. exercise caution")
-                            nq_sweep_rejected_highs = True
+                            # add caution flag to sweep as the sweep is not deep and could be inducement
+                            # dont invalidate the sweep but use extra confirmation at final trade filter
+                            nq_sweep_rejected_highs = False
+                            if sweep_nq_highs is not None:
+                                sweep_nq_highs["caution"] = True
+                            if sweep_nq_highs_key_level is not None:
+                                sweep_nq_highs_key_level["caution"] = True
+                            
                 if is_post_1am_8am_ibs and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
                     invalidate_sweeps_highs = True
@@ -590,7 +597,14 @@ def run_quick_backtest(test_date: str):
                         if abs(last_closed_es["high"] - compression_range_es["high"]) < 3:        
                             print("1024:")        
                             print("ES sweep at highs accepted but price near compression range. exercise caution")
-                            es_sweep_rejected_highs = True
+                            # add caution flag to sweep as the sweep is not deep and could be inducement
+                            # dont invalidate the sweep but use extra confirmation at final trade filter
+                            es_sweep_rejected_highs = False
+                            if sweep_es_highs is not None:
+                                sweep_es_highs["caution"] = True
+                            if sweep_es_highs_key_level is not None:
+                                sweep_es_highs_key_level["caution"] = True
+                            
 
                 #  if both es and nq sweeps inside compression, invalidate sweeps
                 #  store smt with sweeper information
@@ -679,7 +693,13 @@ def run_quick_backtest(test_date: str):
                         if abs(last_closed_nq["low"] - compression_range_nq["low"]) < 10:
                             print("section 7")
                             print("NQ sweep at lows accepted but price near compression range. exercise caution: ", abs(last_closed_nq["low"] - compression_range_nq["low"]))
-                            nq_sweep_rejected_lows = True
+                            # add caution flag to sweep as the sweep is not deep and could be inducement
+                            # dont invalidate the sweep but use extra confirmation at final trade filter
+                            nq_sweep_rejected_lows = False
+                            if sweep_nq_lows is not None:
+                                sweep_nq_highs["caution"] = True
+                            if sweep_nq_highs_key_level is not None:
+                                sweep_nq_highs_key_level["caution"] = True
                 print("section 8: nq_sweep_rejected_lows: ", nq_sweep_rejected_lows)
                 if is_post_1am_8am_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
@@ -711,6 +731,13 @@ def run_quick_backtest(test_date: str):
                             print("last_closed_es low: ", last_closed_es["low"], "compression_range_es low: ", compression_range_es["low"])
                             print("ES sweep at lows accepted but price near compression range. exercise caution", abs(last_closed_es["low"] - compression_range_es["low"]))
                             es_sweep_rejected_lows = True
+                            # add caution flag to sweep as the sweep is not deep and could be inducement
+                            # dont invalidate the sweep but use extra confirmation at final trade filter
+                            es_sweep_rejected_lows = False
+                            if sweep_es_lows is not None:
+                                sweep_es_highs["caution"] = True
+                            if sweep_es_highs_key_level is not None:
+                                sweep_es_highs_key_level["caution"] = True
                 #  if both es and nq sweeps at lows inside compression, invalidate sweeps
                 if invalidate_sweeps_lows:
                     print("106:")
@@ -934,35 +961,39 @@ def run_quick_backtest(test_date: str):
                 if sweep_nq_highs or sweep_nq_highs_key_level:
                     if sweep_nq_highs_key_level:
                         print("SWEEP DETECTED NQ Highs at Key Level:", sweep_nq_highs_key_level)
-                        nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"], sweep_nq_highs_key_level["sweep_candle"], sweep_nq_highs_key_level["sweep_level"])
+                        nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"], sweep_nq_highs_key_level["sweep_candle"], sweep_nq_highs_key_level["sweep_level"], sweep_nq_highs_key_level.get("caution", False))
                     elif sweep_nq_highs:
                         print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
-                        nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"], sweep_nq_highs["sweep_candle"], sweep_nq_highs["sweep_level"])
+                        nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"], sweep_nq_highs["sweep_candle"], sweep_nq_highs["sweep_level"], sweep_nq_highs.get("caution", False))
 
                 if sweep_nq_lows or sweep_nq_lows_key_level:
                     if sweep_nq_lows_key_level:
                         print("SWEEP DETECTED NQ Lows at Key Level:", sweep_nq_lows_key_level)
-                        nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"], sweep_nq_lows_key_level["sweep_candle"], sweep_nq_lows_key_level["sweep_level"])
+
+                        nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"], sweep_nq_lows_key_level["sweep_candle"], sweep_nq_lows_key_level["sweep_level"], sweep_nq_lows_key_level.get("caution", False))
                     elif sweep_nq_lows:
                         print("Sweep detected NQ Lows:", sweep_nq_lows)
-                        nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"], sweep_nq_lows["sweep_candle"], sweep_nq_lows["sweep_level"])
+                        nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"], sweep_nq_lows["sweep_candle"], sweep_nq_lows["sweep_level"], sweep_nq_lows.get("caution", False))
+
 
                 if sweep_es_highs or sweep_es_highs_key_level:
                     if sweep_es_highs_key_level:
                         print("SWEEP DETECTED ES Highs at Key Level:", sweep_es_highs_key_level)
-                        es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"], sweep_es_highs_key_level["sweep_level"])
+
+                        es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"], sweep_es_highs_key_level["sweep_level"], sweep_es_highs_key_level.get("caution", False))
                     elif sweep_es_highs:     
                         print("SWEEP DETECTED ES Highs:", sweep_es_highs)
-                        es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"], sweep_es_highs["sweep_level"])
+                        es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"], sweep_es_highs["sweep_level"], sweep_es_highs.get("caution", False))
+
                 
                 if sweep_es_lows or sweep_es_lows_key_level:
                     if sweep_es_lows_key_level:
                         print("SWEEP DETECTED ES Lows at Key Level:", sweep_es_lows_key_level)
-                        es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"], sweep_es_lows_key_level["sweep_candle"], sweep_es_lows_key_level["sweep_level"])
+
+                        es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"], sweep_es_lows_key_level["sweep_candle"], sweep_es_lows_key_level["sweep_level"], sweep_es_lows_key_level.get("caution", False))
                     elif sweep_es_lows:
                         print("Sweep detected ES Lows:", sweep_es_lows)
-                        es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"], sweep_es_lows["sweep_level"])
-                
+                        es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"], sweep_es_lows["sweep_level"], sweep_es_lows.get("caution", False))
        
                 #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:

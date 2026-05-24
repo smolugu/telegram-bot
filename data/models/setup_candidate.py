@@ -21,6 +21,7 @@ class SetupCandidate:
         self.swept_levels = None
         self.sweep_level = None
         self.sweep_type = None
+        self.caution = False
         self.is_breakout_rejection = False
         self.check_breakout_rejection = False
         self.sweep_candle = None
@@ -54,7 +55,8 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None):
+
+    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
@@ -72,6 +74,7 @@ class SetupCandidate:
         self.instrument = instrument
         self.sweep_candle = sweep_candle
         self.sweep_level = sweep_level
+        self.caution = caution
 
     # --------------------------------------------------
 

@@ -56,7 +56,6 @@ class NewYorkMarketContext:
             "ib_relationship_18_1": None,
             "ib18_above_ib1": False,
             "ib18_below_ib1": False,
-            "compression": False,
             "engulfing_deep_retracement": False,
         }
 
@@ -613,7 +612,7 @@ class NewYorkMarketContext:
     # 5. DETERMINE MARKET PHASE
     # =========================================
     def update_phase(self):
-        if self.structure["compression"] and self.sweep["count"] == 0:
+        if self.structure["is_compression"] and self.sweep["count"] == 0:
             self.phase = "compression"
 
         elif self.sweep["count"] == 1 and self.acceptance["status"] == "rejected":

@@ -545,72 +545,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # Ib_relationship: inside_1am, inside_18, engulfing_1am, engulfing_18, sandwich, above_1_18,
         # partial_overlap_bullish, partial_overlap_neutral, below_1_18, partial_overlap_bearish
         ib_relationship = newyork_context.structure["ib_relationship"]
-        structure_name = newyork_context.structure["name"]
         # if ib_relationship in ("inside_1am", "inside_18"):
         # get relative IB relationship context
         # for example nq sandwich and es not. if sandwich by 9. ignore trade at 9 we need a sweep of extreme
         # reset IBs
-        passed_atr_displacement_filter = displacement_atr_filter()
-        # if ib_relationship == "inside_1am":
-        if structure_name == "bullish_acceptance_compression":
-            # ib1_above_ib18 and ib8_inside_ib1
-            # Bullish acceptance and compression at new value after prior expansion.
-            print("ib8am is inside ib1am and ib1 is above ib18")
-            # one line rule: IB1 sets the direction, IB8 reloads it
-            print("sweep info: ", newyork_context.sweep)
-            # at this point both nq and es have swept range high or low, or there is an SMT
-            # inducement sweep on either of them
-            # since this is weak compression, single sweep + OB + displacement + smt is ok
-            # in either case, allow both es and nq trades
-            # main objective is time - SMT makes the time A+
-            passed_atr_displacement_filter = displacement_atr_filter()
-            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-            
-            # 8am_inside_1am compression - this is re-compression for continuation higher, if
-                # atr is still left, 0.35 - 0.65 ideal for expansion continuation of london move
-                
-            # 1am_IB above 18 IB
-                # continuation - atr between 0.35 and 0.65, pdh not taken, swept lows, smt at compression lows
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-            # liquidity_levels["pdh"]["swept"] filter can be restrictive. so removing it. check in real time
-            # 0.35 <= market_context.atr_usage <= 0.65 is also too restrictive. just check for atr exhaustion for now
-            if newyork_context.structure["ib18_below_ib1"]:
-                if look_for_longs and not market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing continuation longs after recompression as market is not exhausted")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Expansion"
-                    candidate.final_target = "ATR"
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-                # key and must filter here: atr exhaustion
-                elif look_for_shorts and market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing shorts as market is exhausted with smt at highs")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Flush" # flush to Daily open
-                    candidate.final_target = "DO" if market_context.no_bearish_expansion_below_open else "ATR"
-            # 1am_IB below 18 Ib
-                # continuation - atr between 0.35 and 0.65, pdl not taken, swept highs, smt at compression highs
-                # reversal longs when atr exhaustion, pdl taken, smt at lows
-            elif newyork_context.structure["ib18_above_ib1"]:
-                if look_for_shorts and not market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing continuation shorts after recompression as market is not exhausted")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Flush"
-                    candidate.final_target = "ATR"
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-                # key and must filter here: atr exhaustion
-                elif look_for_longs and market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing longs as market is exhausted with smt at lows")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Expansion"
-                    candidate.final_target = "DO" if market_context.no_bullish_expansion_above_open else "ATR"
-                
-            
-            # if atr not exhausted, we need key level plus SMT
 
-            # 8am_inside_18 ib compression
-            # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
-        elif structure_name == "bearish_acceptance_compression":
-            # ib1_below_ib18 and ib8_inside_ib1
+        if ib_relationship == "inside_1am":
             # re-accumulation or re-compression
             print("ib8am is inside ib1am")
             # one line rule: IB1 sets the direction, IB8 reloads it
@@ -667,51 +607,6 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
             # 8am_inside_18 ib compression
             # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
-
-        elif structure_name == "bullish_rebalance":
-            print("structure: bullish rebalance")
-        elif structure_name == "bearish_rebalance":
-            print("structure : bullish rebalance")
-        elif structure_name == "bullish_reintegration":
-            print("structure : bullish reintegration")
-        elif structure_name == "bearish_reintegration":
-            print("structure : bearish reintegration")
-            # weakened bearish structure
-            # allow longs if atr left
-            # allow shorts if atr exhaustion or used, smt, cross asset alignment, displacement
-            # this is weak compression = so inducement is additional confirmation
-            # additional check using co_asset structure alignment
-            if passed_atr_displacement_filter and is_smt:
-                reversal_confirmation = True
-        elif structure_name == "bullish_value_flip":
-            print("structure : bullish value flip")
-        elif structure_name == "bearish_value_flip":
-            print("structure : bearish value flip")
-        elif structure_name == "sandwich_gap_bullish":
-            print("structure : sandwich gap bullish")
-        elif structure_name == "sandwich_gap_bearish":
-            print("structure : sandwich gap bearish")
-        elif structure_name == "sandwich_partial_overlap_bullish":
-            print("structure : sandwich partial overlap bullish")
-            # acceptance block
-
-            # rebalance block
-        elif structure_name == "sandwich_partial_overlap_bearish":
-            print("structure : sandwich partial overlap bearish")
-            # acceptance block
-
-            # rebalance block
-        elif structure_name == "sandwich_overlap_bullish":
-            print("structure : sandwich overlap bullish")
-        elif structure_name == "sandwich_overlap_bearish":
-            print("structure : sandwich overlap bearish")
-        elif structure_name == "sandwich_bullish":
-            print("structure : sandwich bullish")
-        elif structure_name == "sandwich_bearish":
-            print("structure : sandwich bearish")
-        elif structure_name == "centered_compression":
-            print("structure : centered compression")
-        
         elif ib_relationship == "inside_18":
             print("ib8am is inside ib18")
             # one line rule: returning to the edge weakens the move, compressing inside preserves it
@@ -1607,6 +1502,4 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         return False
     print("final return: ", reversal_confirmation)
     return reversal_confirmation
-        
-
-
+    
