@@ -44,6 +44,7 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                     print("sweep_candle: ", candidate.sweep_candle)
                     print("last_closed range: ", last_closed["high"] - last_closed["low"])
                     print("ob_body_range: ", ob_body_range)
+                    print("ob_level: ", c["open"])
                     # check if ob is valid
                     # valid ob is one which is followed by a sweep or an SMT (where there is sweep on correlating asset)
                     # breakout_sweep_ob = False
@@ -60,6 +61,7 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                         "structure_break": last_closed["close"] < c["low"],
                         "strong_body_displacement": strong_body,
                         "ob_body_range": ob_body_range,
+                        "ob_level": c["open"]
                         # "breakout_sweep_ob": breakout_sweep_ob
                     }
                     if candidate.sweep_type == "rejection":
@@ -104,6 +106,7 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                     print("sweep_candle: ", candidate.sweep_candle)
                     print("last_closed range: ", last_closed["high"] - last_closed["low"])
                     print("ob_body_range: ", ob_body_range)
+                    print("ob_level: ", c["open"])
                     ob_found = {
                             "type": "bullish_ob",
                             "confirmation_timestamp": last_closed["timestamp"],
@@ -115,7 +118,8 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                             "source_index": i,
                             "structure_break": last_closed["close"] > c["high"],
                             "strong_body_displacement": strong_body,
-                            "ob_body_range": ob_body_range
+                            "ob_body_range": ob_body_range,
+                            "ob_level": c["open"]
                         }
                     print("sweep_type: ", candidate.sweep_type, candidate.instrument)
                     if candidate.sweep_type == "rejection":

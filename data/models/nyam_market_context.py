@@ -41,9 +41,15 @@ class NewYorkMarketContext:
             "is_value_flip": False,
             "note_internal": None,
             "note": None,
+            "compressison_high": None,
+            "compressison_low": None,
+            "compressison_ce": None,
             "range_high": None,
             "range_low": None,
             "range_ce": None,
+            "equilibrium_high": None,
+            "equilibrium_low": None,
+            "equilibrium_ce": None,   
             "mitigation_level": None,
             "ib_direction_8": None,
             "is_ib_strong_body": False,
@@ -184,9 +190,15 @@ class NewYorkMarketContext:
         self.structure["is_value_flip"] = ib_classification_data["is_value_flip"]
         self.structure["note"] = ib_classification_data["note"]
         self.structure["note_internal"] = ib_classification_data["note_internal"]
+        self.structure["compression_high"] = ib_classification_data["range"]["high"]
+        self.structure["compression_low"] = ib_classification_data["range"]["low"]
+        self.structure["compression_ce"] = ib_classification_data["range"]["ce"]
         self.structure["range_high"] = ib_classification_data["range"]["high"]
         self.structure["range_low"] = ib_classification_data["range"]["low"]
         self.structure["range_ce"] = ib_classification_data["range"]["ce"]
+        self.structure["equilibrium_high"] = ib_classification_data["range"]["high"]
+        self.structure["equilibrium_low"] = ib_classification_data["range"]["low"]
+        self.structure["equilibrium_ce"] = ib_classification_data["range"]["ce"]
         self.structure["mitigation_level"] = ib_classification_data["mitigation_level"]
         self.structure["migration_strength"] = ib_classification_data["migration_strength"]
         self.structure["is_staircase"] = ib_classification_data["is_staircase"]

@@ -13,8 +13,9 @@
 #  4. For sandwich structures, The full compression range defines the battlefield — the IB8 range defines the immediate trigger zone. IB8 range becomes inducement zone, sweep zone, trigger zone, mitigation zone
 
 # attributes
-# range - compression range if there is compression, or migration or displacement range when no compression
-# equilibrium_range - equilibrium or trigger zone inside macro compression range, and same as "range" when no compression
+# compression range - range for compression zone
+# range - migration range or overall range
+# equilibrium_range - equilibrium or trigger zone inside macro compression range
 # migration_strength - "very_strong", "strong", "moderate", "weak", "neutral". Used to anticipate retracement strength, shallow or deep
 # mitigation_level - Equilibrium of displacement or migration range. (Or) break of structure level. (Or) equilibrium of compression when compression exists. (Or) None when no clear mitigation level exists.
 
@@ -807,9 +808,23 @@ def classify_ib_structure(
 
     # =====================================================
     # STAIRCASE LATE OVERLAP BULLISH
-    # Early overlap means migration strengthened later — late overlap means migration weakened later
+        # Environment - Bullish migration weakening slightly.
+        # Default Direction - bullish favored
+        # Default Ping Type - Rocket continuation
+        # Required Confirmations
+            # sweep of overlap equilibrium
+            # bullish rejection
+            # preserved migration
+        # Notes
+            # Can reverse if ATR exhausted.
+            # Late overlap turns the newest overlap region into the continuation mitigation battlefield
+            # Early overlap means migration strengthened later — late overlap means migration weakened later
+            # ATR exhausted
+                # Ping Flush
+            # ATR not exhausted
+                # mini shorts (not ping) if ib8 high is swepts before 9:30, expect price to move to equilibrium of ib18-ib8 range
+                # if ib8 high not swept, look for continuation long (ping expansion) from equilibrium
     # =====================================================
-    # Late overlap turns the newest overlap region into the continuation mitigation battlefield
 
     if (
         ib1["low"] > ib18["high"]
@@ -832,19 +847,25 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"] + ib1["low"]) / 2
+            },
+            # migration range
             "range": {
                 "high": ib8["high"],
                 "low": ib18["low"],
                 "ce": (ib8["high"] + ib18["low"]) / 2
             },
-            # weak compression from ib8 overlap of ib1 high, so mitigation happens here
+            # weak compression from ib8 overlap of ib1 high, so mitigation happens here, trigger zone
             "equilibrium_range": {
                 "high": ib1["high"],
                 "low": ib8["low"],
                 "ce": (ib1["high"] + ib8["low"]) / 2
             },
-
-            "mitigation_level": (ib1["high"] + ib8["low"]) / 2,
+            # retracement level from compression or trigger zone
+            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Bullish staircasing continued overnight, "
                 "but premarket migration weakened slightly "
@@ -909,8 +930,23 @@ def classify_ib_structure(
     
     # =====================================================
     # STAIRCASE LATE OVERLAP BEARISH
+        # Environment - Bearish migration weakening slightly.
+        # Default Direction - bearish favored
+        # Default Ping Type - Rocket continuation
+        # Required Confirmations
+            # sweep of overlap equilibrium
+            # bearish equilibrium rejection
+            # preserved migration
+        # Notes
+            # Can reverse if ATR exhausted.
+            # Late overlap turns the newest overlap region into the continuation mitigation battlefield
+            # Early overlap means migration strengthened later — late overlap means migration weakened later
+            # ATR exhausted
+                # Ping Rocket
+            # ATR not exhausted
+                # mini longs (not ping) if ib8 low is swept before 9:30, expect price to move to equilibrium of ib18-ib8 range
+                # if ib8 low not swept, look for continuation short (ping flush) from equilibrium
     # =====================================================
-    # # here there could be no gaps or atmost one gap between ibs
 
     if (
         ib18["low"] > ib1["high"]
@@ -931,19 +967,25 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range" : {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib8["low"],
                 "ce": (ib18["high"] + ib8["low"]) / 2
             },
             # ib8 is attached to ib1 with weak compression, so assigning equilibrium range as overlapping range.
+            # weak compression, mitigation happens in equilibrium zone
             "equilibrium_range": {
                 "high": ib8["high"],
                 "low": ib1["low"],
                 "ce": (ib8["high"] + ib1["low"]) / 2
             },
-            # weak compression, mitigation happens in equilibrium zone
-            "mitigation_level": (ib8["high"] + ib1["low"]) / 2,
+            # retracemenet level
+            "mitigation_level": (ib18["high"] + ib8["low"]) / 2,
             "note_internal":
                 "Bearish staircasing continued overnight, "
                 "with weakened migration strength by premarket",

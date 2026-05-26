@@ -180,7 +180,7 @@ def context_for_london(market_context):
         "require_smt_confirmation": require_smt_confirmation,  # update with actual logic
     }
 
-def check_for_reversal_setup_confirmation(market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, smt_summary, co_asset):
+def check_for_reversal_setup_confirmation(market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, smt_summary, co_asset, co_asset_candidate):
     # get session time
     # bias from previous 7hr candle (ex: bearish)
     # price is below (bearish) previous 7hr candle and (or) rejecting previous 7hr ib
@@ -233,7 +233,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 print("overnight bearish expansion or exhausion. not allowing shorts")
                 allow_shorts = False
             elif market_context.session_direction == "bullish":
-                print("overnight bullish expansion or exhausion. not allowing shorts")
+                print("overnight bullish expansion or exhausion. not allowing longs")
                 allow_longs = False        
             else:
                 print("step 4")
@@ -272,7 +272,67 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             filters_passed = False
         
         return filters_passed
+    
+    def displacement_filter():
+        filters_passed = False
+        
+        print("inside displacement filter: ", candidate.instrument, candidate.sweep_and_ob_ce_confirmed)
+        print("sweep_and_ob_ce_confirmed: ", candidate.sweep_and_ob_ce_confirmed)
+        print("structure break: ", candidate.ob_data["structure_break"] if candidate.ob_data is not None else None, "strong_body_displacement: ", candidate.ob_data["strong_body_displacement"] if candidate.ob_data is not None else None)
+        print("ob body range: ", candidate.ob_data["ob_body_range"] if candidate.ob_data is not None else None)
+        if candidate.sweep_and_ob_ce_confirmed:
+            print("sweep_and_ob_ce_confirmed")
+            filters_passed = True
+            print("displacement_filter: sweep_and_ob_ce_confirmed")
+        elif candidate.sweep_and_ob_confirmed:
+            print("sweep_and_ob_confirmed")
+            if candidate.ob_data is not None:
+                # if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
+                if candidate.ob_data["ob_body_range"] > 0.5:
+                    filters_passed = True
+                    print("displacement_filter: ob_body_range > 0.5 and sweep_and_ob_confirmed")
+            else:
+                filters_passed = True
+                print("displacement_filter: sweep_and_ob_confirmed")
+        elif candidate.ob_data is not None:
+            if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
+                filters_passed = True
+                print("displacement_filter: structure break and ob_body_range > 0.5")
+            elif candidate.ob_data["strong_body_displacement"]:
+                filters_passed = True
+                print("displacement_filter: strong body displacement, allowing reversal")
+            else:
+                print("displacement_filter: no strong body displacement, not allowing reversal")
+        
+        return filters_passed
 
+    def atr_filter():
+        allow_shorts = True
+        allow_longs = True
+        filters_passed = True
+        print("overnight_expansion: ", market_context.overnight_expansion)
+        print("exhaustion: ", market_context.exhaustion)
+        print("direction: ", market_context.session_direction)
+        if (market_context.overnight_expansion or market_context.exhaustion):
+            if market_context.session_direction == "bearish":
+                print("overnight bearish expansion or exhausion. not allowing shorts")
+                allow_shorts = False
+            elif market_context.session_direction == "bullish":
+                print("overnight bullish expansion or exhausion. not allowing longs")
+                allow_longs = False        
+        else:
+            print("there is no overning expansion or exhaustion, not filtering based on that")
+        
+        
+        if look_for_longs and not allow_longs:
+            print("market exhauted, not allowing longs")
+            filters_passed = False
+        if look_for_shorts and not allow_shorts:
+            print("market exhauted, not allowing shorts")
+            filters_passed = False
+        
+        return filters_passed
+    
     def smt_check():
         is_smt = False
         print("smt summary: ", smt_summary)
@@ -367,6 +427,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
     # smt check
     is_smt = smt_check()
+    is_atr_filter = atr_filter()
 
     # daily bias
     daily_bias = determine_daily_bias()
@@ -553,7 +614,43 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # split different filters like displacement, atr_usage, smt, direction, htf bias, 
         passed_atr_displacement_filter = displacement_atr_filter()
         # if ib_relationship == "inside_1am":
-        if structure_name == "bullish_acceptance_compression":
+        # staircase structures
+        if structure_name == "staircase_early_overlap_bullish":
+            print("structure : staircase_early_overlap_bullish")
+        elif structure_name == "staircase_late_overlap_bullish":
+            print("structure : staircase_late_overlap_bullish")
+            # core pings: 
+                # long from mitigation level (expansion)
+                # short after ATR exhaustion (Flush)
+            if look_for_shorts and is_atr_filter and is_smt and candidate.fvg_confirmed:
+                reversal_confirmation = True
+                candidate.ping_type = "Flush"
+                candidate.final_target = "DO"
+                candidate.initial_target = newyork_context.structure["mitigation_level"]
+            elif look_for_longs and candidate.ob_level >= newyork_context.structure["mitigation_level"]:
+                reversal_confirmation = True
+                candidate.ping_type = "Rocket"
+                candidate.final_target = "ATR"
+                candidate.initial_target = newyork_context.structure["range_high"]
+
+        elif structure_name == "staircase_early_overlap_bearish":
+            print("structure : staircase_early_overlap_bearish")
+        elif structure_name == "staircase_late_overlap_bearish":
+            print("structure : staircase_late_overlap_bearish")
+            # core pings: 
+                # short from mitigation level (Flush)
+                # long after ATR exhaustion (Rocket)
+            if look_for_longs and is_atr_filter and is_smt and candidate.fvg_confirmed:
+                reversal_confirmation = True
+                candidate.ping_type = "Rocket"
+                candidate.final_target = "DO"
+                candidate.initial_target = newyork_context.structure["mitigation_level"]
+            elif look_for_shorts and candidate.ob_level <= newyork_context.structure["mitigation_level"]:
+                reversal_confirmation = True
+                candidate.ping_type = "Flush"
+                candidate.final_target = "ATR"
+                candidate.initial_target = newyork_context.structure["range_low"]
+        elif structure_name == "bullish_acceptance_compression":
             # ib1_above_ib18 and ib8_inside_ib1
             # Bullish acceptance and compression at new value after prior expansion.
             print("ib8am is inside ib1am and ib1 is above ib18")
@@ -673,17 +770,71 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             print("structure: bullish rebalance")
         elif structure_name == "bearish_rebalance":
             print("structure : bullish rebalance")
+        # ====================================
+        # reintegration confirmations
+        # ==================================== 
+        # Especially In Reintegration Environments The move often begins through acceptance failure
+        # key confirmations: smt, atr > 0.9, sweep of IB8 extremes, 30m OB, 3m imbalance
+        # optional but not required: displacement, 30m ob is acceptance failure
+        # cross asset structure alignment?
+        # ping type : Flush (failed continuation after trapped positioning)
+        
         elif structure_name == "bullish_reintegration":
             print("structure : bullish reintegration")
+            # weakened bullish structure
+            # allow shorts if atr left
+            # allow longs if atr exhaustion or used, smt, cross asset alignment
+            # this is weak compression = so inducement is additional confirmation, not required
+            # additional check using co_asset structure alignment
+            if look_for_shorts:
+                candidate.initial_target = newyork_context.structure["range_low"]
+            elif look_for_longs:
+                candidate.initial_target = newyork_context.structure["range_high"]
+            print("atr filter value: ", is_atr_filter)
+            if is_atr_filter and is_smt and candidate.fvg_confirmed:
+                reversal_confirmation = True
+                candidate.ping_type = "Rocket"
+                # tp1 other end of compression range
+                candidate.final_target = "DO" if market_context.no_bullish_expansion_above_open else "ATR"
+            print("candidate.sweep level: ", candidate.sweep_level)
+            if candidate.ob_level > market_context.session_open:
+                reversal_confirmation = False
         elif structure_name == "bearish_reintegration":
             print("structure : bearish reintegration")
             # weakened bearish structure
             # allow longs if atr left
-            # allow shorts if atr exhaustion or used, smt, cross asset alignment, displacement
-            # this is weak compression = so inducement is additional confirmation
+            # allow shorts if atr exhaustion or used, smt, cross asset alignment
+            # this is weak compression = so inducement is additional confirmation, not required
             # additional check using co_asset structure alignment
-            if passed_atr_displacement_filter and is_smt:
+            if look_for_shorts:
+                candidate.initial_target = newyork_context.structure["range_low"]
+            elif look_for_longs:
+                candidate.initial_target = newyork_context.structure["range_high"]
+            print("atr filter value: ", is_atr_filter)
+            if is_atr_filter and is_smt and candidate.fvg_confirmed:
                 reversal_confirmation = True
+                candidate.ping_type = "Flush"
+                # tp1 other end of compression range
+                candidate.final_target = "DO" if market_context.no_bearish_expansion_below_open else "ATR"
+            print("candidate.sweep level: ", candidate.sweep_level)
+            if candidate.ob_level < market_context.session_open:
+                reversal_confirmation = False
+            # if candidate.sweep_level is None:
+            #     if co_asset_candidate.sweep_level < co_asset["market_context"].session_open:
+            #         print("oooo")
+            #         print("co_asset: compression already release by now. not a compression setup for bearish_reintegration structure")
+            #         # compression at reintergration is released by now. price below ib1. moved from above ib18 to below ib8 and then below ib1
+            #         # disable trade alert
+            #         reversal_confirmation = False
+            # elif candidate.sweep_level < market_context.session_open:
+            #     print("pppp")
+            #     print("compression already release by now. not a compression setup for bearish_reintegration structure")
+            #     # compression at reintergration is released by now. price below ib1. moved from above ib18 to below ib8 and then below ib1
+            #     # disable trade alert
+            #     reversal_confirmation = False
+        # ====================================
+        # value flip confirmations
+        # ==================================== 
         elif structure_name == "bullish_value_flip":
             print("structure : bullish value flip")
         elif structure_name == "bearish_value_flip":
@@ -1556,6 +1707,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         if candidate.ob_data is not None:
             if candidate.ob_data["structure_break"] and candidate.ob_data["strong_body_displacement"]:
                 reversal_confirmation = True
+        # block setups outside structures
+        reversal_confirmation = False
         return reversal_confirmation
     else:
         print("window trade: ", "no window")

@@ -267,6 +267,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         if last_closed_candle["close"] > last_closed_candle["open"] and last_closed_candle["close"] - last_closed_candle["open"] > 60:
             nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
             nq_sweep_and_ob_ce_confirmed = True
+        ob_level = last_closed_candle["open"] if nq_sweep_and_ob_confirmed else None
         
         sweep_lows_key_levels_info = {
             "instrument": instrument,
@@ -285,7 +286,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
             "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
-            "caution": False
+            "caution": False,
+            "ob_level": ob_level
         }
 
     if sweep_highs:
@@ -315,6 +317,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
             nq_sweep_and_ob_ce_confirmed = True
         
+        ob_level = last_closed_candle["open"] if nq_sweep_and_ob_confirmed else None
+
         sweep_highs_key_levels_info = {
             "instrument": instrument,
             "side": "buy_side",
@@ -331,7 +335,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
             "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
-            "caution": False
+            "caution": False,
+            "ob_level": ob_level
         }
 
     return sweep_highs_key_levels_info, sweep_lows_key_levels_info
@@ -382,6 +387,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
                 nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
                 nq_sweep_and_ob_ce_confirmed = True
+            ob_level = last_closed_candle["open"] if nq_sweep_and_ob_confirmed else None
             # ny_am bias = bullish
             # ny_lunch = bearish - reversal or retracement
             # ny_pm = 7h wick window - setup based on 30m sweep and ob or 3pm retest of 30m ob for continuation
@@ -401,7 +407,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
                 "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
                 "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
-                "caution": False
+                "caution": False,
+                "ob_level": ob_level
             }
             break
 
@@ -440,6 +447,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 nq_sweep_and_ob_ce_entry = (last_closed_candle["open"] + last_closed_candle["close"]) / 2
                 nq_sweep_and_ob_ce_confirmed = True
             
+            ob_level = last_closed_candle["open"] if nq_sweep_and_ob_confirmed else None
             
             sweep_lows_info = {
                 "instrument": instrument,
@@ -457,7 +465,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_and_ob_ce_confirmed": nq_sweep_and_ob_ce_confirmed,
                 "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
                 "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
-                "caution": False
+                "caution": False,
+                "ob_level": ob_level
             }
             break
 

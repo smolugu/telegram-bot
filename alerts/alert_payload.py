@@ -22,6 +22,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     default_risk = None
 
     instrument = candidate.instrument
+    initial_target = candidate.initial_target
     if instrument == "NQ":
         default_risk = 80
     elif instrument == "ES":
@@ -88,15 +89,28 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         #     print("sweep and OB confirmed. Adjusting entry to:", entry)
         #     rr = 4
         risk = stop - entry
-        tp1 = entry - (risk * rr)
-        print("tp1: ", tp1)
+        if initial_target is not None:
+            tp1 = initial_target
+            print("tp1 based on initial target: ", tp1)
+            rr = abs(entry - tp1) / risk
+            rr = round(rr, 2)
+        else:
+            tp1 = entry - (risk * rr)
+            print("tp1: ", tp1)
 
     elif side == "buy_side" and entry < ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
-        tp1 = entry - (risk * rr)
-        
+        if initial_target is not None:
+            tp1 = initial_target
+            print("tp1 based on initial target: ", tp1)
+            rr = abs(entry - tp1) / risk
+            rr = round(rr, 2)
+        else:
+            tp1 = entry - (risk * rr)
+            print("tp1 based on rr: ", tp1)
+
         # candidate.insert_trade_data = {
         #     "entry": entry,
         #     "side": side,
@@ -109,8 +123,14 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     elif side == "buy_side":
         rr = 1.5
         risk = abs(entry - stop)
-        tp1 = entry - (risk * rr)
-        print("Using original imbalance entry. TP adjusted to:", entry)
+        if initial_target is not None:
+            tp1 = initial_target
+            print("tp1 based on initial target: ", tp1)
+            rr = abs(entry - tp1) / risk
+            rr = round(rr, 2)
+        else:
+            tp1 = entry - (risk * rr)
+            print("Using original imbalance entry. TP adjusted to:", entry)
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
             entry = candidate.sweep_and_ob_ce_entry
@@ -135,18 +155,38 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         #     print("sweep and OB confirmed. Adjusting entry to:", entry)
         #     rr = 4
         risk = abs(entry - stop)
-        tp1 = entry + (risk * rr)
+        if initial_target is not None:
+            tp1 = initial_target
+            print("tp1 based on initial target: ", tp1)
+            rr = abs(entry - tp1) / risk
+            rr = round(rr, 2)
+        else:
+            print("tp1 based on rr: ", tp1)
+            tp1 = entry + (risk * rr)
         
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
-        tp1 = entry + (risk * rr)
+        if initial_target is not None:
+            tp1 = initial_target
+            print("tp1 based on initial target: ", tp1)
+            rr = abs(entry - tp1) / risk
+            rr = round(rr, 2)
+        else:
+            tp1 = entry + (risk * rr)
+            print("tp1 based on rr: ", tp1)
     elif side == "sell_side":
         rr = 1.5
         risk = abs(entry - stop)
-        tp1 = entry + (risk * rr)
-        print("Using original imbalance entry. TP adjusted to:", entry)
+        if initial_target is not None:
+            tp1 = initial_target
+            print("tp1 based on initial target: ", tp1)
+            rr = abs(entry - tp1) / risk
+            rr = round(rr, 2)
+        else:
+            tp1 = entry + (risk * rr)
+            print("Using original imbalance entry. TP adjusted to:", entry)
         
         # candidate.insert_trade_data = {
         #     "entry": entry,

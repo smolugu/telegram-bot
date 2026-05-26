@@ -34,6 +34,7 @@ class SetupCandidate:
         self.ob_confirmed = False
         self.final_ob_confirmed = False
         self.ob_data = None
+        self.ob_level = None
 
         self.fvg_confirmed = False
         self.fvg_data = None
@@ -44,6 +45,7 @@ class SetupCandidate:
         self.trade_status = None
         self.insert_trade_data = None
         self.ping_type = None
+        self.initial_target = None
         self.final_target = None
         
 
@@ -56,7 +58,7 @@ class SetupCandidate:
     # --------------------------------------------------
 
 
-    def register_sweep(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False):
+    def register_sweep_old(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False):
         self.reset()
         self.active = True
         self.sweep_timestamp = timestamp
@@ -76,6 +78,29 @@ class SetupCandidate:
         self.sweep_level = sweep_level
         self.caution = caution
 
+    def register_sweep(self, sweep_data):
+        # timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False
+        
+        self.reset()
+        self.active = True
+        self.sweep_timestamp = sweep_data["timestamp"]
+        self.sweep_candle_extreme = sweep_data["sweep_candle_extreme"]
+        self.sweep_3m_timestamp = sweep_data["sweep_time"]
+        self.sweep_and_ob_confirmed = sweep_data["sweep_and_ob_confirmed"]
+        self.sweep_and_ob_entry = sweep_data["sweep_and_ob_entry"]
+        self.sweep_and_ob_ce_confirmed = sweep_data["sweep_and_ob_ce_confirmed"]
+        self.sweep_and_ob_ce_entry = sweep_data["sweep_and_ob_ce_entry"]
+        self.sweep_and_ob_confirmation_timestamp = sweep_data["sweep_and_ob_confirmation_timestamp"]
+        self.confirmation_time = sweep_data["sweep_and_ob_confirmation_timestamp"]
+        self.swept_levels = sweep_data["swept_levels"]
+        self.sweep_type = sweep_data["sweep_type"]
+        self.check_breakout_rejection = sweep_data["sweep_type"] == "breakout"
+        self.instrument = sweep_data["instrument"]
+        self.sweep_candle = sweep_data["sweep_candle"]
+        self.sweep_level = sweep_data["sweep_level"]
+        self.caution = sweep_data["caution"]
+        self.ob_level = sweep_data["ob_level"]
+
     # --------------------------------------------------
 
     def register_smt(self, timestamp):
@@ -92,6 +117,7 @@ class SetupCandidate:
         self.ob_confirmed = True
         self.ob_data = ob_data
         self.confirmation_time = ob_data["confirmation_timestamp"]
+        self.ob_level = ob_data["ob_level"] if self.ob_level is None else self.ob_level
 
     # --------------------------------------------------
 

@@ -104,13 +104,14 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
     # -------------------------
     # 4. Replace TP1 if needed
     # -------------------------
-    if abs(entry_price - closest) < abs(entry_price - tp1):
-        print("level closest to entry")
-        new_tp1 = closest
-    else:
-        print("tp1 is closest")
-        new_tp1 = tp1
-
+    # dont need to replace tp1
+    # if abs(entry_price - closest) < abs(entry_price - tp1):
+    #     print("level closest to entry")
+    #     new_tp1 = closest
+    # else:
+    #     print("tp1 is closest")
+    #     new_tp1 = tp1
+    new_tp1 = tp1
     # -------------------------
     # 5. Find TP1 index PROPERLY
     # -------------------------
@@ -175,6 +176,20 @@ def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
 
     # TP3: ATR expansion
     tp3 = entry - 0.7 * daily_atr if direction == "bearish" else entry + 0.7 * daily_atr
+
+    if tp2 is not None:
+        # If TP2 and TP3 are too close,
+        # move TP2 to midpoint between TP1 and TP3
+        tp2_tp3_distance = abs(tp3 - tp2)
+        tp1_tp3_distance = abs(tp3 - tp1)
+        # Example threshold:
+        # TP2 and TP3 considered "too close"
+        # if distance is less than 20% of full TP1→TP3 range
+
+        if tp2_tp3_distance < 0.2 * tp1_tp3_distance:
+            tp2 = (tp1 + tp3) / 2
+
+
     if tp2 is None:
         if direction == "bearish":
             tp2 = tp1 - (tp1 - tp3) / 2
