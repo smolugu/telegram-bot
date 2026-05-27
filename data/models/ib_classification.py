@@ -688,6 +688,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
             "range": {
                 "high": ib8["high"],
                 "low": ib18["low"],
@@ -732,6 +737,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib8["low"],
@@ -779,6 +789,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
+            },
             "range": {
                 "high": ib8["high"],
                 "low": ib1["low"],
@@ -908,6 +923,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
+            },
             "range": {
                 "high": ib1["high"],
                 "low": ib8["low"],
@@ -998,6 +1018,8 @@ def classify_ib_structure(
     # STAIRCASE BULLISH
     # =====================================================
     # here there could be no gaps between ibs
+    # continuous overlap bullish migration and equilibrium constantly rebuilding upward
+    # Continuous overlap migration favors exhaustion reversals more than explosive continuation
     # this structure generates low resistance liquidity runs, most likely sweep upside and flush at atr exhaustion or with smt
     # ib8 > ib1 > ib18
     # compression and equilibrium ranges are from weak compression due to overlap of ib8 and ib1
@@ -1024,6 +1046,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"] + ib1["low"]) / 2
+            },
             "range": {
                 "high": ib8["high"],
                 "low": ib18["low"],
@@ -1080,6 +1107,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib8["low"],
@@ -1124,10 +1156,15 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
-            "range": {
+            "compression_range": {
                 "high": ib1["high"],
                 "low": ib1["low"],
                 "ce": (ib1["high"] + ib1["low"]) / 2
+            },
+            "range": {
+                "high": ib1["high"],
+                "low": ib18["low"],
+                "ce": (ib1["high"] + ib18["low"]) / 2
             },
             "equilibrium_range": {
                 "high": ib8["high"],
@@ -1135,7 +1172,8 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
             # mitigation happens at compression zone, here at IB1 range which is the latest acceptance probe
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            # mitigation at equilibrium and compression extremes
+            "mitigation_level": (ib1["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Bullish acceptance and compression at new value after prior expansion.",
             "note":
@@ -1165,10 +1203,15 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
-            "range": {
+            "compression_range": {
                 "high": ib1["high"],
                 "low": ib1["low"],
                 "ce": (ib1["high"] + ib1["low"]) / 2
+            },
+            "range": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
             },
             "equilibrium_range": {
                 "high": ib8["high"],
@@ -1176,7 +1219,7 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
             # mitigation happens at compression zone, here at IB1 range which is the latest acceptance probe
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Bearish acceptance and compression at new value after prior expansion.",
             "note":
@@ -1291,11 +1334,16 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_decompression": False,
             "is_value_flip": False,
-            # range is compression range is there is one, otherwise displacement or migration range
-            "range": {
+            "compression_range": {
                 "high": ib18["high"],
                 "low": ib8["low"],
                 "ce": (ib18["high"] + ib8["low"]) / 2
+            },
+            # range is migration range
+            "range": {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
             },
             # equilibrium range is the mitigation range. 
             "equilibrium_range": {
@@ -1303,7 +1351,7 @@ def classify_ib_structure(
                 "low": ib18["low"],
                 "ce": (ib8["high"] + ib18["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
+            "mitigation_level": (ib1["high"] + ib8["low"]) / 2,
             
             "note_internal":
                 "Bullish expansion weakened into reintegration.",
@@ -1386,6 +1434,7 @@ def classify_ib_structure(
             "is_value_flip": True,
             "is_rebalance": False,
             "is_decompression": False,
+            "compression_range": {"high": None, "low": None, "ce": None},
             "range": {"high": ib1["high"], "low": ib8["low"], "ce": (ib1["high"] + ib8["low"]) / 2},
             "equilibrium_range": {"high": ib18["low"], "low": ib8["high"], "ce": (ib18["low"] + ib8["high"]) / 2},
             "mitigation_level": ib18["low"],
@@ -1421,6 +1470,7 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": True,
             "is_decompression": False,
+            "compression_range": {"high": None, "low": None, "ce": None},
             "range": {"high": ib8["high"], "low": ib1["low"], "ce": (ib8["high"] + ib1["low"]) / 2},
             "equilibrium_range": {"high": ib8["low"], "low": ib18["high"], "ce": (ib8["low"] + ib18["high"]) / 2},
             "mitigation_level": ib18["high"],

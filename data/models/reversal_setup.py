@@ -273,6 +273,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         
         return filters_passed
     
+    # strong ob body check important in decompression, value flip, migration continuation structures.
     def displacement_filter():
         filters_passed = False
         
@@ -614,11 +615,154 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # split different filters like displacement, atr_usage, smt, direction, htf bias, 
         passed_atr_displacement_filter = displacement_atr_filter()
         # if ib_relationship == "inside_1am":
-        # staircase structures
-        if structure_name == "staircase_early_overlap_bullish":
+        # ====================================
+        # staircase confirmations
+        # ====================================
+        # block completed, review real time
+        if structure_name == "staircase_gap_bullish":
+            print("structure : staircase_gap_bullish")
+
+            # strongest bullish migration structure
+            # no overlap between IBs
+            # active bullish repricing / migration
+            # In staircase gap structures, shorts require migration failure — not just exhaustion
+
+            # core pings:
+            # long from retest of IB1 ↔ IB8 gap (Rocket)
+            # short only after migration failure (Flush)
+        
+            if look_for_longs:
+                # primary continuation setup
+                # expect mitigation into latest migration gap
+                # TODO: we need confirmation that the sweep is inside the gap or at mitigation level
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # continuation target
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+
+                # only allow shorts after:
+                # upside ATR exhaustion
+                # SMT divergence
+                # failed bullish migration
+                # gap acceptance failure = ob below mitigation level
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                    and candidate.ob_level <
+                        newyork_context.structure["mitigation_level"]
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # retracement/reversal target = gap between ib18 and ib1
+                    candidate.initial_target = (newyork_context.ib_1["low"] + newyork_context.ib_18["high"]) / 2
+                    candidate.final_target = "DO"
+        # block completed, review real time
+        elif structure_name == "staircase_gap_bearish":
+            print("structure : staircase_gap_bearish")
+
+            # strongest bearish migration structure
+            # no overlap between IBs
+            # active bearish repricing / migration
+            # In staircase gap structures, longs require migration failure — not just exhaustion
+
+            # core pings:
+            # short from retest of IB1 ↔ IB8 gap (Flush)
+            # long only after migration failure (Rocket)
+
+            # TODO: we need confirmation that the sweep is inside the gap or at mitigation level
+            if look_for_shorts:
+                # primary continuation setup
+                # expect mitigation into latest migration gap
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # continuation target
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+
+                # only allow longs after:
+                # downside ATR exhaustion
+                # SMT divergence
+                # failed bearish migration
+                # gap acceptance failure
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                    and candidate.ob_level >
+                        newyork_context.structure["mitigation_level"]
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket" 
+                    # retracement/reversal target = gap between ib18 and ib1
+                    candidate.initial_target = (newyork_context.ib_1["high"] + newyork_context.ib_18["low"]) / 2
+                    candidate.final_target = "DO"
+        # block completed, review real time
+        elif structure_name == "staircase_early_overlap_bullish":
             print("structure : staircase_early_overlap_bullish")
+            print("block completed, review real time")
+            # In staircase overlap structures, liquidity resolution matters more than retracement depth
+            # bullish migration already accepted
+            # latest overlap formed early during migration in early london session
+            # typically behaves like:
+            # post-compression continuation structure
+
+            # core pings:
+            # long from equilibrium / mitigation (Rocket) - between ib8 low and overlap region, can even retest DO
+            # short only after upside ATR exhaustion (Flush)
+
+            if look_for_longs:
+                # primary continuation setup
+                # expect shallow or deep mitigation based on migration strength from IB1 to IB8
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # target opposite end of active migration range
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+                # only allow shorts after:
+                # upside ATR exhaustion
+                # SMT divergence
+                # failed bullish continuation
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # retracement/reversal target - equilibrium of IB18 to ib8 range
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    # TODO: recheck final_target DO or early Compression high IB1["high"]
+                    candidate.final_target = "DO"
+        # block completed, review real time
         elif structure_name == "staircase_late_overlap_bullish":
             print("structure : staircase_late_overlap_bullish")
+            print("block completed, review real time")
             # core pings: 
                 # long from mitigation level (expansion)
                 # short after ATR exhaustion (Flush)
@@ -627,29 +771,294 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 candidate.ping_type = "Flush"
                 candidate.final_target = "DO"
                 candidate.initial_target = newyork_context.structure["mitigation_level"]
-            elif look_for_longs and candidate.ob_level >= newyork_context.structure["mitigation_level"]:
+            elif look_for_longs and candidate.fvg_confirmed and candidate.ob_level >= newyork_context.structure["mitigation_level"]:
                 reversal_confirmation = True
                 candidate.ping_type = "Rocket"
                 candidate.final_target = "ATR"
-                candidate.initial_target = newyork_context.structure["range_high"]
+                candidate.initial_target = newyork_context.structure["compression_high"]
 
+        # block completed, review real time
         elif structure_name == "staircase_early_overlap_bearish":
             print("structure : staircase_early_overlap_bearish")
+            print("block completed, review real time")
+            # In staircase overlap structures,
+            # liquidity resolution matters more than retracement depth
+
+            # bearish migration already accepted
+            # latest overlap formed early during migration in early london session
+            # typically behaves like:
+            # post-compression continuation structure
+
+            # core pings:
+            # short from equilibrium / mitigation (Flush)
+            # - between ib8 high and overlap region, can even retest DO
+            # long only after downside ATR exhaustion (Rocket)
+
+            if look_for_shorts:
+                # primary continuation setup
+                # expect shallow or deep mitigation
+                # based on migration strength from IB1 to IB8
+
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # target opposite end of active migration range
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+                # only allow longs after:
+                # downside ATR exhaustion
+                # SMT divergence
+                # failed bearish continuation
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # retracement/reversal target
+                    # equilibrium of IB18 to IB8 range
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    # TODO:
+                    # recheck final_target:
+                    # DO or early compression low IB1["low"]
+                    candidate.final_target = "DO"
+        # block completed, review real time
         elif structure_name == "staircase_late_overlap_bearish":
             print("structure : staircase_late_overlap_bearish")
+            print("block completed, review real time")
             # core pings: 
                 # short from mitigation level (Flush)
                 # long after ATR exhaustion (Rocket)
-            if look_for_longs and is_atr_filter and is_smt and candidate.fvg_confirmed:
-                reversal_confirmation = True
-                candidate.ping_type = "Rocket"
-                candidate.final_target = "DO"
-                candidate.initial_target = newyork_context.structure["mitigation_level"]
-            elif look_for_shorts and candidate.ob_level <= newyork_context.structure["mitigation_level"]:
-                reversal_confirmation = True
-                candidate.ping_type = "Flush"
-                candidate.final_target = "ATR"
-                candidate.initial_target = newyork_context.structure["range_low"]
+            if look_for_longs:
+                if is_atr_filter and is_smt and candidate.fvg_confirmed:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.final_target = "DO"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+            elif look_for_shorts:
+                if not is_atr_filter and candidate.fvg_confirmed and candidate.ob_level <= newyork_context.structure["mitigation_level"]:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.final_target = "ATR"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+        # block completed, review real time
+        elif structure_name == "staircase_bullish":
+            print("structure : staircase_bullish")
+            # continuous overlap bullish migration and equilibrium constantly rebuilding upward
+            # continuous overlap migration favors exhaustion reversals more than explosive continuation
+            # no displacement gaps
+            # grinding continuation structure
+
+            # core ping:
+                # high probability Flush after ATR exhaustion
+                # longs possible but lower expansion quality
+
+            if look_for_longs:
+
+                # continuation possible
+                # but lower quality than staircase gap structures
+                
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+
+                    # optional:
+                    # lower confidence weighting
+                    # TODO: disabling longs for now. review later
+                    reversal_confirmation = False
+
+            elif look_for_shorts:
+
+                # ideal setup:
+                # exhaustion reversal after grinding migration
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.ib_18["high"]
+                    candidate.final_target = "DO"
+
+        # block completed, review real time
+        elif structure_name == "staircase_bearish":
+            print("structure : staircase_bearish")
+
+            # continuous overlap bearish migration and equilibrium constantly rebuilding downward
+            # continuous overlap migration favors exhaustion reversals more than explosive continuation
+            # no displacement gaps
+            # grinding continuation structure
+
+            # core ping:
+                # high probability Rocket after ATR exhaustion
+                # shorts possible but lower expansion quality
+
+            if look_for_shorts:
+
+                # continuation possible
+                # but lower quality than staircase gap structures
+
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
+                    # optional:
+                    # lower confidence weighting
+                    # TODO: disabling longs for now. review later
+                    reversal_confirmation = False
+
+            elif look_for_longs:
+
+                # ideal setup:
+                # exhaustion reversal after grinding migration
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.ib_18["low"]
+                    candidate.final_target = "DO"
+        # =====================================================
+        # ACCEPTANCE COMPRESSION CONFIRMATIONS
+        # =====================================================
+        elif structure_name == "bullish_acceptance_compression":
+            print("structure : bullish_acceptance_compression")
+
+
+            # bullish migration accepted first
+            # then compression formed inside higher value
+
+            # active compression structure
+            # inducement/sweeps likely before expansion release
+
+            # mitigation can occur:
+            # - at IB1/IB8 extremes
+            # - OR deeper into transition equilibrium
+            #   between IB18 high and IB1 low
+
+            # core pings:
+                # long after downside liquidity sweep (Rocket)
+                # short only after failed bullish acceptance + ATR exhaustion
+
+            if look_for_longs:
+
+                # primary setup:
+                # bullish release after compression sweep
+                # Compression reversals are validated more by failed continuation than by immediate displacement
+                    # so displacement check or strong body check is optional.
+                    # we are only checking if there is an fvg formed inside the OB
+
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+
+                # only allow shorts after:
+                # failed bullish compression
+                # upside ATR exhaustion
+                # failed continuation
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.final_target = "DO"
+
+        elif structure_name == "bearish_acceptance_compression":
+            print("structure : bearish_acceptance_compression")
+            
+            # bearish migration accepted first
+            # then compression formed inside lower value
+
+            # active compression structure
+            # inducement/sweeps likely before expansion release
+
+            # mitigation can occur:
+            # - at IB1/IB8 extremes
+            # - OR deeper into transition equilibrium
+            #   between IB18 low and IB1 high
+
+            # core pings:
+            # short after upside liquidity sweep (Flush)
+            # long only after failed bearish acceptance + ATR exhaustion
+
+            if look_for_shorts:
+
+                # primary setup:
+                # bearish release after compression sweep
+                # Compression reversals are validated more by failed continuation than by immediate displacement
+                    # so displacement check or strong body check is optional.
+                    # we are only checking if there is an fvg formed inside the OB
+
+                if (
+                    not is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+
+                # only allow longs after:
+                # failed bearish compression
+                # downside ATR exhaustion
+                # failed continuation
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.final_target = "DO"
+                    
         elif structure_name == "bullish_acceptance_compression":
             # ib1_above_ib18 and ib8_inside_ib1
             # Bullish acceptance and compression at new value after prior expansion.
@@ -770,6 +1179,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             print("structure: bullish rebalance")
         elif structure_name == "bearish_rebalance":
             print("structure : bullish rebalance")
+        
+        
         # ====================================
         # reintegration confirmations
         # ==================================== 
@@ -778,67 +1189,190 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # optional but not required: displacement, 30m ob is acceptance failure
         # cross asset structure alignment?
         # ping type : Flush (failed continuation after trapped positioning)
-        
+        # block completed, review real time
         elif structure_name == "bullish_reintegration":
             print("structure : bullish reintegration")
+            print("block completed, review real time")
             # weakened bullish structure
             # allow shorts if atr left
             # allow longs if atr exhaustion or used, smt, cross asset alignment
             # this is weak compression = so inducement is additional confirmation, not required
             # additional check using co_asset structure alignment
-            if look_for_shorts:
-                candidate.initial_target = newyork_context.structure["range_low"]
-            elif look_for_longs:
-                candidate.initial_target = newyork_context.structure["range_high"]
+            # atr usage above open >0.9, no expansion below open
+            # atr exhaustion -> reversal to ib1 high
             print("atr filter value: ", is_atr_filter)
-            if is_atr_filter and is_smt and candidate.fvg_confirmed:
-                reversal_confirmation = True
-                candidate.ping_type = "Rocket"
-                # tp1 other end of compression range
-                candidate.final_target = "DO" if market_context.no_bullish_expansion_above_open else "ATR"
+
+            if look_for_shorts:
+                # atr not exhausted
+                # classic protraction: london low, ny continuation - ATR used above open is low. 
+                # expect short flush from mitigation level or after sweep of compression high
+                if not is_atr_filter and candidate.ob_level < newyork_context.structure["mitigation_level"] and candidate.fvg_confirmed:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+                if is_atr_filter and is_smt and candidate.fvg_confirmed:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # tp1 other end of compression range
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.final_target = "DO" if market_context.no_bullish_expansion_above_open else "ATR"
+            # bullish reintegration reversed to ib1 ce or high
+            # at this point dont allow 30m OB as it is still in expansion
             print("candidate.sweep level: ", candidate.sweep_level)
-            if candidate.ob_level > market_context.session_open:
+            if look_for_shorts and candidate.ob_level > market_context.session_open:
                 reversal_confirmation = False
+        # block completed, review real time
         elif structure_name == "bearish_reintegration":
             print("structure : bearish reintegration")
+            print("block completed, review real time")
             # weakened bearish structure
             # allow longs if atr left
             # allow shorts if atr exhaustion or used, smt, cross asset alignment
             # this is weak compression = so inducement is additional confirmation, not required
             # additional check using co_asset structure alignment
-            if look_for_shorts:
-                candidate.initial_target = newyork_context.structure["range_low"]
-            elif look_for_longs:
-                candidate.initial_target = newyork_context.structure["range_high"]
+            # atr usage below open >0.9, no expansion above open
+            # atr exhaustion -> reversal to ib1 low
             print("atr filter value: ", is_atr_filter)
-            if is_atr_filter and is_smt and candidate.fvg_confirmed:
-                reversal_confirmation = True
-                candidate.ping_type = "Flush"
-                # tp1 other end of compression range
-                candidate.final_target = "DO" if market_context.no_bearish_expansion_below_open else "ATR"
+            
+
+            if look_for_longs:
+                # atr not exhausted
+                # classic protraction: london high, ny continuation - ATR used below open is low. 
+                # expect long expansion from mitigation level or after sweep of compression low
+                if not is_atr_filter and candidate.ob_level > newyork_context.structure["mitigation_level"] and candidate.fvg_confirmed:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+                if is_atr_filter and is_smt and candidate.fvg_confirmed:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # tp1 other end of compression range
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.final_target = "DO" if market_context.no_bearish_expansion_below_open else "ATR"
+            # bearish reintegration reversed to ib1 ce or low
+            # at this point dont allow 30m OB as it is still in expansion
             print("candidate.sweep level: ", candidate.sweep_level)
-            if candidate.ob_level < market_context.session_open:
+            if look_for_longs and candidate.ob_level < market_context.session_open:
                 reversal_confirmation = False
-            # if candidate.sweep_level is None:
-            #     if co_asset_candidate.sweep_level < co_asset["market_context"].session_open:
-            #         print("oooo")
-            #         print("co_asset: compression already release by now. not a compression setup for bearish_reintegration structure")
-            #         # compression at reintergration is released by now. price below ib1. moved from above ib18 to below ib8 and then below ib1
-            #         # disable trade alert
-            #         reversal_confirmation = False
-            # elif candidate.sweep_level < market_context.session_open:
-            #     print("pppp")
-            #     print("compression already release by now. not a compression setup for bearish_reintegration structure")
-            #     # compression at reintergration is released by now. price below ib1. moved from above ib18 to below ib8 and then below ib1
-            #     # disable trade alert
-            #     reversal_confirmation = False
+            
         # ====================================
         # value flip confirmations
         # ==================================== 
+        # block completed, review real time
         elif structure_name == "bullish_value_flip":
             print("structure : bullish value flip")
+            print("block completed, review real time")
+
+            # strongest bearish structure, after failed initial bullish migration
+            # initial bullish migration completely failed
+            # market migrated below prior value aggressively
+
+            # core pings:
+                # short continuation from mitigation (Flush)
+                # long only after downside ATR exhaustion (Rocket)
+
+            if look_for_shorts:
+                # downside expansion still available
+                # continuation flush from failed bullish reclaim
+                if (
+                    not is_atr_filter
+                    and candidate.ob_level <=
+                        newyork_context.structure["mitigation_level"]
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # opposite end of active range
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+
+                # only allow reversal after:
+                # downside ATR exhaustion
+                # SMT divergence
+                # failed downside continuation
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # reversal objective back into failed migration equilibrium
+                    candidate.initial_target = (
+                        newyork_context.structure["mitigation_level"]
+                    )
+
+                    candidate.final_target = "DO"
+
+            # after successful bullish reversal reclaim above open,
+            # do not allow fresh shorts
+            # bearish expansion already resolved
+
+            if look_for_shorts and candidate.ob_level > market_context.session_open:
+                reversal_confirmation = False
+
+        # block completed, review real time
         elif structure_name == "bearish_value_flip":
             print("structure : bearish value flip")
+            print("block completed, review real time")
+            # strongest bullish failure structure
+            # initial bearish migration completely failed
+            # market migrated above prior value aggressively
+
+            # core pings:
+            # long continuation from mitigation (Rocket)
+            # short only after upside ATR exhaustion (Flush)
+
+            if look_for_longs:
+                # upside expansion still available
+                # continuation rocket from failed bearish reclaim
+                if (
+                    not is_atr_filter
+                    and candidate.ob_level >=
+                        newyork_context.structure["mitigation_level"]
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # opposite end of active range
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+                # only allow reversal after:
+                # upside ATR exhaustion
+                # SMT divergence
+                # failed upside continuation
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # reversal objective back into failed migration equilibrium
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.final_target = "DO"
+
+            # after successful bearish reversal reclaim below open,
+            # do not allow fresh longs
+            # bullish expansion already resolved
+
+            if look_for_longs and candidate.ob_level < market_context.session_open:
+                reversal_confirmation = False
+        # ====================================
+        # sandwich confirmations
+        # ==================================== 
         elif structure_name == "sandwich_gap_bullish":
             print("structure : sandwich gap bullish")
         elif structure_name == "sandwich_gap_bearish":
