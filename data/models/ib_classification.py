@@ -1062,7 +1062,7 @@ def classify_ib_structure(
                 "ce": (ib1["high"] + ib8["low"]) / 2
             },
             # mitigation happens at compression zone, here at overlap of ib1 and ib8
-            "mitigation_level": (ib1["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Higher value continued being accepted overnight, "
                 "but migration remained inefficient as price "
@@ -1086,7 +1086,8 @@ def classify_ib_structure(
     # this structure generates low resistance liquidity runs, most likely sweep downside and rally (rocket) at atr exhaustion or with smt
     # ib8 < ib1 < ib18
     # compression and equilibrium ranges are from weak compression due to overlap of ib8 and ib1
-
+    # In overlap migration structures, acceptance below transition equilibrium 
+        #  often marks the shift from mitigation into migration
     if (
         ib18["high"] > ib1["high"] > ib18["low"] and ib1["low"] < ib18["low"]
         and ib1["high"] > ib8["high"] > ib1["low"]
@@ -1123,7 +1124,7 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib1["low"]) / 2
             },
             # mitigation happens at compression zone, here at overlap of ib1 and ib8
-            "mitigation_level": (ib8["high"] + ib1["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib8["low"]) / 2,
             "note_internal":
                 "Lower value continued being accepted overnight, "
                 "but migration remained inefficient as price "
@@ -1173,7 +1174,7 @@ def classify_ib_structure(
             },
             # mitigation happens at compression zone, here at IB1 range which is the latest acceptance probe
             # mitigation at equilibrium and compression extremes
-            "mitigation_level": (ib1["high"] + ib18["low"]) / 2,
+            "mitigation_level": (ib1["low"] + ib18["high"]) / 2,
             "note_internal":
                 "Bullish acceptance and compression at new value after prior expansion.",
             "note":
@@ -1236,7 +1237,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure_name": "bullish_rebalance",
+            "structure_name": "bullish_rebalance_compression",
             "category": "rebalance",
             "direction": "bullish",
             "is_staircase": False,
@@ -1276,7 +1277,7 @@ def classify_ib_structure(
     ):
 
         return {
-            "structure_name": "bearish_rebalance",
+            "structure_name": "bearish_rebalance_compression",
             "category": "rebalance",
             "direction": "bearish",
             "is_staircase": False,
@@ -1489,6 +1490,8 @@ def classify_ib_structure(
     # SANDWICH GAP BULLISH
     # =====================================================
     # for now treating ib8 range as compression and equilibrium range
+    # In sandwich structures, IB8 defines the active compression range while the larger gap
+        # defines migration equilibrium
 
     if (
         ib1_above_ib18
@@ -1510,6 +1513,11 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
+            },
             "range": {
                 "high": ib1["high"],
                 "low": ib18["low"],
@@ -1522,7 +1530,7 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib8["low"]) / 2
 
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib1["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Bullish sandwich compression between separated ranges.",
             "note":
@@ -1553,6 +1561,11 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib1["low"],
@@ -1565,7 +1578,7 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib8["low"]) / 2
 
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Bearish sandwich compression between separated ranges.",
             "note":
@@ -1604,6 +1617,11 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            },
             "range": {
                 "high": ib1["high"],
                 "low": ib18["low"],
@@ -1614,8 +1632,8 @@ def classify_ib_structure(
                 "low": ib1["low"],
                 "ce": (ib8["high"] + ib1["low"]) / 2
             },
-            # mitigation is inside compression zone
-            "mitigation_level": (ib8["high"] + ib1["low"]) / 2,
+            # mitigation is inside compression zone but our mitigation level is at migration equilibrium
+            "mitigation_level": (ib1["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Bullish sandwich compression with acceptance weakeness.",
             "note": 
@@ -1641,17 +1659,24 @@ def classify_ib_structure(
             "is_rebalance": True,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
+            },
             "range": {
                 "high": ib1["high"],
                 "low": ib18["low"],
                 "ce": (ib1["high"] + ib18["low"]) / 2
             },
+            # mitigation inside compression zone or trigger zone
             "equilibrium_range": {
                 "high": ib18["high"],
                 "low": ib8["low"],
                 "ce": (ib18["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib18["high"] + ib8["low"]) / 2,
+            # mitigation = migration eq
+            "mitigation_level": (ib1["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Bullish sandwich compression with rebalance.",
             "note": 
@@ -1681,7 +1706,11 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             "is_decompression": False,
-
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"] + ib1["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib1["low"],
@@ -1692,7 +1721,7 @@ def classify_ib_structure(
                 "low": ib8["low"],
                 "ce": (ib1["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib1["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Bearish sandwich compression with acceptance weakness.",
             "note": 
@@ -1718,6 +1747,11 @@ def classify_ib_structure(
             "is_rebalance": True,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib8["low"],
+                "ce": (ib18["high"] + ib8["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib1["low"],
@@ -1728,7 +1762,7 @@ def classify_ib_structure(
                 "low": ib18["low"],
                 "ce": (ib8["high"] + ib18["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Bearish sandwich compression with rebalance at daily open.",
             "note": 
@@ -1760,6 +1794,11 @@ def classify_ib_structure(
             "is_rebalance": True,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib1["high"],
+                "low": ib18["low"],
+                "ce": (ib1["high"] + ib18["low"]) / 2
+            },
             "range": {
                 "high": ib1["high"],
                 "low": ib18["low"],
@@ -1801,6 +1840,11 @@ def classify_ib_structure(
             "is_rebalance": True,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib1["low"],
@@ -1811,7 +1855,7 @@ def classify_ib_structure(
                 "low": ib8["low"],
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Balanced bearish sandwich compression.",
             "note": 
@@ -1887,6 +1931,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_value_flip": False,
             "is_decompression": False,
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
+            },
             "range": {
                 "high": ib18["high"],
                 "low": ib1["low"],
@@ -1897,7 +1946,7 @@ def classify_ib_structure(
                 "low": ib8["low"],
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
             "note": 

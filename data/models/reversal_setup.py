@@ -618,7 +618,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # ====================================
         # staircase confirmations
         # ====================================
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         if structure_name == "staircase_gap_bullish":
             print("structure : staircase_gap_bullish")
 
@@ -665,7 +665,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     # retracement/reversal target = gap between ib18 and ib1
                     candidate.initial_target = (newyork_context.ib_1["low"] + newyork_context.ib_18["high"]) / 2
                     candidate.final_target = "DO"
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_gap_bearish":
             print("structure : staircase_gap_bearish")
 
@@ -715,7 +715,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     # retracement/reversal target = gap between ib18 and ib1
                     candidate.initial_target = (newyork_context.ib_1["high"] + newyork_context.ib_18["low"]) / 2
                     candidate.final_target = "DO"
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_early_overlap_bullish":
             print("structure : staircase_early_overlap_bullish")
             print("block completed, review real time")
@@ -759,7 +759,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     candidate.initial_target = newyork_context.structure["mitigation_level"]
                     # TODO: recheck final_target DO or early Compression high IB1["high"]
                     candidate.final_target = "DO"
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_late_overlap_bullish":
             print("structure : staircase_late_overlap_bullish")
             print("block completed, review real time")
@@ -777,7 +777,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 candidate.final_target = "ATR"
                 candidate.initial_target = newyork_context.structure["compression_high"]
 
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_early_overlap_bearish":
             print("structure : staircase_early_overlap_bearish")
             print("block completed, review real time")
@@ -830,7 +830,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     # recheck final_target:
                     # DO or early compression low IB1["low"]
                     candidate.final_target = "DO"
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_late_overlap_bearish":
             print("structure : staircase_late_overlap_bearish")
             print("block completed, review real time")
@@ -849,7 +849,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     candidate.ping_type = "Flush"
                     candidate.final_target = "ATR"
                     candidate.initial_target = newyork_context.structure["compression_low"]
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_bullish":
             print("structure : staircase_bullish")
             # continuous overlap bullish migration and equilibrium constantly rebuilding upward
@@ -897,7 +897,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     candidate.initial_target = newyork_context.ib_18["high"]
                     candidate.final_target = "DO"
 
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "staircase_bearish":
             print("structure : staircase_bearish")
 
@@ -949,6 +949,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # =====================================================
         # ACCEPTANCE COMPRESSION CONFIRMATIONS
         # =====================================================
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "bullish_acceptance_compression":
             print("structure : bullish_acceptance_compression")
 
@@ -1005,6 +1006,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     candidate.initial_target = newyork_context.structure["mitigation_level"]
                     candidate.final_target = "DO"
 
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "bearish_acceptance_compression":
             print("structure : bearish_acceptance_compression")
             
@@ -1058,127 +1060,147 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     candidate.ping_type = "Rocket"
                     candidate.initial_target = newyork_context.structure["mitigation_level"]
                     candidate.final_target = "DO"
+        
+        # =====================================================
+        # REBALANCE COMPRESSION CONFIRMATIONS
+        # =====================================================
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
+        elif structure_name == "bullish_rebalance_compression":
+            print("structure : bullish_rebalance_compression")
+
+            # initial bullish migration occurred
+            # then price compressed/rebalanced back into IB18
+
+            # active rebalance compression structure
+            #
+            # both directions possible:
+            # - Flush from compression highs
+            # - Rocket from compression lows
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether further expansion is feasible
+
+            if look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # failed downside acceptance
+                #
+                # can revisit:
+                # - premarket highs
+                # - IB1 highs
+                # - migration highs
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+
+                    # if ATR still available:
+                    # expansion can continue higher
+
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # rejection from migration equilibrium
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
                     
-        elif structure_name == "bullish_acceptance_compression":
-            # ib1_above_ib18 and ib8_inside_ib1
-            # Bullish acceptance and compression at new value after prior expansion.
-            print("ib8am is inside ib1am and ib1 is above ib18")
-            # one line rule: IB1 sets the direction, IB8 reloads it
-            print("sweep info: ", newyork_context.sweep)
-            # at this point both nq and es have swept range high or low, or there is an SMT
-            # inducement sweep on either of them
-            # since this is weak compression, single sweep + OB + displacement + smt is ok
-            # in either case, allow both es and nq trades
-            # main objective is time - SMT makes the time A+
-            passed_atr_displacement_filter = displacement_atr_filter()
-            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-            
-            # 8am_inside_1am compression - this is re-compression for continuation higher, if
-                # atr is still left, 0.35 - 0.65 ideal for expansion continuation of london move
-                
-            # 1am_IB above 18 IB
-                # continuation - atr between 0.35 and 0.65, pdh not taken, swept lows, smt at compression lows
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-            # liquidity_levels["pdh"]["swept"] filter can be restrictive. so removing it. check in real time
-            # 0.35 <= market_context.atr_usage <= 0.65 is also too restrictive. just check for atr exhaustion for now
-            if newyork_context.structure["ib18_below_ib1"]:
-                if look_for_longs and not market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing continuation longs after recompression as market is not exhausted")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Expansion"
-                    candidate.final_target = "ATR"
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-                # key and must filter here: atr exhaustion
-                elif look_for_shorts and market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing shorts as market is exhausted with smt at highs")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Flush" # flush to Daily open
-                    candidate.final_target = "DO" if market_context.no_bearish_expansion_below_open else "ATR"
-            # 1am_IB below 18 Ib
-                # continuation - atr between 0.35 and 0.65, pdl not taken, swept highs, smt at compression highs
-                # reversal longs when atr exhaustion, pdl taken, smt at lows
-            elif newyork_context.structure["ib18_above_ib1"]:
-                if look_for_shorts and not market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing continuation shorts after recompression as market is not exhausted")
+
+                    # if upside ATR already exhausted:
+                    # downside move likely terminates
+                    # at compression lows / IB18 lows
+                    #
+                    # otherwise:
+                    # full downside expansion still feasible
+
+                    candidate.final_target = (
+                        "ATR"
+                        if not is_atr_filter
+                        else newyork_context.structure["compression_low"]
+                    )
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
+        elif structure_name == "bearish_rebalance_compression":
+            print("structure : bearish_rebalance_compression")
+            # initial bearish migration occurred
+            # then price compressed/rebalanced back into IB18
+
+            # active rebalance compression structure
+            #
+            # both directions possible:
+            # - Rocket from compression lows
+            # - Flush from compression highs
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether further expansion is feasible
+
+            if look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # failed upside acceptance
+                #
+                # can revisit:
+                # - premarket lows
+                # - IB1 lows
+                # - migration lows
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.final_target = "ATR"
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-                # key and must filter here: atr exhaustion
-                elif look_for_longs and market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing longs as market is exhausted with smt at lows")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Expansion"
-                    candidate.final_target = "DO" if market_context.no_bullish_expansion_above_open else "ATR"
-                
-            
-            # if atr not exhausted, we need key level plus SMT
+                    candidate.initial_target = newyork_context.structure["compression_low"]
 
-            # 8am_inside_18 ib compression
-            # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
-        elif structure_name == "bearish_acceptance_compression":
-            # ib1_below_ib18 and ib8_inside_ib1
-            # re-accumulation or re-compression
-            print("ib8am is inside ib1am")
-            # one line rule: IB1 sets the direction, IB8 reloads it
-            print("8am compression: ", ib_relationship, "sweep info: ", newyork_context.sweep)
-            print("ib18_above_ib1: ", newyork_context.structure["ib18_above_ib1"])
-            print("ib1_above_ib18: ", newyork_context.structure["ib18_below_ib1"])
-            # at this point both nq and es have swept range high or low, or there is an SMT
-            # inducement sweep on either of them
-            # in either case, allow both es and nq trades
-            # main objective is time - SMT makes the time A+
-            passed_atr_displacement_filter = displacement_atr_filter()
-            print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
-            
-            # 8am_inside_1am compression - this is re-compression for continuation higher, if
-                # atr is still left, 0.35 - 0.65 ideal for expansion continuation of london move
-                
-            # 1am_IB above 18 IB
-                # continuation - atr between 0.35 and 0.65, pdh not taken, swept lows, smt at compression lows
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-            # liquidity_levels["pdh"]["swept"] filter can be restrictive. so removing it. check in real time
-            # 0.35 <= market_context.atr_usage <= 0.65 is also too restrictive. just check for atr exhaustion for now
-            if newyork_context.structure["ib18_below_ib1"]:
-                if look_for_longs and not market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing continuation longs after recompression as market is not exhausted")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Expansion"
-                    candidate.final_target = "ATR"
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-                # key and must filter here: atr exhaustion
-                elif look_for_shorts and market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing shorts as market is exhausted with smt at highs")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Flush" # flush to Daily open
-                    candidate.final_target = "DO" if market_context.no_bearish_expansion_below_open else "ATR"
-            # 1am_IB below 18 Ib
-                # continuation - atr between 0.35 and 0.65, pdl not taken, swept highs, smt at compression highs
-                # reversal longs when atr exhaustion, pdl taken, smt at lows
-            elif newyork_context.structure["ib18_above_ib1"]:
-                if look_for_shorts and not market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing continuation shorts after recompression as market is not exhausted")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Flush"
-                    candidate.final_target = "ATR"
-                # reversal shorts when atr exhaustion, pdh taken, smt at highs
-                # key and must filter here: atr exhaustion
-                elif look_for_longs and market_context.exhaustion and is_smt and passed_atr_displacement_filter:
-                    print("allowing longs as market is exhausted with smt at lows")
-                    reversal_confirmation = True
-                    candidate.ping_type = "Expansion"
-                    candidate.final_target = "DO" if market_context.no_bullish_expansion_above_open else "ATR"
-                
-            
-            # if atr not exhausted, we need key level plus SMT
+                    # if ATR still available:
+                    # downside expansion can continue
 
-            # 8am_inside_18 ib compression
-            # 1am Ib is above 18 ib, -> rebalance to equilibrium (sweep of range high)
+                    candidate.final_target = "ATR"
 
-        elif structure_name == "bullish_rebalance":
-            print("structure: bullish rebalance")
-        elif structure_name == "bearish_rebalance":
-            print("structure : bullish rebalance")
+            elif look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # rejection from migration equilibrium
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+
+                    # if downside ATR already exhausted:
+                    # upside move likely terminates
+                    # at compression highs / IB18 highs
+                    #
+                    # otherwise:
+                    # full upside expansion still feasible
+
+                    candidate.final_target = (
+                        "ATR"
+                        if not is_atr_filter
+                        else newyork_context.structure["compression_high"]
+                    )
         
         
         # ====================================
@@ -1189,10 +1211,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # optional but not required: displacement, 30m ob is acceptance failure
         # cross asset structure alignment?
         # ping type : Flush (failed continuation after trapped positioning)
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "bullish_reintegration":
             print("structure : bullish reintegration")
-            print("block completed, review real time")
             # weakened bullish structure
             # allow shorts if atr left
             # allow longs if atr exhaustion or used, smt, cross asset alignment
@@ -1224,10 +1245,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             print("candidate.sweep level: ", candidate.sweep_level)
             if look_for_shorts and candidate.ob_level > market_context.session_open:
                 reversal_confirmation = False
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "bearish_reintegration":
             print("structure : bearish reintegration")
-            print("block completed, review real time")
             # weakened bearish structure
             # allow longs if atr left
             # allow shorts if atr exhaustion or used, smt, cross asset alignment
@@ -1264,11 +1284,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # ====================================
         # value flip confirmations
         # ==================================== 
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "bullish_value_flip":
             print("structure : bullish value flip")
-            print("block completed, review real time")
-
             # strongest bearish structure, after failed initial bullish migration
             # initial bullish migration completely failed
             # market migrated below prior value aggressively
@@ -1321,10 +1339,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             if look_for_shorts and candidate.ob_level > market_context.session_open:
                 reversal_confirmation = False
 
-        # block completed, review real time
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "bearish_value_flip":
             print("structure : bearish value flip")
-            print("block completed, review real time")
             # strongest bullish failure structure
             # initial bearish migration completely failed
             # market migrated above prior value aggressively
@@ -1373,28 +1390,878 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # ====================================
         # sandwich confirmations
         # ==================================== 
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "sandwich_gap_bullish":
             print("structure : sandwich gap bullish")
+    
+            # strongest bullish sandwich compression
+            #
+            # structure:
+            # IB1 migrated above IB18
+            # IB8 compressed cleanly inside the gap
+            #
+            # no overlap between:
+            # - IB18 and IB8
+            # - IB8 and IB1
+            #
+            # this is:
+            # elevated compression inside accepted bullish migration
+
+            # active liquidity battlefield:
+            # IB8 compression range inside migration gap
+
+            # core behavior:
+            # - sweep of compression lows -> Rocket
+            # - sweep of compression highs -> Flush
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # failed downside acceptance
+                #
+                # ideal continuation setup
+                # because bullish migration already accepted
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    # opposite side of compression
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    
+                    # if ATR still available:
+                    # continuation expansion possible
+                    candidate.final_target = "ATR" if not is_atr_filter else newyork_context.ib_1["high"]
+
+            elif look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # rejection from elevated migration equilibrium
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+
+                    # opposite side of compression
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+
+                    # if upside ATR exhausted:
+                    # downside likely terminates
+                    # at lower compression boundary
+                    #
+                    # otherwise:
+                    # full downside expansion possible
+
+                    candidate.final_target = (
+                        "ATR"
+                        if not is_atr_filter
+                        else newyork_context.ib_18["low"]
+                    )
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "sandwich_gap_bearish":
             print("structure : sandwich gap bearish")
+    
+            # strongest bearish sandwich compression
+            #
+            # structure:
+            # IB1 migrated below IB18
+            # IB8 compressed cleanly inside the gap
+            #
+            # no overlap between:
+            # - IB18 and IB8
+            # - IB8 and IB1
+            #
+            # this is:
+            # elevated compression inside accepted bearish migration
+
+            # active liquidity battlefield:
+            # IB8 compression range inside migration gap
+
+            # core behavior:
+            # - sweep of compression highs -> Flush
+            # - sweep of compression lows -> Rocket
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # failed upside acceptance
+                #
+                # ideal continuation setup
+                # because bearish migration already accepted
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    # opposite side of compression
+                    candidate.initial_target = (
+                        newyork_context.structure["compression_low"]
+                    )
+
+                    # if ATR still available:
+                    # continuation expansion possible
+
+                    candidate.final_target = "ATR" if not is_atr_filter else newyork_context.ib_1["low"]
+
+            elif look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # rejection from elevated migration equilibrium
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Rocket"
+
+                    # opposite side of compression
+                    candidate.initial_target = (
+                        newyork_context.structure["range_high"]
+                    )
+
+                    # if downside ATR exhausted:
+                    # upside likely terminates
+                    # at upper compression boundary
+                    #
+                    # otherwise:
+                    # full upside expansion possible
+                    # TODO: here are usign string for final target "ATR", "DO" etc
+                    candidate.final_target = (
+                        "ATR"
+                        if not is_atr_filter
+                        else newyork_context.ib_18["high"]
+                    )
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment                    
         elif structure_name == "sandwich_partial_overlap_bullish":
             print("structure : sandwich partial overlap bullish")
             # acceptance block
+            
+            if newyork_context.structure["is_acceptance"]:
+                # bullish migration accepted first
+                #
+                # IB8 partially overlaps with IB1
+                # while still remaining above IB18
+                #
+                # this is:
+                # accepted bullish sandwich compression
+                #
+                # unlike sandwich_gap_bullish:
+                # compression is now partially integrating
+                # into the upper migration range
+
+                # active liquidity battlefield:
+                # IB8 compression range
+                #
+                # active migration equilibrium:
+                # overlap between IB8 and IB1
+
+                # core behavior:
+                # - sweep of compression lows -> Rocket
+                # - sweep of compression highs -> Flush
+                #
+                # liquidity resolution matters more than retracement depth
+
+                # ATR determines:
+                # whether continuation expansion still feasible
+
+                if look_for_longs:
+
+                    # Rocket:
+                    # sweep of compression lows
+                    # failed downside acceptance
+                    #
+                    # bullish migration already accepted
+                    # overlap acts as continuation equilibrium
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+                        candidate.ping_type = "Rocket"
+                        # opposite side of compression
+                        candidate.initial_target = newyork_context.structure["compression_high"]
+
+                        # if ATR still available:
+                        # bullish expansion continuation possible
+                        candidate.final_target = "ATR"
+
+                elif look_for_shorts:
+
+                    # Flush:
+                    # sweep of compression highs
+                    # rejection from upper migration equilibrium
+                    #
+                    # because overlap now exists,
+                    # downside mitigation/rebalance becomes easier
+                    # than pure sandwich gap structures
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+                        reversal_confirmation = True
+                        candidate.ping_type = "Flush"
+                        # opposite side of compression
+                        candidate.initial_target = newyork_context.structure["compression_low"]
+
+                        # if upside ATR exhausted:
+                        # downside likely terminates
+                        # near compression lows / overlap equilibrium
+
+                        candidate.final_target = newyork_context.structure.ib_18["high"]
 
             # rebalance block
+            if newyork_context.structure["is_rebalance"]:
+
+                print("structure : sandwich_partial_overlap_bullish with rebalance")
+
+                # initial bullish migration occurred
+                # but IB8 rebalanced downward into IB18
+                #
+                # active rebalance compression structure
+                #
+                # bullish separation weakened
+                # equilibrium shifted lower
+
+                # active compression range:
+                # IB8 high ↔ IB18 low
+
+                # core behavior:
+                # - Rocket from compression lows
+                # - Flush from compression highs
+
+                # liquidity resolution matters more than retracement depth
+
+                if look_for_longs:
+
+                    # Rocket:
+                    # sweep of compression lows
+                    # failed downside acceptance
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+
+                        candidate.ping_type = "Rocket"
+
+                        candidate.initial_target = newyork_context.structure["compression_high"]
+
+                        candidate.final_target = "ATR"
+
+                elif look_for_shorts:
+
+                    # Flush:
+                    # sweep of compression highs
+                    # rejection from migration imbalance
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+
+                        candidate.ping_type = "Flush"
+
+                        candidate.initial_target = newyork_context.structure["compression_low"]
+                        
+
+                        candidate.final_target = "ATR"
+
+        # block completed, add context layer HTF, ATR, Cross Asset Alignment
         elif structure_name == "sandwich_partial_overlap_bearish":
             print("structure : sandwich partial overlap bearish")
             # acceptance block
+            if newyork_context.structure["is_acceptance"]:
+                print("structure : sandwich_partial_overlap_bearish with acceptance")
+
+                # bearish migration accepted first
+                #
+                # IB8 partially overlaps with IB1
+                # while still remaining below IB18
+                #
+                # this is:
+                # accepted bearish sandwich compression
+                #
+                # unlike sandwich_gap_bearish:
+                # compression is now partially integrating
+                # into the lower migration range
+
+                # active liquidity battlefield:
+                # IB1 ↔ IB8 overlap compression
+                #
+                # active compression range:
+                # IB8 high ↔ IB1 low
+
+                # active migration equilibrium:
+                # overlap between IB8 and IB1
+
+                # core behavior:
+                # - sweep of compression highs -> Flush
+                # - sweep of compression lows -> Rocket
+                #
+                # liquidity resolution matters more than retracement depth
+
+                # ATR determines:
+                # whether continuation expansion still feasible
+
+                if look_for_shorts:
+
+                    # Flush:
+                    # sweep of compression highs
+                    # failed upside acceptance
+                    #
+                    # bearish migration already accepted
+                    # overlap acts as continuation equilibrium
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+                        candidate.ping_type = "Flush"
+
+                        # opposite side of compression
+                        candidate.initial_target = newyork_context.structure["compression_low"]
+
+                        # if ATR still available:
+                        # bearish continuation expansion possible
+
+                        candidate.final_target = "ATR"
+
+                elif look_for_longs:
+
+                    # Rocket:
+                    # sweep of compression lows
+                    # rejection from lower migration equilibrium
+                    #
+                    # because overlap now exists,
+                    # upside mitigation/rebalance becomes easier
+                    # than pure sandwich gap structures
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+
+                        candidate.ping_type = "Rocket"
+
+                        # opposite side of compression
+                        candidate.initial_target = newyork_context.structure["compression_high"]
+
+                        # if downside ATR exhausted:
+                        # upside likely terminates
+                        # near compression highs / overlap equilibrium
+                        
+                        # TODO: final target is DO or ib18 Low when no atr above open
+                        candidate.final_target = (
+                            "ATR"
+                            if not is_atr_filter
+                            else "DO"
+                        )
 
             # rebalance block
+            if newyork_context.structure["is_rebalance"]:
+                print("structure : sandwich_partial_overlap_bearish with rebalance")
+
+                # initial bearish migration occurred
+                # but IB8 rebalanced upward into IB18
+                #
+                # active rebalance compression structure
+                #
+                # bearish separation weakened
+                # equilibrium shifted higher
+
+                # IB8 did NOT integrate into IB1
+                # instead:
+                # compression rebalanced upward toward prior value
+
+                # active compression range:
+                # IB18 high ↔ IB8 low
+
+                # migration imbalance zone:
+                # IB1 high ↔ IB8 low
+
+                # core behavior:
+                # - Flush from compression highs
+                # - Rocket from compression lows
+                #
+                # liquidity resolution matters more than retracement depth
+
+                # ATR determines:
+                # whether continuation expansion still feasible
+
+                if look_for_shorts:
+
+                    # Flush:
+                    # sweep of compression highs
+                    # rejection from rebalance equilibrium
+                    #
+                    # continuation back toward:
+                    # - IB1 lows
+                    # - migration lows
+                    # - external liquidity
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+
+                        candidate.ping_type = "Flush"
+
+                        candidate.initial_target = newyork_context.structure["compression_low"]
+
+                        # if downside ATR still available:
+                        # downside expansion can continue
+                        # TODO: final target ATR or IB1_low
+                        candidate.final_target = "ATR"
+
+                elif look_for_longs:
+
+                    # Rocket:
+                    # sweep of compression lows
+                    # failed downside continuation
+                    #
+                    # rebalance acting like:
+                    # retest of daily open / prior equilibrium
+
+                    if (
+                        is_smt
+                        and candidate.fvg_confirmed
+                    ):
+
+                        reversal_confirmation = True
+
+                        candidate.ping_type = "Rocket"
+
+                        candidate.initial_target = newyork_context.structure["compression_high"]
+
+                        # if downside ATR exhausted:
+                        # upside likely terminates
+                        # near compression highs / IB18 highs
+                        # TODO: final target ATR or compression high
+                        candidate.final_target = (
+                            "ATR"
+                            if not is_atr_filter
+                            else "IB18_HIGH"
+                        )
+        
         elif structure_name == "sandwich_overlap_bullish":
             print("structure : sandwich overlap bullish")
+    
+            # initial bullish migration occurred
+            #
+            # but now:
+            # - IB8 overlaps upward into IB1
+            # - AND downward into IB18
+            #
+            # this is:
+            # full sandwich overlap compression
+            #
+            # equilibrium now spans:
+            # - prior value
+            # - migration value
+            # - active compression value
+
+            # strongest two-sided compression battlefield
+            #
+            # bullish migration still exists,
+            # but separation weakened materially
+
+            # active compression range:
+            # IB1 high ↔ IB18 low
+
+            # active equilibrium:
+            # overlap between:
+            # - IB18
+            # - IB8
+            # - IB1
+
+            # core behavior:
+            # - Rocket from compression lows
+            # - Flush from compression highs
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # failed downside acceptance
+                #
+                # continuation back toward:
+                # - IB1 highs
+                # - migration highs
+                # - external liquidity
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Rocket"
+
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+
+                    # if upside ATR still available:
+                    # continuation expansion possible
+
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # rejection from upper equilibrium
+                #
+                # because equilibrium fully rebuilt,
+                # downside rebalancing becomes highly viable
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Flush"
+
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    
+
+                    # if upside ATR exhausted:
+                    # downside likely terminates
+                    # near lower compression equilibrium
+                    # TODO: update final target, since tight compresion ATR with bias
+                    candidate.final_target = "ATR"    
+                    
         elif structure_name == "sandwich_overlap_bearish":
-            print("structure : sandwich overlap bearish")
+            print("structure : sandwich_overlap_bearish")
+
+            # initial bearish migration occurred
+            #
+            # but now:
+            # - IB8 overlaps downward into IB1
+            # - AND upward into IB18
+            #
+            # this is:
+            # full sandwich overlap compression
+            #
+            # equilibrium now spans:
+            # - prior value
+            # - migration value
+            # - active compression value
+
+            # strongest two-sided compression battlefield
+            #
+            # bearish migration still exists,
+            # but separation weakened materially
+
+            # active compression range:
+            # IB18 high ↔ IB1 low
+
+            # active equilibrium:
+            # overlap between:
+            # - IB18
+            # - IB8
+            # - IB1
+
+            # core behavior:
+            # - Flush from compression highs
+            # - Rocket from compression lows
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # failed upside acceptance
+                #
+                # continuation back toward:
+                # - IB1 lows
+                # - migration lows
+                # - external liquidity
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Flush"
+
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+
+                    # if downside ATR still available:
+                    # continuation expansion possible
+
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # rejection from lower equilibrium
+                #
+                # because equilibrium fully rebuilt,
+                # upside rebalancing becomes highly viable
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Rocket"
+
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+
+                    # if downside ATR exhausted:
+                    # upside likely terminates
+                    # near upper compression equilibrium
+
+                    candidate.final_target = "ATR"
+
         elif structure_name == "sandwich_bullish":
-            print("structure : sandwich bullish")
+            print("structure : sandwich_bullish")
+
+            # continuous bullish overlap migration
+            #
+            # no clean gaps between IBs
+            #
+            # structure:
+            # - IB1 migrated above IB18
+            # - but still overlaps IB18
+            # - IB8 overlaps both IB1 and IB18
+            #
+            # this is:
+            # fully integrated bullish sandwich compression
+            #
+            # equilibrium continuously rebuilt upward
+
+            # active compression range:
+            # IB18 low ↔ IB1 high
+
+            # IB8 acts as:
+            # internal equilibrium node
+            #
+            # NOT:
+            # isolated compression container
+
+            # this structure behaves like:
+            # grinding bullish migration with broad equilibrium
+
+            # core behavior:
+            # - Rocket from compression lows
+            # - Flush from compression highs
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # failed downside acceptance
+                #
+                # continuation toward:
+                # - IB1 highs
+                # - migration highs
+                # - external liquidity
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Rocket"
+
+                    candidate.initial_target = (
+                        newyork_context.structure["compression_high"]
+                    )
+
+                    # if upside ATR still available:
+                    # continuation expansion possible
+
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # rejection from upper equilibrium
+                #
+                # because equilibrium rebuilt continuously,
+                # downside rebalance becomes highly viable
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Flush"
+
+                    candidate.initial_target = (
+                        newyork_context.structure["compression_low"]
+                    )
+
+                    # if upside ATR exhausted:
+                    # downside likely terminates
+                    # near lower compression equilibrium
+                    # TODO: review final target
+                    candidate.final_target = (
+                        "ATR"
+                        if not is_atr_filter
+                        else "IB18_LOW"
+                    )
         elif structure_name == "sandwich_bearish":
-            print("structure : sandwich bearish")
+            print("structure : sandwich_bearish")
+
+            # continuous bearish overlap migration
+            #
+            # no clean gaps between IBs
+            #
+            # structure:
+            # - IB1 migrated below IB18
+            # - but still overlaps IB18
+            # - IB8 overlaps both IB1 and IB18
+            #
+            # this is:
+            # fully integrated bearish sandwich compression
+            #
+            # equilibrium continuously rebuilt downward
+
+            # active compression range:
+            # IB18 high ↔ IB1 low
+
+            # IB8 acts as:
+            # internal equilibrium node
+            #
+            # NOT:
+            # isolated compression container
+
+            # this structure behaves like:
+            # grinding bearish migration with broad equilibrium
+
+            # core behavior:
+            # - Flush from compression highs
+            # - Rocket from compression lows
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_shorts:
+
+                # Flush:
+                # sweep of compression highs
+                # failed upside acceptance
+                #
+                # continuation toward:
+                # - IB1 lows
+                # - migration lows
+                # - external liquidity
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Flush"
+
+                    candidate.initial_target = (
+                        newyork_context.structure["compression_low"]
+                    )
+
+                    # if downside ATR still available:
+                    # continuation expansion possible
+
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                # rejection from lower equilibrium
+                #
+                # because equilibrium rebuilt continuously,
+                # upside rebalance becomes highly viable
+
+                if (
+                    is_smt
+                    and candidate.fvg_confirmed
+                ):
+
+                    reversal_confirmation = True
+
+                    candidate.ping_type = "Rocket"
+
+                    candidate.initial_target = (
+                        newyork_context.structure["compression_high"]
+                    )
+
+                    # if downside ATR exhausted:
+                    # upside likely terminates
+                    # near upper compression equilibrium
+
+                    candidate.final_target = "ATR"
+                        
         elif structure_name == "centered_compression":
             print("structure : centered compression")
         

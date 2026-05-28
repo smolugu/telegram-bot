@@ -1,3 +1,459 @@
+def analyze_cross_asset_alignment(
+    nq_structure,
+    es_structure,
+    nq_atr_state=None,
+    es_atr_state=None,
+):
+    """
+    ============================================================
+    CROSS ASSET STRUCTURE ALIGNMENT ENGINE
+    ============================================================
+
+    PURPOSE
+    -------
+    Evaluates:
+    - directional agreement
+    - migration efficiency alignment
+    - compression relationships
+    - equilibrium state relationships
+    - structural leadership
+    - expansion quality
+
+    IMPORTANT
+    ---------
+    This engine DOES NOT:
+    - generate trade direction
+    - generate long/short signals
+    - override structure logic
+
+    Structure blocks themselves define:
+    - valid Rockets
+    - valid Flushes
+
+    This engine only provides:
+    - contextual structural alignment
+    - confidence modifiers
+    - cross-asset state analysis
+
+    ============================================================
+    """
+
+    result = {
+
+        # ======================================================
+        # DIRECTIONAL AGREEMENT
+        # ======================================================
+
+        "alignment_state": "mixed_directional",
+
+        # examples:
+        # aligned_bullish
+        # aligned_bearish
+        # mixed_directional
+
+
+        # ======================================================
+        # MIGRATION RELATIONSHIP
+        # ======================================================
+
+        "migration_alignment": "neutral",
+
+        # examples:
+        # strong_alignment
+        # weak_alignment
+        # nq_stronger
+        # es_stronger
+        # compression_vs_migration
+        # rebalance_vs_migration
+        # migration_divergence
+        # neutral
+
+
+        # ======================================================
+        # STRUCTURAL LEADERSHIP
+        # ======================================================
+
+        "dominant_asset": "neutral",
+
+        # examples:
+        # NQ
+        # ES
+        # neutral
+
+
+        # ======================================================
+        # COMPRESSION RELATIONSHIP
+        # ======================================================
+
+        "compression_alignment": "neutral",
+
+        # examples:
+        # both_compressing
+        # broad_equilibrium
+        # isolated_compression
+        # post_compression
+        # compression_vs_migration
+        # neutral
+
+
+        # ======================================================
+        # EQUILIBRIUM RELATIONSHIP
+        # ======================================================
+
+        "equilibrium_state": "neutral",
+
+        # examples:
+        # both_acceptance
+        # both_rebalance
+        # reintegration_active
+        # equilibrium_conflict
+        # balanced_equilibrium
+        # neutral
+
+
+        # ======================================================
+        # EXPANSION QUALITY
+        # ======================================================
+
+        "expansion_quality": "medium",
+
+        # examples:
+        # explosive
+        # high
+        # medium
+        # weak
+        # choppy
+        # post_exhaustion
+        # unstable
+
+
+        # ======================================================
+        # CONFIDENCE MODIFIER
+        # ======================================================
+
+        "confidence_modifier": 0,
+
+        # suggested range:
+        # -2 → +2
+
+
+        # ======================================================
+        # STRUCTURAL TAGS
+        # ======================================================
+
+        "tags": [],
+
+
+        # ======================================================
+        # RAW STRUCTURES
+        # ======================================================
+
+        "nq_structure": nq_structure["structure_name"],
+        "es_structure": es_structure["structure_name"],
+    }
+
+    # ==========================================================
+    # HELPERS
+    # ==========================================================
+
+    def migration_rank(structure):
+
+        # strongest directional migration
+
+        if (
+            structure["is_staircase"]
+            and structure["migration_strength"] == "strong"
+        ):
+            return 4
+
+        # strong directional migration
+
+        if (
+            structure["migration_strength"] == "strong"
+        ):
+            return 3
+
+        # medium migration
+
+        if (
+            structure["migration_strength"] == "medium"
+        ):
+            return 2
+
+        # weak migration
+
+        if (
+            structure["migration_strength"] == "weak"
+        ):
+            return 1
+
+        return 0
+
+    nq_rank = migration_rank(nq_structure)
+    es_rank = migration_rank(es_structure)
+
+    # ==========================================================
+    # DIRECTIONAL AGREEMENT
+    # ==========================================================
+
+    if (
+        nq_structure["direction"] == "bullish"
+        and es_structure["direction"] == "bullish"
+    ):
+
+        result["alignment_state"] = "aligned_bullish"
+        result["confidence_modifier"] += 1
+
+    elif (
+        nq_structure["direction"] == "bearish"
+        and es_structure["direction"] == "bearish"
+    ):
+
+        result["alignment_state"] = "aligned_bearish"
+        result["confidence_modifier"] += 1
+
+    else:
+
+        result["alignment_state"] = "mixed_directional"
+        result["migration_alignment"] = (
+            "migration_divergence"
+        )
+
+        result["confidence_modifier"] -= 2
+
+        result["tags"].append("directional_conflict")
+
+    # ==========================================================
+    # MIGRATION ALIGNMENT
+    # ==========================================================
+
+    if (
+        nq_structure["direction"]
+        == es_structure["direction"]
+    ):
+
+        rank_diff = abs(nq_rank - es_rank)
+
+        # ------------------------------------------------------
+        # STRONG ALIGNMENT
+        # ------------------------------------------------------
+
+        if (
+            nq_rank >= 3
+            and es_rank >= 3
+            and rank_diff <= 1
+        ):
+
+            result["migration_alignment"] = (
+                "strong_alignment"
+            )
+
+            result["expansion_quality"] = "explosive"
+
+            result["confidence_modifier"] += 2
+
+            result["tags"].append(
+                "strong_cross_asset_migration"
+            )
+
+        # ------------------------------------------------------
+        # WEAK ALIGNMENT
+        # ------------------------------------------------------
+
+        elif rank_diff <= 1:
+
+            result["migration_alignment"] = (
+                "weak_alignment"
+            )
+
+            result["confidence_modifier"] += 1
+
+        # ------------------------------------------------------
+        # NQ LEADING
+        # ------------------------------------------------------
+
+        elif nq_rank > es_rank:
+
+            result["migration_alignment"] = (
+                "nq_stronger"
+            )
+
+            result["dominant_asset"] = "NQ"
+
+            result["tags"].append("nq_leading")
+
+        # ------------------------------------------------------
+        # ES LEADING
+        # ------------------------------------------------------
+
+        elif es_rank > nq_rank:
+
+            result["migration_alignment"] = (
+                "es_stronger"
+            )
+
+            result["dominant_asset"] = "ES"
+
+            result["tags"].append("es_leading")
+
+    # ==========================================================
+    # COMPRESSION ALIGNMENT
+    # ==========================================================
+
+    nq_compression = nq_structure["is_compression"]
+    es_compression = es_structure["is_compression"]
+
+    if nq_compression and es_compression:
+
+        result["compression_alignment"] = (
+            "both_compressing"
+        )
+
+        result["tags"].append("compression_active")
+
+        # broad equilibrium/chop
+
+        if (
+            nq_structure["compression_strength"] == "strong"
+            and es_structure["compression_strength"] == "strong"
+        ):
+
+            result["expansion_quality"] = "choppy"
+
+            result["tags"].append(
+                "broad_equilibrium"
+            )
+
+    elif (
+        nq_compression
+        and not es_compression
+    ) or (
+        es_compression
+        and not nq_compression
+    ):
+
+        result["compression_alignment"] = (
+            "compression_vs_migration"
+        )
+
+        result["tags"].append(
+            "compression_migration_divergence"
+        )
+
+    # ==========================================================
+    # EQUILIBRIUM STATE
+    # ==========================================================
+
+    nq_acceptance = nq_structure["is_acceptance"]
+    es_acceptance = es_structure["is_acceptance"]
+
+    nq_rebalance = nq_structure["is_rebalance"]
+    es_rebalance = es_structure["is_rebalance"]
+
+    nq_reintegration = nq_structure["is_reintegration"]
+    es_reintegration = es_structure["is_reintegration"]
+
+    # ----------------------------------------------------------
+    # ACCEPTANCE ALIGNMENT
+    # ----------------------------------------------------------
+
+    if nq_acceptance and es_acceptance:
+
+        result["equilibrium_state"] = (
+            "both_acceptance"
+        )
+
+        result["confidence_modifier"] += 1
+
+    # ----------------------------------------------------------
+    # REBALANCE ALIGNMENT
+    # ----------------------------------------------------------
+
+    elif nq_rebalance and es_rebalance:
+
+        result["equilibrium_state"] = (
+            "both_rebalance"
+        )
+
+        result["tags"].append("rebalance_active")
+
+    # ----------------------------------------------------------
+    # REINTEGRATION
+    # ----------------------------------------------------------
+
+    elif nq_reintegration or es_reintegration:
+
+        result["equilibrium_state"] = (
+            "reintegration_active"
+        )
+
+        result["tags"].append(
+            "reintegration_present"
+        )
+
+    # ----------------------------------------------------------
+    # EQUILIBRIUM CONFLICT
+    # ----------------------------------------------------------
+
+    elif (
+        nq_acceptance and es_rebalance
+    ) or (
+        es_acceptance and nq_rebalance
+    ):
+
+        result["equilibrium_state"] = (
+            "equilibrium_conflict"
+        )
+
+        result["confidence_modifier"] -= 1
+
+        result["tags"].append(
+            "equilibrium_disagreement"
+        )
+
+    # ==========================================================
+    # ATR CONTEXT
+    # ==========================================================
+
+    if (
+        nq_atr_state == "exhausted"
+        and es_atr_state == "exhausted"
+    ):
+
+        result["expansion_quality"] = (
+            "post_exhaustion"
+        )
+
+        result["tags"].append("atr_exhausted")
+
+    elif (
+        nq_atr_state == "available"
+        and es_atr_state == "available"
+    ):
+
+        if result["expansion_quality"] != "choppy":
+            result["expansion_quality"] = "high"
+
+    # ==========================================================
+    # DECOMPRESSION
+    # ==========================================================
+
+    if (
+        nq_structure["is_decompression"]
+        and es_structure["is_decompression"]
+    ):
+
+        result["expansion_quality"] = "explosive"
+
+        result["confidence_modifier"] += 2
+
+        result["tags"].append(
+            "cross_asset_decompression"
+        )
+
+    return result
+
+
 def classify_ib_alignment(
     nq_context,
     es_context,
