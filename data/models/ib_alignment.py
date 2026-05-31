@@ -1,8 +1,8 @@
 def analyze_cross_asset_alignment(
     nq_structure,
     es_structure,
-    nq_atr_state=None,
-    es_atr_state=None,
+    nq_atr_exhausted=None,
+    es_atr_exhausted=None,
 ):
     """
     ============================================================
@@ -39,6 +39,16 @@ def analyze_cross_asset_alignment(
     """
 
     result = {
+        
+        # ======================================================
+        # STRUCTURE ALIGNMENT
+        # ======================================================
+        
+        "structure_alignment": "same",
+
+        # same
+        # similar
+        # conflicting
 
         # ======================================================
         # DIRECTIONAL AGREEMENT
@@ -148,8 +158,8 @@ def analyze_cross_asset_alignment(
         # RAW STRUCTURES
         # ======================================================
 
-        "nq_structure": nq_structure["structure_name"],
-        "es_structure": es_structure["structure_name"],
+        "nq_structure": nq_structure["name"],
+        "es_structure": es_structure["name"],
     }
 
     # ==========================================================
@@ -191,6 +201,277 @@ def analyze_cross_asset_alignment(
 
     nq_rank = migration_rank(nq_structure)
     es_rank = migration_rank(es_structure)
+
+    # ==========================================================
+    # STRUCTURE ALIGNMENT
+    # ==========================================================
+
+    result["structure_alignment"] = "conflicting"
+
+    nq_name = nq_structure["name"]
+    es_name = es_structure["name"]
+
+    # ----------------------------------------------------------
+    # SAME STRUCTURE
+    # ----------------------------------------------------------
+
+    if nq_name == es_name:
+
+        result["structure_alignment"] = "same"
+
+        result["tags"].append(
+            "same_structure_alignment"
+        )
+
+    else:
+
+        # ======================================================
+        # BULLISH STRUCTURE GROUPS
+        # ======================================================
+
+        bullish_staircase_structures = {
+
+            "staircase_gap_bullish",
+            "staircase_early_overlap_bullish",
+            "staircase_late_overlap_bullish",
+            "staircase_bullish",
+        }
+
+        bullish_sandwich_structures = {
+
+            "sandwich_gap_bullish",
+            "sandwich_partial_overlap_bullish",
+            "sandwich_overlap_bullish",
+            "sandwich_bullish",
+        }
+
+        bullish_compression_structures = {
+
+            "bullish_acceptance_compression",
+            "bullish_rebalance_compression",
+        }
+
+        bullish_reintegration_structures = {
+
+            "bullish_reintegration",
+        }
+
+        bullish_value_flip_structures = {
+
+            "bullish_value_flip",
+        }
+
+        # ======================================================
+        # BEARISH STRUCTURE GROUPS
+        # ======================================================
+
+        bearish_staircase_structures = {
+
+            "staircase_gap_bearish",
+            "staircase_early_overlap_bearish",
+            "staircase_late_overlap_bearish",
+            "staircase_bearish",
+        }
+
+        bearish_sandwich_structures = {
+
+            "sandwich_gap_bearish",
+            "sandwich_partial_overlap_bearish",
+            "sandwich_overlap_bearish",
+            "sandwich_bearish",
+        }
+
+        bearish_compression_structures = {
+
+            "bearish_acceptance_compression",
+            "bearish_rebalance_compression",
+        }
+
+        bearish_reintegration_structures = {
+
+            "bearish_reintegration",
+        }
+
+        bearish_value_flip_structures = {
+
+            "bearish_value_flip",
+        }
+
+        # ======================================================
+        # SAME FAMILY CHECKS
+        # ======================================================
+
+        same_bullish_staircase_family = (
+            nq_name in bullish_staircase_structures
+            and es_name in bullish_staircase_structures
+        )
+
+        same_bearish_staircase_family = (
+            nq_name in bearish_staircase_structures
+            and es_name in bearish_staircase_structures
+        )
+
+        same_bullish_sandwich_family = (
+            nq_name in bullish_sandwich_structures
+            and es_name in bullish_sandwich_structures
+        )
+
+        same_bearish_sandwich_family = (
+            nq_name in bearish_sandwich_structures
+            and es_name in bearish_sandwich_structures
+        )
+
+        same_bullish_compression_family = (
+            nq_name in bullish_compression_structures
+            and es_name in bullish_compression_structures
+        )
+
+        same_bearish_compression_family = (
+            nq_name in bearish_compression_structures
+            and es_name in bearish_compression_structures
+        )
+
+        same_bullish_reintegration_family = (
+            nq_name in bullish_reintegration_structures
+            and es_name in bullish_reintegration_structures
+        )
+
+        same_bearish_reintegration_family = (
+            nq_name in bearish_reintegration_structures
+            and es_name in bearish_reintegration_structures
+        )
+
+        same_bullish_value_flip_family = (
+            nq_name in bullish_value_flip_structures
+            and es_name in bullish_value_flip_structures
+        )
+
+        same_bearish_value_flip_family = (
+            nq_name in bearish_value_flip_structures
+            and es_name in bearish_value_flip_structures
+        )
+
+        # ======================================================
+        # SIMILAR STRUCTURE
+        # ======================================================
+
+        if (
+
+            same_bullish_staircase_family
+            or same_bearish_staircase_family
+
+            or same_bullish_sandwich_family
+            or same_bearish_sandwich_family
+
+            or same_bullish_compression_family
+            or same_bearish_compression_family
+
+            or same_bullish_reintegration_family
+            or same_bearish_reintegration_family
+
+            or same_bullish_value_flip_family
+            or same_bearish_value_flip_family
+
+        ):
+
+            result["structure_alignment"] = "similar"
+
+            result["tags"].append(
+                "same_structure_family"
+            )
+
+        # ======================================================
+        # CONFLICTING STRUCTURES
+        # ======================================================
+
+        else:
+
+            result["structure_alignment"] = (
+                "conflicting"
+            )
+
+            result["confidence_modifier"] -= 1
+
+            result["tags"].append(
+                "structural_conflict"
+            )
+
+            # --------------------------------------------------
+            # ACCEPTANCE VS REBALANCE
+            # --------------------------------------------------
+
+            if (
+                nq_structure["is_acceptance"]
+                and es_structure["is_rebalance"]
+            ) or (
+                es_structure["is_acceptance"]
+                and nq_structure["is_rebalance"]
+            ):
+
+                result["tags"].append(
+                    "acceptance_vs_rebalance"
+                )
+
+            # --------------------------------------------------
+            # REINTEGRATION VS ACCEPTANCE
+            # --------------------------------------------------
+
+            if (
+                nq_structure["is_reintegration"]
+                and es_structure["is_acceptance"]
+            ) or (
+                es_structure["is_reintegration"]
+                and nq_structure["is_acceptance"]
+            ):
+
+                result["tags"].append(
+                    "reintegration_vs_acceptance"
+                )
+
+            # --------------------------------------------------
+            # COMPRESSION VS DECOMPRESSION
+            # --------------------------------------------------
+
+            if (
+                nq_structure["is_compression"]
+                and es_structure["is_decompression"]
+            ) or (
+                es_structure["is_compression"]
+                and nq_structure["is_decompression"]
+            ):
+
+                result["tags"].append(
+                    "compression_vs_decompression"
+                )
+
+            # --------------------------------------------------
+            # MIGRATION VS COMPRESSION
+            # --------------------------------------------------
+
+            if (
+                not nq_structure["is_compression"]
+                and es_structure["is_compression"]
+            ) or (
+                not es_structure["is_compression"]
+                and nq_structure["is_compression"]
+            ):
+
+                result["tags"].append(
+                    "migration_vs_compression"
+                )
+
+            # --------------------------------------------------
+            # DIRECTIONAL STRUCTURAL CONFLICT
+            # --------------------------------------------------
+
+            if (
+                nq_structure["direction"]
+                != es_structure["direction"]
+            ):
+
+                result["tags"].append(
+                    "bullish_bearish_conflict"
+                )
 
     # ==========================================================
     # DIRECTIONAL AGREEMENT
@@ -416,8 +697,8 @@ def analyze_cross_asset_alignment(
     # ==========================================================
 
     if (
-        nq_atr_state == "exhausted"
-        and es_atr_state == "exhausted"
+        nq_atr_exhausted
+        and es_atr_exhausted
     ):
 
         result["expansion_quality"] = (
@@ -427,8 +708,8 @@ def analyze_cross_asset_alignment(
         result["tags"].append("atr_exhausted")
 
     elif (
-        nq_atr_state == "available"
-        and es_atr_state == "available"
+        not nq_atr_exhausted
+        and not es_atr_exhausted
     ):
 
         if result["expansion_quality"] != "choppy":

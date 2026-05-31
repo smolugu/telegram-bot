@@ -35,6 +35,8 @@ class SetupCandidate:
         self.final_ob_confirmed = False
         self.ob_data = None
         self.ob_level = None
+        self.is_level_rejection = False
+        self.rejection_ob_level = None
 
         self.fvg_confirmed = False
         self.fvg_data = None
@@ -100,6 +102,8 @@ class SetupCandidate:
         self.sweep_level = sweep_data["sweep_level"]
         self.caution = sweep_data["caution"]
         self.ob_level = sweep_data["ob_level"]
+        self.is_level_rejection = sweep_data["is_level_rejection"]
+        self.rejection_ob_level = sweep_data["rejection_ob_level"]
 
     # --------------------------------------------------
 

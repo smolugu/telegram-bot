@@ -789,10 +789,11 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            # compression is early in london, potential long in london
             "compression_range": {
-                "high": ib8["high"],
+                "high": ib1["high"],
                 "low": ib18["low"],
-                "ce": (ib8["high"] + ib18["low"]) / 2
+                "ce": (ib1["high"] + ib18["low"]) / 2
             },
             "range": {
                 "high": ib8["high"],
@@ -1250,17 +1251,23 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": True,
             "is_value_flip": False,
-            "range": {
+            "compression_range": {
                 "high": ib18["high"],
                 "low": ib18["low"],
                 "ce": (ib18["high"] + ib18["low"]) / 2
+            },
+            "range": {
+                "high": ib1["high"],
+                "low": ib18["low"],
+                "ce": (ib1["high"] + ib18["low"]) / 2
             },
             "equilibrium_range": {
                 "high": ib8["high"],
                 "low": ib8["low"],
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            # mitigation is eq of migration level = mid of IB18 and IB1
+            "mitigation_level": (ib1["high"] + ib18["low"]) / 2,
             "note_internal":
                 "Bullish expansion weakened into rebalance.",
             "note":
@@ -1290,17 +1297,22 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": True,
             "is_value_flip": False,
-            "range": {
+            "compression_range": {
                 "high": ib18["high"],
                 "low": ib18["low"],
                 "ce": (ib18["high"] + ib18["low"]) / 2
+            },
+            "range": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
             },
             "equilibrium_range": {
                 "high": ib8["high"],
                 "low": ib8["low"],
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Bearish expansion weakened into rebalance.",
             "note":
@@ -1435,9 +1447,21 @@ def classify_ib_structure(
             "is_value_flip": True,
             "is_rebalance": False,
             "is_decompression": False,
-            "compression_range": {"high": None, "low": None, "ce": None},
-            "range": {"high": ib1["high"], "low": ib8["low"], "ce": (ib1["high"] + ib8["low"]) / 2},
-            "equilibrium_range": {"high": ib18["low"], "low": ib8["high"], "ce": (ib18["low"] + ib8["high"]) / 2},
+            "compression_range": {
+                "high": None, 
+                "low": None, 
+                "ce": None
+                },
+            "range": {
+                "high": ib1["high"], 
+                "low": ib8["low"], 
+                "ce": (ib1["high"] + ib8["low"]) / 2
+                },
+            "equilibrium_range": {
+                "high": ib18["low"], 
+                "low": ib8["high"], 
+                "ce": (ib18["low"] + ib8["high"]) / 2
+                },
             "mitigation_level": ib18["low"],
             "note_internal":
                 "Bullish expansion failed with ib8 flipping value and transitioning direction.",
