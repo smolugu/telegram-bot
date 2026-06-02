@@ -357,6 +357,19 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 is_smt = True
         return is_smt
     
+
+    # HTF BIAS
+    # Primarily for the following structures as these are balanced inventory structures
+        # sandwich_bullish
+        # sandwich_bearish
+        # sandwich_overlap_bullish
+        # sandwich_overlap_bearish
+        # bullish_rebalance_compression
+        # bearish_rebalance_compression
+        # bullish reintergration
+        # bearish reintegration
+
+
     def determine_daily_bias():
         bias = "neutral"
         return bias
@@ -443,6 +456,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
     is_atr_filter = atr_filter()
     is_displacement = displacement_filter()
     is_rejection = rejection_filter()
+    passed_atr_displacement_filter = displacement_atr_filter()
     
     # rejection or fvg_confirmed or strong OB
 
@@ -1513,19 +1527,218 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # ==================================== 
         elif structure_name == "bullish_decompression":
             print("structure : bullish decompression")
+            # --------------------------------------------------
+            # Accepted bullish migration
+            # Active expansion phase
+            # Strongest continuation environment
+            # --------------------------------------------------
+            # dont deactivate buy and sell candidates after 8am IB formation
+            
+            # core pings:
+                # long to atr
+                # short to DO
+
+            if look_for_longs and allow_conflict_longs:
+
+                # ideal:
+                # SMT
+                # rejection
+                # not a compression zone so we need strong OB displacement filter
+                # sweep + OB above CE for long in decompression zone
+                # sweep + Strong OB at DO
+
+                if (
+                    is_smt
+                    and passed_atr_displacement_filter
+                    # TODO:
+                    # sweep at ib1 low + OB or sweep at DO + OB
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Expansion"
+                    # opposite side of expansion
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_shorts and allow_conflict_shorts:
+
+                # countertrend only
+                # require exhaustion
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and is_rejection
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.final_target = "DO"
+
         elif structure_name == "bearish_decompression":
             print("structure : bearish decompression")
-        elif structure_name == "mixed_decompression":
-            print("structure : mixed decompression")
+            # --------------------------------------------------
+            # Accepted bearish migration
+            # Active expansion phase
+            # Strongest continuation environment
+            # --------------------------------------------------
+            # dont deactivate buy and sell candidates after 8am IB formation
+            
+            # core pings:
+                # short to atr
+                # long to DO
+
+            if look_for_shorts and allow_conflict_shorts:
+
+                # ideal:
+                # SMT
+                # rejection
+                # not a compression zone so we need strong OB displacement filter
+                # sweep + OB below CE for short in decompression zone
+                # sweep + Strong OB at DO
+
+                if (
+                    is_smt
+                    and passed_atr_displacement_filter
+                    # TODO:
+                    # sweep at ib1 high + OB or sweep at DO + OB
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Expansion"
+                    # opposite side of expansion
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs and allow_conflict_longs:
+
+                # countertrend only
+                # require exhaustion
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and is_rejection
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rockets"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.final_target = "DO"
+        elif structure_name == "bullish_mixed_decompression":
+            print("structure : bullish mixed decompression")
+            # structure coming out or weak compression from overlap of ib18 and ib1, sweeping ib1 high
+            # core pings:
+                # mini flush to compression low
+                # Rocket from compression low sweep
+            if look_for_longs and allow_conflict_longs:
+                # TODO: sweep at compression low
+                if is_smt and is_rejection:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.final_target = "ATR"
+            elif look_for_shorts and allow_conflict_shorts:
+                # TODO: Ob level below ce of decompression range
+                if candidate.ob_level < newyork_context.structure["range_ce"]:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.final_target = "MINI"
+        elif structure_name == "bearish_mixed_decompression":
+            print("structure : bearish mixed decompression")
+            # structure coming out or weak compression from overlap of ib18 and ib1, sweeping ib1 low
+            # core pings:
+                # mini rocket to compression high
+                # Flush from compression high sweep
+            if look_for_shorts and allow_conflict_shorts:
+                # TODO: sweep at compression low
+                if is_smt and is_rejection:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.final_target = "ATR"
+            elif look_for_longs and allow_conflict_longs:
+                # TODO: Ob level below ce of decompression range or strong Ob
+                if candidate.ob_level > newyork_context.structure["range_ce"]:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.final_target = "MINI"
         # ====================================
         # Set 2 Decompression Structures
         # ==================================== 
         elif structure_name == "bullish_macro_decompression":
             print("structure : bullish macro decompression")
+            # TODO: give preference to recent candidate among buy and sell candidates
+            # dont deactivate candidates at the formation of IB8
+            if look_for_longs and allow_conflict_longs:
+                if is_smt and passed_atr_displacement_filter:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Expansion"
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+            
+            elif look_for_shorts and allow_conflict_shorts:
+                if is_smt and passed_atr_displacement_filter:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Expansion"
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+
         elif structure_name == "bearish_macro_decompression":
             print("structure : bearish macro decompression")
-        elif structure_name == "mixed_macro_decompression":
-            print("structure : mixed macro decompression")
+            # TODO: give preference to recent candidate among buy and sell candidates
+            # dont deactivate candidates at the formation of IB8
+            if look_for_shorts and allow_conflict_shorts:
+                if is_smt and passed_atr_displacement_filter:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Expansion"
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+            
+            elif look_for_longs and allow_conflict_longs:
+                if is_smt and passed_atr_displacement_filter:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Expansion"
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+        elif structure_name == "bullish_mixed_macro_decompression":
+            print("structure : bullish mixed macro decompression")
+            # this decompression arising from weak compression with sweep of ib18 low
+            # core pings:
+                # mini rocket to compression high ib1 high
+                # Flush from compression high sweep
+            if look_for_longs and allow_conflict_longs:
+                if is_smt and is_rejection:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rocket"
+                    candidate.initial_target = newyork_context["compression_high"]
+                    candidate.final_target = "MINI"
+            elif look_for_shorts and allow_conflict_shorts:
+                if is_smt and is_rejection:
+                    reversal_confirmation = True
+                    canadidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context["compression_low"]
+                    candidate.final_target = "ATR"
+        elif structure_name == "bearish_mixed_macro_decompression":
+            print("structure : bearish mixed macro decompression")
+            # this decompression arising from weak compression with sweep of IB18 high
+            # core pings:
+                # mini flush to compression low ib1 low
+                # Rocket from compression low sweep
+            if look_for_shorts and allow_conflict_shorts:
+                if is_smt and is_rejection:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush"
+                    candidate.initial_target = newyork_context["compression_low"]
+                    candidate.final_target = "MINI"
+            elif look_for_longs and allow_conflict_longs:
+                if is_smt and is_rejection:
+                    reversal_confirmation = True
+                    canadidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context["compression_high"]
+                    candidate.final_target = "ATR"
+
         # ====================================
         # Set 3 Decompression Structures
         # ==================================== 

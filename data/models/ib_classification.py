@@ -95,6 +95,11 @@ def classify_ib_structure(
     centered_compression
     dual_inside_compression
 
+    TODO: RECOMPRESSION
+    -----------
+    # recompression in london session after early decompression — weak migration strength
+    #  but strong compression strength. need to define rules for this.
+
     DEFAULT
     -------
     mixed_overlap
@@ -192,6 +197,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
             "is_staircase": False,
@@ -205,17 +211,23 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            # no compression
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
             "range": {
                 "high": ib8["high"],
-                "low": ib8["low"],
-                "ce": (ib8["high"] + ib8["low"]) / 2
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
             },
             "equilibrium_range": {
                 "high": ib1["high"],
                 "low": ib1["low"],
                 "ce": (ib1["high"] + ib1["low"]) / 2
             },
-            "mitigation_level": None,
+            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
 
             "note_internal":
                 "8AM IB engulfed 1AM IB above 18 IB. "
@@ -237,6 +249,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bearish_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
             "is_staircase": False,
@@ -249,6 +262,59 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            # no compression
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
+            "range": {
+                "high": ib18["high"],
+                "low": ib8["low"],
+                "ce": (ib18["high"] + ib8["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib1["high"],
+                "low": ib1["low"],
+                "ce": (ib1["high"] + ib1["low"]) / 2
+            },
+            "mitigation_level": (ib18["high"] + ib8["low"]) / 2,
+
+            "note_internal":
+                "8AM IB engulfed 1AM IB below 18 IB. "
+                "Bearish volatility expansion below prior value.",
+
+            "note":
+                "Bearish decompression before NY open. "
+                "Lower pricing accepted."
+        }
+    # =====================================================
+    # BULLISH MIXED DECOMPRESSION
+    # =====================================================
+
+    if ib8_engulf_ib1 and ib18["low"] < ib1["low"] < ib18["high"] and ib18["high"] < ib1["high"]:
+
+        return {
+            "structure_name": "bullish_mixed_decompression",
+            "market_phase": "decompression",
+            "category": "decompression",
+            "direction": "neutral",
+            "is_staircase": False,
+            "migration_strength": "neutral",
+            "is_compression": False,
+            "is_strong_compression": False,
+            "compression_strength": None,
+            "is_acceptance": False,
+            "is_decompression": True,
+            "is_compression_resolution": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            "compression_range": {
+                "high": ib8["high"],
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
+            },
             "range": {
                 "high": ib8["high"],
                 "low": ib8["low"],
@@ -262,21 +328,24 @@ def classify_ib_structure(
             "mitigation_level": None,
 
             "note_internal":
-                "8AM IB engulfed 1AM IB below 18 IB. "
-                "Bearish volatility expansion below prior value.",
+
+                "8AM IB engulfed 1AM IB overlapping prior value. "
+                "Continuation vs reversal unresolved. ",
+                "Mixed decompression before NY open."
 
             "note":
-                "Bearish decompression before NY open. "
-                "Lower pricing accepted."
+                "Early expansion before NY open with unresolved direction, continuation vs reversal. "
+                "Liquidity event likely before direction."
         }
     # =====================================================
-    # MIXED DECOMPRESSION
+    # BEARISH MIXED DECOMPRESSION
     # =====================================================
 
-    if ib8_engulf_ib1:
+    if ib8_engulf_ib1 and ib18["low"] < ib1["high"] < ib18["high"] and ib18["low"] > ib1["low"]:
 
         return {
-            "structure_name": "mixed_decompression",
+            "structure_name": "bearish_mixed_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
             "is_staircase": False,
@@ -286,9 +355,15 @@ def classify_ib_structure(
             "compression_strength": None,
             "is_acceptance": False,
             "is_decompression": True,
+            "is_compression_resolution": True,
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
+            },
             "range": {
                 "high": ib8["high"],
                 "low": ib8["low"],
@@ -334,6 +409,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_macro_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
             "is_staircase": False,
@@ -346,6 +422,11 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_reintegration": True,
             "is_value_flip": False,
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
             # entire range from ib1 high to ib8 low
             "range": {
                 "high": ib1["high"],
@@ -407,6 +488,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bearish_macro_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
             "is_staircase": False,
@@ -419,6 +501,11 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_reintegration": True,
             "is_value_flip": False,
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
             "range": {
                 "high": ib8["high"],
                 "low": ib1["low"],
@@ -445,11 +532,15 @@ def classify_ib_structure(
     # MIXED MACRO DECOMPRESSION
         # double-sided inducement → before picking direction
     # =====================================================
+    # =====================================================
+    # BULLISH MIXED MACRO DECOMPRESSION
+    # =====================================================
 
-    if ib8_engulf_ib18:
+    if ib8_engulf_ib18 and ib18["low"] < ib1["low"] < ib18["high"] and ib1["high"]> ib18["high"]:
 
         return {
-            "structure_name": "mixed_macro_decompression",
+            "structure_name": "bullish_mixed_macro_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
             "is_staircase": False,
@@ -459,13 +550,75 @@ def classify_ib_structure(
             "compression_strength": None,
             "is_acceptance": False,
             "is_decompression": True,
+            "is_compression_resolution": True,
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
-            "range": {"high":ib8["high"], "low": ib8["low"], "ce": (ib8["high"] + ib8["low"]) / 2},
-            "equilibrium_range": {"high":ib18["high"], "low": ib18["low"], "ce": (ib18["high"] + ib18["low"]) / 2},
+            "compression_high": {
+                "high": ib1["high"],
+                "low": ib18["low"],
+                "ce": (ib1["high"] + ib18["low"]) / 2
+            },
+            "range": {
+                "high":ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high":ib18["high"],
+                "low": ib18["low"],
+                "ce": (ib18["high"] + ib18["low"]) / 2
+            },
             "mitigation_level": (ib18["high"] + ib18["low"]) / 2,
+            # TODO: review notes
+            "note_internal":
+                "8AM IB engulfed 18 IB from mixed positioning. "
+                "Large purge of overnight value.",
 
+            "note":
+                "Mixed bias and early signs of market expansion before NY open. "
+                "Liquidity purge environment."
+        }
+    
+    # =====================================================
+    # BEARISH MIXED MACRO DECOMPRESSION
+    # =====================================================
+
+    if ib8_engulf_ib18 and ib18["high"] > ib1["high"] > ib18["low"] and ib1["low"] < ib18["low"]:
+
+        return {
+            "structure_name": "bearish_mixed_macro_decompression",
+            "market_phase": "decompression",
+            "category": "decompression",
+            "direction": "neutral",
+            "is_staircase": False,
+            "migration_strength": "neutral",
+            "is_compression": False,
+            "is_strong_compression": False,
+            "compression_strength": None,
+            "is_acceptance": False,
+            "is_decompression": True,
+            "is_compression_resolution": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            "compression_high": {
+                "high": ib18["high"],
+                "low": ib1["low"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
+            },
+            "range": {
+                "high":ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high":ib18["high"],
+                "low": ib18["low"],
+                "ce": (ib18["high"] + ib18["low"]) / 2
+            },
+            "mitigation_level": (ib18["high"] + ib18["low"]) / 2,
+            # TODO: review notes
             "note_internal":
                 "8AM IB engulfed 18 IB from mixed positioning. "
                 "Large purge of overnight value.",
@@ -494,6 +647,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_early_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
             "is_staircase": False,
@@ -530,6 +684,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bearish_early_decompression",
+            "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
             "is_staircase": False,
@@ -602,6 +757,7 @@ def classify_ib_structure(
         return {
             "structure_name": "mixed_early_decompression",
             "category": "decompression",
+            "market_phase": "decompression",
             "direction": "neutral",
             "is_staircase": False,
             "migration_strength": "neutral",
@@ -635,6 +791,7 @@ def classify_ib_structure(
         return {
             "structure_name": "dual_inside_compression",
             "category": "compression",
+            "market_phase": "compression",
             "direction": "neutral",
             "is_staircase": False,
             "migration_strength": "weak",
@@ -676,6 +833,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_gap_bullish",
+            "market_phase": "migration",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -725,6 +883,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_gap_bearish",
+            "market_phase": "migration",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -777,6 +936,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_early_overlap_bullish",
+            "market_phase": "migration",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -851,6 +1011,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_late_overlap_bullish",
+            "market_phase": "compression",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -912,6 +1073,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_early_overlap_bearish",
+            "market_phase": "migration",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -977,6 +1139,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_late_overlap_bearish",
+            "market_phase": "compression",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -1035,6 +1198,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_bullish",
+            "market_phase": "compression",
             "category": "acceptance",
             "direction": "bullish",
             "is_staircase": True,
@@ -1097,6 +1261,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "staircase_bearish",
+            "market_phase": "compression",
             "category": "acceptance",
             "direction": "bearish",
             "is_staircase": True,
@@ -1146,6 +1311,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_acceptance_compression",
+            "market_phase": "compression",
             "category": "bullish_acceptance",
             "direction": "bullish",
             "is_staircase": False,
@@ -1193,6 +1359,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bearish_acceptance_compression",
+            "market_phase": "compression",
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
@@ -1239,6 +1406,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_rebalance_compression",
+            "market_phase": "compression",
             "category": "rebalance",
             "direction": "bullish",
             "is_staircase": False,
@@ -1282,9 +1450,9 @@ def classify_ib_structure(
         ib1_below_ib18
         and ib8_inside_ib18
     ):
-
         return {
             "structure_name": "bearish_rebalance_compression",
+            "market_phase": "compression",
             "category": "rebalance",
             "direction": "bearish",
             "is_staircase": False,
@@ -1335,6 +1503,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_reintegration",
+            "market_phase": "reintegration",
             "category": "reintegration",
             "direction": "bullish",
             "is_staircase": False,
@@ -1387,6 +1556,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bearish_reintegration",
+            "market_phase": "reintegration",
             "category": "reintegration",
             "direction": "bearish",
             "is_staircase": False,
@@ -1435,6 +1605,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bullish_value_flip",
+            "market_phase": "value_flip",
             "category": "value_flip",
             "direction": "bearish",
             "is_staircase": False,
@@ -1483,6 +1654,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "bearish_value_flip",
+            "market_phase": "value_flip",
             "category": "value_flip",
             "direction": "bullish",
             "is_staircase": False,
@@ -1525,6 +1697,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_gap_bullish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1573,6 +1746,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_gap_bearish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1629,6 +1803,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_partial_overlap_bullish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1671,6 +1846,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_partial_overlap_bullish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1718,6 +1894,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_partial_overlap_bearish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1759,6 +1936,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_partial_overlap_bearish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1806,6 +1984,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_overlap_bullish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
             "is_staircase": False,
@@ -1852,6 +2031,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_overlap_bearish",
+            "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
             "is_staircase": False,
@@ -1900,6 +2080,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_bullish",
+            "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
@@ -1943,6 +2124,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "sandwich_bearish",
+            "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
@@ -1997,6 +2179,7 @@ def classify_ib_structure(
 
         return {
             "structure_name": "centered_compression",
+            "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
             "is_staircase": False,
