@@ -1735,17 +1735,53 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             elif look_for_longs and allow_conflict_longs:
                 if is_smt and is_rejection:
                     reversal_confirmation = True
-                    canadidate.ping_type = "Rocket"
+                    candidate.ping_type = "Rocket"
                     candidate.initial_target = newyork_context["compression_high"]
                     candidate.final_target = "ATR"
 
         # ====================================
         # Set 3 Decompression Structures
-        # ==================================== 
+        # ====================================
+        # TODO: bullish early decompression but ib8 overlaps with top of IB1 
+        # TODO: bearish early decompression but ib8 overlaps with bottom of IB1
         elif structure_name == "bullish_early_decompression":
             print("structure : bullish early decompression")
+            # market phase is in decompresion, expansion phase
+            # core pings:
+                # long from mitigation level to ATR
+                # short at atr exhaustion to DO
+            if look_for_longs and allow_conflict_longs:
+                if is_smt and is_rejection:
+                    reversal_confirmation + True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.final_target = "ATR"
+            elif look_for_shorts and allow_conflict_shorts:
+                if is_smt and is_rejection and is_atr_filter:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    # TODO: final target can be IB1 high or DO
+                    candidate.final_target = "MINI"
         elif structure_name == "bearish_early_decompression":
             print("structure : bearish early decompression")
+            # market phase is in decompresion, expansion phase
+            # core pings:
+                # short from mitigation level to ATR
+                # long at atr exhaustion to DO
+            if look_for_shorts and allow_conflict_shorts:
+                if is_smt and is_rejection:
+                    reversal_confirmation + True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.final_target = "ATR"
+            elif look_for_longs and allow_conflict_longs:
+                if is_smt and is_rejection and is_atr_filter:
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    # TODO: final target can be IB1 low or DO
+                    candidate.final_target = "MINI"
         elif structure_name == "mixed_early_decompression":
             print("structure : mixed early decompression")
         
@@ -1854,7 +1890,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                 if (
                     is_smt
-                    and is_rejection and not liquidity_levels["cr8am_low"]["swept"]
+                    and is_rejection
+                    and not liquidity_levels["cr8am_low"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
@@ -1935,7 +1973,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                 if (
                     is_smt
-                    and is_rejection and not liquidity_levels["cr8am_high"]["swept"]
+                    and is_rejection
+                    and not liquidity_levels["cr8am_high"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2042,7 +2082,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     if (
                         is_smt
-                        and is_rejection and not liquidity_levels["cr8am_low"]["swept"]
+                        and is_rejection
+                        and not liquidity_levels["cr8am_low"]["swept"]
+                        and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                     ):
                         reversal_confirmation = True
                         candidate.ping_type = "Mini Flush"
@@ -2122,7 +2164,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     if (
                         is_smt
-                        and is_rejection and not liquidity_levels["cr8am_low"]["swept"]
+                        and is_rejection
+                        and not liquidity_levels["cr8am_low"]["swept"]
+                        and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                     ):
 
                         reversal_confirmation = True
@@ -2205,7 +2249,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     if (
                         is_smt
-                        and is_rejection and not liquidity_levels["cr8am_high"]["swept"]
+                        and is_rejection
+                        and not liquidity_levels["cr8am_high"]["swept"]
+                        and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
                     ):
                         reversal_confirmation = True
 
@@ -2303,13 +2349,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     if (
                         is_smt
-                        and is_rejection and not liquidity_levels["cr8am_high"]["swept"]
+                        and is_rejection
+                        and not liquidity_levels["cr8am_high"]["swept"]
+                        and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
                     ):
 
                         reversal_confirmation = True
-
                         candidate.ping_type = "Mini Rocket"
-
                         candidate.initial_target = newyork_context.structure["compression_high"]
                         # close at compression highs.
                         candidate.final_target = "MINI"
@@ -2376,11 +2422,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 # - IB1 highs
                 # - migration highs
                 # - external liquidity
-
+                # TODO: review smt for all structures for cr8am_high or low levels
                 if (
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_high"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2391,7 +2438,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_high"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_high"]["swept"] 
+                        or co_asset["liquidity_levels"]["cr8am_high"]["swept"]
+                    )
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -2412,6 +2462,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_low"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2422,7 +2473,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_low"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_low"]["swept"] 
+                        or 
+                        co_asset["liquidity_levels"]["cr8am_low"]["swept"]
+                    )
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -2486,6 +2541,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_low"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2497,7 +2553,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_low"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_low"]["swept"]
+                          or 
+                        co_asset["liquidity_levels"]["cr8am_low"]["swept"]
+                    )
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -2519,6 +2579,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_high"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2529,7 +2590,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_high"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_high"]["swept"] 
+                         or 
+                        co_asset["liquidity_levels"]["cr8am_high"]["swept"]
+                    )
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -2586,6 +2651,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_high"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2597,7 +2663,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_high"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_high"]["swept"]
+                        or 
+                        co_asset["liquidity_levels"]["cr8am_high"]["swept"]
+                    )
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -2619,6 +2689,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_low"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
 
                     reversal_confirmation = True
@@ -2631,7 +2702,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_low"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_low"]["swept"] or co_asset["liquidity_levels"]["cr8am_low"]["swept"])
                 ):
 
                     reversal_confirmation = True
@@ -2695,18 +2767,20 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_low"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = (
-                        newyork_context.structure["compression_low"]
-                    )
+                    candidate.initial_target = newyork_context.structure["compression_low"]
                     candidate.final_target = "MINI"
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_low"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_low"]["swept"] 
+                        or co_asset["liquidity_levels"]["cr8am_low"]["swept"]
+                    )
                 ):
 
                     reversal_confirmation = True
@@ -2729,18 +2803,20 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     is_smt
                     and is_rejection
                     and not liquidity_levels["cr8am_high"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
 
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = (
-                        newyork_context.structure["compression_high"]
-                    )
+                    candidate.initial_target = newyork_context.structure["compression_high"]
                     candidate.final_target = "MINI"
                 elif (
                     is_smt
                     and is_rejection
-                    and liquidity_levels["cr8am_high"]["swept"]
+                    and (
+                        liquidity_levels["cr8am_high"]["swept"] 
+                        or co_asset["liquidity_levels"]["cr8am_high"]["swept"]
+                    )
 
                 ):
                     reversal_confirmation = True
@@ -2750,6 +2826,77 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     )
                     candidate.final_target = "ATR"
                         
+        elif structure_name == "sandwich_neutral":
+            print("structure : sandwich_neutral")
+
+            # structure:
+            # - IB1 engulfs IB18
+            # - IB8 inside IB1
+            
+            # core behavior:
+            # - Flush from compression highs
+            # - Rocket from compression lows
+            #
+            # liquidity resolution matters more than retracement depth
+
+            # ATR determines:
+            # whether continuation expansion still feasible
+
+            if look_for_shorts and allow_conflict_shorts:
+
+                if (
+                    is_smt
+                    and is_rejection
+                    and not liquidity_levels["cr8am_low"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.final_target = "MINI"
+                elif (
+                    is_smt
+                    and is_rejection
+                    and (
+                        liquidity_levels["cr8am_low"]["swept"] or co_asset["liquidity_levels"]["cr8am_low"]["swept"] )
+                ):
+
+                    reversal_confirmation = True
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.final_target = "ATR"
+
+            elif look_for_longs and allow_conflict_longs:
+
+                # Rocket:
+                # sweep of compression lows
+                if (
+                    is_smt
+                    and is_rejection
+                    and not liquidity_levels["cr8am_high"]["swept"]
+                    and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
+
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.final_target = "MINI"
+                elif (
+                    is_smt
+                    and is_rejection
+                    and (
+                        liquidity_levels["cr8am_high"]["swept"] 
+                        or co_asset["liquidity_levels"]["cr8am_high"]["swept"]
+                    )
+
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.final_target = "ATR"
+                        
+        
         elif structure_name == "centered_compression":
             print("structure : centered compression")
         

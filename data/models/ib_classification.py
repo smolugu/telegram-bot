@@ -660,9 +660,14 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
             "range": {"high": ib8["high"], "low": ib1["low"], "ce": (ib8["high"]+ ib1["low"]) / 2},
             "equilibrium_range": {"high": ib8["high"], "low": ib1["low"], "ce": (ib8["high"]+ ib1["low"]) / 2},
-            "mitigation_level": (ib8["high"]+ ib1["low"])/2,
+            "mitigation_level": (ib8["low"]+ ib1["high"])/2,
 
             "note_internal":
                 "1AM IB engulfed 18 IB and 8AM continued higher. "
@@ -2153,6 +2158,53 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
+            "note_internal":
+                "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
+            "note": 
+                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range."
+        }
+    
+    # =====================================================
+    # SANDWICH NEUTRAL
+    # IB1 Engulfs IB18 and IB8 inside IB1
+    # tight and energetic compression with explosive move after sweep of compression extremes
+    # =====================================================
+
+    if (
+        ib1_engulf_ib18 and ib8_inside_ib1
+    ):
+
+        return {
+            "structure_name": "sandwich_neutral",
+            "market_phase": "compression",
+            "category": "compression",
+            "direction": "neutral",
+            "is_staircase": False,
+            "migration_strength": "weak",
+            "is_compression": True,
+            "is_strong_compression": True,
+            "compression_strength": "strong",
+            "is_acceptance": True,
+            "is_rebalance": True,
+            "is_reintegration": False,
+            "is_value_flip": False,
+            "is_decompression": False,
+            "compression_range": {
+                "high": ib1["high"],
+                "low": ib1["low"],
+                "ce": (ib1["high"] + ib1["low"]) / 2
+            },
+            "range": {
+                "high": ib1["high"],
+                "low": ib1["low"],
+                "ce": (ib1["high"] + ib1["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
+            },
+            "mitigation_level": (ib1["high"] + ib1["low"]) / 2,
             "note_internal":
                 "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
             "note": 
