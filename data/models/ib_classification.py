@@ -176,6 +176,25 @@ def classify_ib_structure(
     ib8_overlap_ib18 = overlaps(ib8, ib18)
 
     # =====================================================
+    # NEUTRAL DIRECTIONAL STRUCTURES
+    # =====================================================
+    NEUTRAL_DIRECTION_STRUCTURES = {
+        "sandwich_bullish",
+        "sandwich_bearish",
+
+        "sandwich_overlap_bullish",
+        "sandwich_overlap_bearish",
+
+        "sandwich_partial_overlap_bullish",
+        "sandwich_partial_overlap_bearish",
+
+        "bullish_rebalance_compression",
+        "bearish_rebalance_compression",
+
+        "sandwich_neutral"
+    }
+
+    # =====================================================
     # ENGULFING (highest priority)
     # One Line Rule:
        # Decompression outside value suggests continuation — decompression through value suggests conflict
@@ -194,9 +213,11 @@ def classify_ib_structure(
         and ib1_above_ib18
         and ib8["low"] > ib18["high"]
     ):
-
+        name = None
+        name = "bullish_decompression"
         return {
-            "structure_name": "bullish_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
@@ -246,9 +267,10 @@ def classify_ib_structure(
         and ib1_below_ib18
         and ib8["high"] < ib18["low"]
     ):
-
+        name = None
+        name = "bearish_decompression"
         return {
-            "structure_name": "bearish_decompression",
+            "structure_name": name,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
@@ -294,8 +316,10 @@ def classify_ib_structure(
 
     if ib8_engulf_ib1 and ib18["low"] < ib1["low"] < ib18["high"] and ib18["high"] < ib1["high"]:
 
+        name = None
+        name = "bullish_mixed_decompression"
         return {
-            "structure_name": "bullish_mixed_decompression",
+            "structure_name": name,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
@@ -343,8 +367,10 @@ def classify_ib_structure(
 
     if ib8_engulf_ib1 and ib18["low"] < ib1["high"] < ib18["high"] and ib18["low"] > ib1["low"]:
 
+        name = None
+        name = "bearish_mixed_decompression"
         return {
-            "structure_name": "bearish_mixed_decompression",
+            "structure_name": name,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
@@ -406,9 +432,10 @@ def classify_ib_structure(
         ib8_engulf_ib18
         and ib1_above_ib18
     ):
-
+        name = None
+        name = "bullish_macro_decompression"
         return {
-            "structure_name": "bullish_macro_decompression",
+            "structure_name": name,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
@@ -486,8 +513,11 @@ def classify_ib_structure(
         and ib1_below_ib18
     ):
 
+        name = None
+        name = "bearish_macro_decompression"
         return {
-            "structure_name": "bearish_macro_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
@@ -537,9 +567,13 @@ def classify_ib_structure(
     # =====================================================
 
     if ib8_engulf_ib18 and ib18["low"] < ib1["low"] < ib18["high"] and ib1["high"]> ib18["high"]:
+        
+        name = None
+        name = "bullish_mixed_macro_decompression"
 
         return {
-            "structure_name": "bullish_mixed_macro_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
@@ -585,9 +619,12 @@ def classify_ib_structure(
     # =====================================================
 
     if ib8_engulf_ib18 and ib18["high"] > ib1["high"] > ib18["low"] and ib1["low"] < ib18["low"]:
-
+        
+        name = None
+        name = "bearish_mixed_macro_decompression"
         return {
-            "structure_name": "bearish_mixed_macro_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
@@ -644,9 +681,11 @@ def classify_ib_structure(
         ib1_engulf_ib18
         and ib8_above_ib1
     ):
-
+        name = None
+        name = "bullish_early_decompression"
         return {
-            "structure_name": "bullish_early_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
@@ -686,9 +725,11 @@ def classify_ib_structure(
         ib1_engulf_ib18
         and ib8_below_ib1
     ):
-
+        name = None
+        name = "bearish_early_decompression"
         return {
-            "structure_name": "bearish_early_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
@@ -758,9 +799,11 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib1["low"]) / 2
             },
         
-
+        name = None
+        name = "mixed_early_decompression"
         return {
-            "structure_name": "mixed_early_decompression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "category": "decompression",
             "market_phase": "decompression",
             "direction": "neutral",
@@ -792,9 +835,11 @@ def classify_ib_structure(
         ib1_inside_ib18
         and ib8_inside_ib1
     ):
-
+        name = None
+        name = "dual_inside_compression"
         return {
-            "structure_name": "dual_inside_compression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "category": "compression",
             "market_phase": "compression",
             "direction": "neutral",
@@ -835,9 +880,11 @@ def classify_ib_structure(
         ib18["high"] < ib1["low"]
         and ib1["high"] < ib8["low"]
     ):
-
+        name = None
+        name = "staircase_gap_bullish"
         return {
-            "structure_name": "staircase_gap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bullish_acceptance",
             "direction": "bullish",
@@ -885,9 +932,11 @@ def classify_ib_structure(
         ib18["low"] > ib1["high"]
         and ib1["low"] > ib8["high"]
     ):
-
+        name = None
+        name = "staircase_gap_bearish"
         return {
-            "structure_name": "staircase_gap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bearish_acceptance",
             "direction": "bearish",
@@ -938,9 +987,11 @@ def classify_ib_structure(
         and ib18["high"]  > ib1["low"] >= ib18["low"]
         and ib1["high"] > ib18["high"]
     ):
-
+        name = None
+        name = "staircase_early_overlap_bullish"
         return {
-            "structure_name": "staircase_early_overlap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bullish_acceptance",
             "direction": "bullish",
@@ -1013,9 +1064,11 @@ def classify_ib_structure(
         and ib8["high"] > ib1["high"]
         
     ):
-
+        name = None
+        name = "staircase_late_overlap_bullish"
         return {
-            "structure_name": "staircase_late_overlap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bullish_acceptance",
             "direction": "bullish",
@@ -1075,9 +1128,11 @@ def classify_ib_structure(
         and ib18["low"] < ib1["high"] < ib18["high"]
         and ib1["low"] < ib18["low"]
     ):
-
+        name = None
+        name = "staircase_early_overlap_bearish"
         return {
-            "structure_name": "staircase_early_overlap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bearish_acceptance",
             "direction": "bearish",
@@ -1141,9 +1196,11 @@ def classify_ib_structure(
         and ib1["low"] < ib8["high"] < ib1["high"]
         and ib8["low"] < ib1["low"]
     ):
-
+        name = None
+        name = "staircase_late_overlap_bearish"
         return {
-            "structure_name": "staircase_late_overlap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bearish_acceptance",
             "direction": "bearish",
@@ -1200,9 +1257,11 @@ def classify_ib_structure(
         and ib1["low"] < ib8["low"] < ib1["high"]
         and ib1["high"] < ib8["high"]
     ):
-
+        name = None
+        name = "staircase_bullish"
         return {
-            "structure_name": "staircase_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "acceptance",
             "direction": "bullish",
@@ -1263,9 +1322,11 @@ def classify_ib_structure(
         and ib1["high"] > ib8["high"] > ib1["low"]
         and ib1["low"] > ib8["low"]
     ):
-
+        name = None
+        name = "staircase_bearish"
         return {
-            "structure_name": "staircase_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "acceptance",
             "direction": "bearish",
@@ -1313,9 +1374,11 @@ def classify_ib_structure(
         ib1_above_ib18
         and ib8_inside_ib1
     ):
-
+        name = None
+        name = "bullish_acceptance_compression"
         return {
-            "structure_name": "bullish_acceptance_compression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bullish_acceptance",
             "direction": "bullish",
@@ -1361,9 +1424,11 @@ def classify_ib_structure(
         ib1_below_ib18
         and ib8_inside_ib1
     ):
-
+        name = None
+        name = "bearish_acceptance_compression"
         return {
-            "structure_name": "bearish_acceptance_compression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bearish_acceptance",
             "direction": "bearish",
@@ -1408,9 +1473,11 @@ def classify_ib_structure(
         ib1_above_ib18
         and ib8_inside_ib18
     ):
-
+        name = None
+        name = "bullish_rebalance_compression"
         return {
-            "structure_name": "bullish_rebalance_compression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "rebalance",
             "direction": "bullish",
@@ -1455,8 +1522,11 @@ def classify_ib_structure(
         ib1_below_ib18
         and ib8_inside_ib18
     ):
+        name = None
+        name = "bearish_rebalance_compression"
         return {
-            "structure_name": "bearish_rebalance_compression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "rebalance",
             "direction": "bearish",
@@ -1505,9 +1575,11 @@ def classify_ib_structure(
         and ib18["low"] < ib8["high"] < ib18["high"]
         and ib8["low"] < ib18["low"]
     ):
-
+        name = None
+        name = "bullish_reintegration"
         return {
-            "structure_name": "bullish_reintegration",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "reintegration",
             "category": "reintegration",
             "direction": "bullish",
@@ -1558,9 +1630,11 @@ def classify_ib_structure(
         and ib18["high"] > ib8["low"] > ib18["low"]
         and ib8["high"] > ib18["high"]
     ):
-
+        name = None
+        name = "bearish_reintegration"
         return {
-            "structure_name": "bearish_reintegration",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "reintegration",
             "category": "reintegration",
             "direction": "bearish",
@@ -1607,9 +1681,11 @@ def classify_ib_structure(
         ib1_above_ib18
         and ib8["high"] < ib18["low"]
     ):
-
+        name = None
+        name = "bullish_value_flip"
         return {
-            "structure_name": "bullish_value_flip",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "value_flip",
             "category": "value_flip",
             "direction": "bearish",
@@ -1638,7 +1714,8 @@ def classify_ib_structure(
                 "low": ib8["high"], 
                 "ce": (ib18["low"] + ib8["high"]) / 2
                 },
-            "mitigation_level": ib18["low"],
+            # mitigation is exisiting OB level
+            "mitigation_level": (ib18["low"] + ib8["high"]) / 2,
             "note_internal":
                 "Bullish expansion failed with ib8 flipping value and transitioning direction.",
             "note":
@@ -1656,9 +1733,11 @@ def classify_ib_structure(
         ib1_below_ib18
         and ib8["high"] > ib18["high"]
     ):
-
+        name = None
+        name = "bearish_value_flip"
         return {
-            "structure_name": "bearish_value_flip",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "value_flip",
             "category": "value_flip",
             "direction": "bullish",
@@ -1672,10 +1751,22 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": True,
             "is_decompression": False,
-            "compression_range": {"high": None, "low": None, "ce": None},
-            "range": {"high": ib8["high"], "low": ib1["low"], "ce": (ib8["high"] + ib1["low"]) / 2},
-            "equilibrium_range": {"high": ib8["low"], "low": ib18["high"], "ce": (ib8["low"] + ib18["high"]) / 2},
-            "mitigation_level": ib18["high"],
+            "compression_range": {
+                "high": None,
+                "low": None,
+                "ce": None
+            },
+            "range": {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"] + ib1["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib8["low"],
+                "low": ib18["high"],
+                "ce": (ib8["low"] + ib18["high"]) / 2
+            },
+            "mitigation_level": (ib8["low"] + ib18["high"]) / 2,
             "note_internal":
                 "Bearish expansion failed with ib8 flipping value and transitioning direction.",
             "note":
@@ -1699,9 +1790,11 @@ def classify_ib_structure(
         and ib8["high"] < ib1["low"]
         and ib8["low"] > ib18["high"]
     ):
-
+        name = None
+        name = "sandwich_gap_bullish"
         return {
-            "structure_name": "sandwich_gap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
@@ -1748,9 +1841,11 @@ def classify_ib_structure(
         and ib8["low"] > ib1["high"]
         and ib8["high"] < ib18["low"]
     ):
-
+        name = None
+        name = "sandwich_gap_bearish"
         return {
-            "structure_name": "sandwich_gap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
@@ -1804,10 +1899,12 @@ def classify_ib_structure(
         ib1_above_ib18
         and  ib1["low"] < ib8["high"] < ib1["high"]
         and ib8["low"] > ib18["high"]
-    ):
-
+    ):  
+        name = None
+        name = "sandwich_partial_overlap_bullish"
         return {
-            "structure_name": "sandwich_partial_overlap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
@@ -1848,9 +1945,11 @@ def classify_ib_structure(
         and  ib8["high"] < ib1["low"]
         and ib18["low"] < ib8["low"] <= ib18["high"]
     ):
-
+        name = None
+        name = "sandwich_partial_overlap_bullish"
         return {
-            "structure_name": "sandwich_partial_overlap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
@@ -1896,9 +1995,11 @@ def classify_ib_structure(
         and  ib1["low"] < ib8["low"] < ib1["high"]
         and ib8["high"] < ib18["low"]
     ):
-
+        name = None
+        name = "sandwich_partial_overlap_bearish"
         return {
-            "structure_name": "sandwich_partial_overlap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
@@ -1938,9 +2039,11 @@ def classify_ib_structure(
         and  ib8["low"] > ib1["high"]
         and ib18["low"] <= ib8["high"] < ib18["high"]
     ):
-
+        name = None
+        name = "sandwich_partial_overlap_bearish"
         return {
-            "structure_name": "sandwich_partial_overlap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
@@ -1986,9 +2089,11 @@ def classify_ib_structure(
         and ib1["low"] < ib8["high"] < ib1["high"]
         and ib18["high"] > ib8["low"] > ib18["low"]
     ):
-
+        name = None
+        name = "sandwich_overlap_bullish"
         return {
-            "structure_name": "sandwich_overlap_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bullish",
@@ -2033,9 +2138,11 @@ def classify_ib_structure(
         and ib18["high"] > ib8["high"] > ib18["low"]
         
     ):
-
+        name = None
+        name = "sandwich_overlap_bearish"
         return {
-            "structure_name": "sandwich_overlap_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
             "direction": "bearish",
@@ -2082,9 +2189,11 @@ def classify_ib_structure(
         and ib1["low"] < ib8["high"] < ib1["high"]
         and ib18["high"] > ib8["low"] > ib18["low"]
     ):
-
+        name = None
+        name = "sandwich_bullish"
         return {
-            "structure_name": "sandwich_bullish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
@@ -2126,9 +2235,11 @@ def classify_ib_structure(
         and ib18["low"] < ib8["high"] < ib18["high"]
         and ib1["high"] > ib8["low"] > ib1["low"]
     ):
-
+        name = None
+        name = "sandwich_bearish"
         return {
-            "structure_name": "sandwich_bearish",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
@@ -2173,9 +2284,11 @@ def classify_ib_structure(
     if (
         ib1_engulf_ib18 and ib8_inside_ib1
     ):
-
+        name = None
+        name = "sandwich_neutral"
         return {
-            "structure_name": "sandwich_neutral",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
@@ -2228,9 +2341,11 @@ def classify_ib_structure(
         and abs(ib1_mid - ib18_mid)
         < 0.15 * ib_range(ib18)
     ):
-
+        name = None
+        name = "centered_compression"
         return {
-            "structure_name": "centered_compression",
+            "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
             "direction": "neutral",
@@ -2255,9 +2370,11 @@ def classify_ib_structure(
     # =====================================================
     # DEFAULT
     # =====================================================
-
+    name = None
+    name = "mixed_overlap"
     return {
-        "structure_name": "mixed_overlap",
+        "structure_name": name,
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
         "category": "mixed",
         "direction": "neutral",
         "is_staircase": False,

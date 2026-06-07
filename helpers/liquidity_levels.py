@@ -23,7 +23,7 @@ def add_mitigation_level(liquidity_levels, mtl_level, session, side):
     elif session == "8AM" and liquidity_levels["mr8am_mtl_high"]["price"] is None and side == "buy_side":
         liquidity_levels["mr8am_mtl_high"]["price"] = mtl_level
     
-def add_post_8am_mitigation_levels(structure_data, liquidity_levels):
+def add_post_8am_mitigation_levels(structure_data, liquidity_levels, bullish_mtl_level, bearish_mtl_level):
     structure_name = structure_data.structure["name"]
     mitigation_level = structure_data.structure["mitigation_level"]
     
@@ -31,6 +31,10 @@ def add_post_8am_mitigation_levels(structure_data, liquidity_levels):
         add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "sell_side")
     elif structure_name == "staircase_late_overlap_bearish":
         add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "buy_side")
+    elif structure_name == "bullish_value_flip" and bearish_mtl_level is not None:
+        add_mitigation_level(liquidity_levels, bearish_mtl_level, "8AM", "buy_side")
+    elif structure_name == "bearish_value_flip" and bullish_mtl_level is not None:
+        add_mitigation_level(liquidity_levels, bullish_mtl_level, "8AM", "sell_side")
     
 
 def reset_liquidity():

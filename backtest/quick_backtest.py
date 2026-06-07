@@ -4,6 +4,7 @@ from data.models.compression import detect_compression
 from data.models.london_market_context import LondonMarketContextES, LondonMarketContext
 from data.models.market_context import MarketContext
 from data.models.nyam_market_context import NewYorkMarketContext
+from data.models.sweep_validation import validate_sweeps
 from data.models.weekly_profile import WeeklyContext
 from data.sqlite.db import DB_FILE
 
@@ -337,6 +338,15 @@ def run_quick_backtest(test_date: str):
                     nq_london_market_context.update(last_closed_nq, liquidity_nq)
                     es_london_market_context.update(last_closed_es, liquidity_es)
                 
+                # at 8am store ob_level formed before 8am
+                if dt.hour == 8 and dt.minute == 0:
+                    bullish_nq_mtl_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"] 
+                    bullish_es_mtl_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
+                    bearish_nq_mtl_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"]
+                    bearish_es_mtl_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
+                    add_post_8am_mitigation_levels(nq_ny_market_context, liquidity_nq, bullish_nq_mtl_level, bearish_nq_mtl_level)
+                    add_post_8am_mitigation_levels(es_ny_market_context, liquidity_es, bullish_es_mtl_level, bearish_es_mtl_level)
+
                 # update new york context with IBs
                 if dt.hour == 8 and dt.minute == 30:
                     print("nq ibs: ")
@@ -346,8 +356,14 @@ def run_quick_backtest(test_date: str):
                     print("test 1: ", nq_ny_market_context.structure)
                     print("rest es: ", es_ny_market_context.structure)
                     print("add new mitigation or equilibrium level to liquidity key levels")
-                    add_post_8am_mitigation_levels(nq_ny_market_context, liquidity_nq)
-                    add_post_8am_mitigation_levels(es_ny_market_context, liquidity_es)
+                    # ob levels as mitigation level for migration structures
+                    bullish_nq_mtl_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"] 
+                    bullish_es_mtl_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
+                    bearish_nq_mtl_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"]
+                    bearish_es_mtl_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
+                    
+                    add_post_8am_mitigation_levels(nq_ny_market_context, liquidity_nq, bullish_nq_mtl_level, bearish_nq_mtl_level)
+                    add_post_8am_mitigation_levels(es_ny_market_context, liquidity_es, bullish_es_mtl_level, bearish_es_mtl_level)
                     
                 if dt.hour == 10 and dt.minute == 0:
                     print("es ibs: ")
@@ -538,7 +554,60 @@ def run_quick_backtest(test_date: str):
                 # nq_compression_or_recompression = compression_flags_nq["nested_1_in_18"] or compression_flags_nq["engulfing_1_over_18"]
                 # es_compression_or_recompression = compression_flags_es["nested_1_in_18"] or compression_flags_es["engulfing_1_over_18"]
                 # compression or re-compression at 1am IB, trade only extremes
-                # TODO: inducement sweep count for stroon compression vs weak compression
+                if is_post_8AM_IB:
+                    sweep_validation_result = validate_sweeps(
+                        sweep_nq_highs=sweep_nq_highs,
+                        sweep_nq_highs_key_level=sweep_nq_highs_key_level,
+                        sweep_es_highs=sweep_es_highs,
+                        sweep_es_highs_key_level=sweep_es_highs_key_level,
+                        sweep_nq_lows=sweep_nq_lows,
+                        sweep_nq_lows_key_level=sweep_nq_lows_key_level,
+                        sweep_es_lows=sweep_es_lows,
+                        sweep_es_lows_key_level=sweep_es_lows_key_level,
+                        is_post_1am_8am_ibs=is_post_1am_8am_ibs,
+                        last_closed_nq=last_closed_nq,
+                        last_closed_es=last_closed_es,
+                        nq_ny_market_context = nq_ny_market_context,
+                        es_ny_market_context = es_ny_market_context,
+                    )
+                    # update sweep candidates with sweep validation data
+                    if sweep_validation_result["NQ"]["sweep_model"] is not None:
+                        if sweep_nq_highs is not None:
+                            sweep_nq_highs["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["is_valid"]
+                            sweep_nq_highs["caution"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["caution"]
+                            sweep_nq_highs["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
+                        if sweep_nq_highs_key_level is not None:
+                            sweep_nq_highs_key_level["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["is_valid"]
+                            sweep_nq_highs_key_level["caution"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["caution"]
+                            sweep_nq_highs["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
+                        if sweep_nq_lows is not None:
+                            sweep_nq_lows["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["is_valid"]
+                            sweep_nq_lows["caution"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["caution"]
+                            sweep_nq_lows["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
+                        if sweep_nq_lows_key_level is not None:
+                            sweep_nq_lows_key_level["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["is_valid"]
+                            sweep_nq_lows_key_level["caution"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["caution"]
+                            sweep_nq_lows_key_level["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
+                    if sweep_validation_result["ES"]["sweep_model"] is not None:
+                        if sweep_es_highs is not None:
+                            sweep_es_highs["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
+                            sweep_es_highs["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_highs["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
+
+                        if sweep_es_highs_key_level is not None:
+                            sweep_es_highs_key_level["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
+                            sweep_es_highs_key_level["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_highs_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
+                        if sweep_es_lows is not None:
+                            sweep_es_lows["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
+                            sweep_es_lows["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_lows["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
+                        if sweep_es_lows_key_level is not None:
+                            sweep_es_lows_key_level["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
+                            sweep_es_lows_key_level["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_lows_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
+
+                # TODO: inducement sweep count for strong compression vs weak compression
                 if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
                     # below we have a separate block for sweep outside compression range and candle outside compression range
@@ -718,9 +787,9 @@ def run_quick_backtest(test_date: str):
                             # dont invalidate the sweep but use extra confirmation at final trade filter
                             nq_sweep_rejected_lows = False
                             if sweep_nq_lows is not None:
-                                sweep_nq_highs["caution"] = True
-                            if sweep_nq_highs_key_level is not None:
-                                sweep_nq_highs_key_level["caution"] = True
+                                sweep_nq_lows["caution"] = True
+                            if sweep_nq_lows_key_level is not None:
+                                sweep_nq_lows_key_level["caution"] = True
                 print("section 8: nq_sweep_rejected_lows: ", nq_sweep_rejected_lows)
                 if is_post_1am_8am_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
@@ -756,9 +825,9 @@ def run_quick_backtest(test_date: str):
                             # dont invalidate the sweep but use extra confirmation at final trade filter
                             es_sweep_rejected_lows = False
                             if sweep_es_lows is not None:
-                                sweep_es_highs["caution"] = True
-                            if sweep_es_highs_key_level is not None:
-                                sweep_es_highs_key_level["caution"] = True
+                                sweep_es_lows["caution"] = True
+                            if sweep_es_lows_key_level is not None:
+                                sweep_es_lows_key_level["caution"] = True
                 #  if both es and nq sweeps at lows inside compression, invalidate sweeps
                 if invalidate_sweeps_lows:
                     print("106:")
@@ -1236,14 +1305,14 @@ def run_quick_backtest(test_date: str):
                     "market_context": es_market_context,
                     "london_context": es_london_market_context,
                     "newyork_context": es_ny_market_context,
-                    "liquidity": liquidity_es,
+                    "liquidity_levels": liquidity_es,
                     
                 }
                 nq_context = {
                     "market_context": nq_market_context,
                     "london_context": nq_london_market_context,
                     "newyork_context": nq_ny_market_context,
-                    "liquidity": liquidity_nq,
+                    "liquidity_levels": liquidity_nq,
                     
                 }
 

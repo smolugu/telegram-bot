@@ -681,8 +681,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # conflict handling
         allow_conflict_longs = True
         allow_conflict_shorts = True
-
-        if direction_context["alignment_type"] == "conflicting":
+        
+        if direction_context["true_directional_conflict"]:
 
             if direction_context["conflict_resolution_direction"] == "bullish":
                 allow_conflict_shorts = False
@@ -1381,9 +1381,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
             if look_for_longs and allow_conflict_longs:
                 # atr not exhausted
-                # classic protraction: london high, ny continuation - ATR used below open is low. 
+                # classic protraction: london low, ny continuation - ATR used below open is low. 
                 # expect long expansion from mitigation level or after sweep of compression low
-                # here atr could be close to exhaustion when reinterating, can retrace and push up hisher
+                # here atr could be close to exhaustion when reinterating, can retrace and push up higher
                 # dont use atr filter, user atr for targets
                 # TODO: valid sweep at compression lows
                 if is_smt and candidate.ob_level > newyork_context.structure["mitigation_level"] and is_rejection:
@@ -1717,7 +1717,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             elif look_for_shorts and allow_conflict_shorts:
                 if is_smt and is_rejection:
                     reversal_confirmation = True
-                    canadidate.ping_type = "Flush"
+                    candidate.ping_type = "Flush"
                     candidate.initial_target = newyork_context["compression_low"]
                     candidate.final_target = "ATR"
         elif structure_name == "bearish_mixed_macro_decompression":
@@ -1979,9 +1979,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
 
                     reversal_confirmation = True
-
                     candidate.ping_type = "Mini Rocket"
-
                     # opposite side of compression
                     candidate.initial_target = newyork_context.structure["compression_high"]
 
@@ -3080,9 +3078,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     # smt
                 key_level_swept = False
                 if look_for_longs:
-                    key_level_swept = liquidity_levels["pdl"]["swept"] or liquidity_levels["london_low"]["swept"] or co_asset["liquidity"]["pdl"]["swept"] or co_asset["liquidity"]["london_low"]["swept"]
+                    key_level_swept = liquidity_levels["pdl"]["swept"] or liquidity_levels["london_low"]["swept"] or co_asset["liquidity_levels"]["pdl"]["swept"] or co_asset["liquidity_levels"]["london_low"]["swept"]
                 elif look_for_shorts:
-                    key_level_swept = liquidity_levels["pdh"]["swept"] or liquidity_levels["london_high"]["swept"] or co_asset["liquidity"]["pdh"]["swept"] or co_asset["liquidity"]["london_high"]["swept"]
+                    key_level_swept = liquidity_levels["pdh"]["swept"] or liquidity_levels["london_high"]["swept"] or co_asset["liquidity_levels"]["pdh"]["swept"] or co_asset["liquidity_levels"]["london_high"]["swept"]
                 passed_atr_displacement_filter = displacement_atr_filter()
                 print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
                 print("is_smt: ", is_smt)
@@ -3100,9 +3098,9 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 print("staricase on at leaset one assets: ", newyork_context.structure["ib_relationship"])
                 key_level_swept = False
                 if look_for_longs:
-                    key_level_swept = liquidity_levels["pdl"]["swept"] or liquidity_levels["london_low"]["swept"] or co_asset["liquidity"]["pdl"]["swept"] or co_asset["liquidity"]["london_low"]["swept"]
+                    key_level_swept = liquidity_levels["pdl"]["swept"] or liquidity_levels["london_low"]["swept"] or co_asset["liquidity_levels"]["pdl"]["swept"] or co_asset["liquidity_levels"]["london_low"]["swept"]
                 elif look_for_shorts:
-                    key_level_swept = liquidity_levels["pdh"]["swept"] or liquidity_levels["london_high"]["swept"] or co_asset["liquidity"]["pdh"]["swept"] or co_asset["liquidity"]["london_high"]["swept"]
+                    key_level_swept = liquidity_levels["pdh"]["swept"] or liquidity_levels["london_high"]["swept"] or co_asset["liquidity_levels"]["pdh"]["swept"] or co_asset["liquidity_levels"]["london_high"]["swept"]
                 passed_atr_displacement_filter = displacement_atr_filter()
                 print("post 8AM IB, passed atr displacemet filter: ", passed_atr_displacement_filter)
                 print("is_smt: ", is_smt)
@@ -3193,7 +3191,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             is_above_ib_1 = above_ib(last_closed_candle, ib_high_1)
             # asia sweep confirmation
             # update with smt. either es or nq or both should sweep asia
-            asia_swept = liquidity_levels["asia_high"]["swept"] or co_asset["liquidity"]["asia_high"]["swept"]
+            asia_swept = liquidity_levels["asia_high"]["swept"] or co_asset["liquidity_levels"]["asia_high"]["swept"]
             print("instrument, direction: ", candidate.instrument, "bearish")
             print("is_ib_rejection_18: ", is_ib_rejection_18)
             print("is_ib_rejection_1: ", is_ib_rejection_1)
@@ -3306,7 +3304,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             is_above_ib_1 = above_ib(last_closed_candle, ib_high_1)
             # asia sweep confirmation
             # update with smt. either es or nq or both should sweep asia
-            asia_swept = liquidity_levels["asia_low"]["swept"] or co_asset["liquidity"]["asia_low"]["swept"]
+            asia_swept = liquidity_levels["asia_low"]["swept"] or co_asset["liquidity_levels"]["asia_low"]["swept"]
             print("instrument, direction: ", candidate.instrument, "bullish")
             print("is_ib_rejection_18: ", is_ib_rejection_18)
             print("is_ib_rejection_1: ", is_ib_rejection_1)

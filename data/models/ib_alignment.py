@@ -245,6 +245,22 @@ def analyze_cross_asset_alignment(
 
     else:
 
+        NEUTRAL_DIRECTION_STRUCTURES = {
+            "sandwich_bullish",
+            "sandwich_bearish",
+
+            "sandwich_overlap_bullish",
+            "sandwich_overlap_bearish",
+
+            "sandwich_partial_overlap_bullish",
+            "sandwich_partial_overlap_bearish",
+
+            "bullish_rebalance_compression",
+            "bearish_rebalance_compression",
+
+            "sandwich_neutral"
+        }
+
         # ======================================================
         # BULLISH STRUCTURE GROUPS
         # ======================================================

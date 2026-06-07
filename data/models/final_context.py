@@ -83,6 +83,8 @@ def determine_ping_direction(
         ),
 
         "structural_conflict": False,
+        
+        "true_directional_conflict": False,
 
         # --------------------------------------------------
         # Asset Leadership
@@ -252,6 +254,11 @@ def determine_ping_direction(
 
         result["reason"] = (
             "structural_conflict"
+        )
+        result["true_directional_conflict"] = (
+            not nq_structure["is_neutral_direction_structure"]
+            and
+            not es_structure["is_neutral_direction_structure"]
         )
 
         if htf_bias == "bullish":
