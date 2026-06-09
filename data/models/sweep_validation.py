@@ -8,6 +8,10 @@ def determine_asset_sweep_model(structure):
     #
 
     if structure_name in {
+        # migrating weak compression
+        "staircase_bullish",
+        "staircase_bearish",
+
         "sandwich_bullish",
         "sandwich_bearish",
 
@@ -33,9 +37,6 @@ def determine_asset_sweep_model(structure):
     #
 
     if structure_name in {
-        "staircase_bullish",
-        "staircase_bearish",
-
         "staircase_gap_bullish",
         "staircase_gap_bearish",
 
@@ -157,6 +158,7 @@ def validate_sweeps(
     es_sweep_model = None
     nq_validation = None
     es_validation = None
+    # completed, review later
     def _validate_compression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         sweep_rejected_highs = True
         caution_highs = False
@@ -290,7 +292,7 @@ def validate_sweeps(
             else:
                 es_validation["lows"]["is_valid"] = not sweep_rejected_lows
                 es_validation["lows"]["caution"] = caution_lows
-        
+    # completed, review later    
     def _validate_reintegration_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("reintegration sweep validation")
         caution_highs = False
@@ -365,26 +367,178 @@ def validate_sweeps(
                         es_validation["lows"]["is_valid"] = is_valid_sweep_low
                         es_validation["lows"]["caution"] = caution_lows
 
+    # completed, review later
     def _validate_migration_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("migration sweep validation")
+        is_valid_sweep_low = False
+        is_valid_sweep_high = False
+        structure_name = ny_market_context.structure["name"]
+        if "bullish" in structure_name:
+            # sweep lows
+            if (sweep_lows or sweep_lows_key_level):
+                if last_closed["low"] < ny_market_context.ib_8["low"] or last_closed["low"] < ny_market_context.structure["mitigation_level"]:
+                    is_valid_sweep_low = True
+                    if instrument == "NQ":
+                        nq_validation["lows"]["is_valid"] = is_valid_sweep_low
+                        nq_validation["lows"]["caution"] = False
+                    else:
+                        es_validation["lows"]["is_valid"] = is_valid_sweep_low
+                        es_validation["lows"]["caution"] = False
+            
+            if (sweep_highs or sweep_highs_key_level):
+                if last_closed["high"] > ny_market_context.ib_8["high"]:
+                    is_valid_sweep_high = True
+                    if instrument == "NQ":
+                        nq_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["highs"]["caution"] = False
+                    else:
+                        es_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        es_validation["highs"]["caution"] = False
+        elif "bearish" in structure_name:
+            # sweep highs
+            if (sweep_highs or sweep_highs_key_level):
+                if last_closed["high"] > ny_market_context.ib_8["high"] or last_closed["high"] > ny_market_context.structure["mitigation_level"]:
+                    is_valid_sweep_high = True
+                    if instrument == "NQ":
+                        nq_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["highs"]["caution"] = False
+                    else:
+                        es_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        es_validation["highs"]["caution"] = False
+            
+            if (sweep_lows or sweep_lows_key_level):
+                if last_closed["low"] < ny_market_context.ib_8["low"]:
+                    is_valid_sweep_low = True
+                    if instrument == "NQ":
+                        nq_validation["lows"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["lows"]["caution"] = False
+                    else:
+                        es_validation["lows"]["is_valid"] = is_valid_sweep_high
+                        es_validation["lows"]["caution"] = False
+
+    # skipping for now
     def _validate_acceptance_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("acceptance decompression sweep validation")
+        print("skipping sweep filter validation")
         if ny_market_context.structure["name"] == "bullish_decompression":
             print("sweep validation of bullish decompression")
+            
             is_valid_sweep_low = False
             is_valid_sweep_high = False
+
             # longs
             # 
             if (sweep_lows or sweep_lows_key_level):
-                print("")
+                if instrument == "NQ":
+                    nq_validation["lows"]["is_valid"] = True
+                    nq_validation["lows"]["caution"] = False
+                else:
+                    es_validation["lows"]["is_valid"] = True
+                    es_validation["lows"]["caution"] = False
 
             # shorts
+            if (sweep_highs or sweep_highs_key_level):
+                if instrument == "NQ":
+                    nq_validation["highs"]["is_valid"] = True
+                    nq_validation["highs"]["caution"] = False
+                else:
+                    es_validation["highs"]["is_valid"] = True
+                    es_validation["highs"]["caution"] = False
 
+        elif ny_market_context.structure["name"] == "bearish_decompression":
+            print("sweep validation of bearish decompression")
+            is_valid_sweep_low = False
+            is_valid_sweep_high = False
 
+            # longs
+            # 
+            if (sweep_lows or sweep_lows_key_level):
+                
+                if instrument == "NQ":
+                    nq_validation["lows"]["is_valid"] = True
+                    nq_validation["lows"]["caution"] = False
+                else:
+                    es_validation["lows"]["is_valid"] = True
+                    es_validation["lows"]["caution"] = False
+
+            # shorts
+            if (sweep_highs or sweep_highs_key_level):
+                
+                if instrument == "NQ":
+                    nq_validation["highs"]["is_valid"] = True
+                    nq_validation["highs"]["caution"] = False
+                else:
+                    es_validation["highs"]["is_valid"] = True
+                    es_validation["highs"]["caution"] = False
+
+    # skipping for now
     def _validate_rebalance_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("rebalance decompression sweep validation")
+        print("direction is not decided, look at HTF during final filters")
+        if instrument == "NQ":
+            nq_validation["highs"]["is_valid"] = True
+            nq_validation["highs"]["caution"] = False
+        else:
+            es_validation["highs"]["is_valid"] = True
+            es_validation["highs"]["caution"] = False
+
+    # skipping for now
     def _validate_mixed_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("mixed decompression sweep validation")
+        print("skipping sweep filter validation")
+        if ny_market_context.structure["name"] == "bullish_mixed_decompression":
+            print("sweep validation of bullish mixed decompression")
+            is_valid_sweep_low = False
+            is_valid_sweep_high = False
+
+            # longs
+            # 
+            if (sweep_lows or sweep_lows_key_level):
+                
+                if instrument == "NQ":
+                    nq_validation["lows"]["is_valid"] = True
+                    nq_validation["lows"]["caution"] = False
+                else:
+                    es_validation["lows"]["is_valid"] = True
+                    es_validation["lows"]["caution"] = False
+
+            # shorts
+            if (sweep_highs or sweep_highs_key_level):
+                
+                if instrument == "NQ":
+                    nq_validation["highs"]["is_valid"] = True
+                    nq_validation["highs"]["caution"] = False
+                else:
+                    es_validation["highs"]["is_valid"] = True
+                    es_validation["highs"]["caution"] = False
+
+        elif ny_market_context.structure["name"] == "bearish_mixed_decompression":
+            print("sweep validation of bearish decompression")
+            is_valid_sweep_low = False
+            is_valid_sweep_high = False
+
+            # longs
+            # 
+            if (sweep_lows or sweep_lows_key_level):
+                
+                if instrument == "NQ":
+                    nq_validation["lows"]["is_valid"] = True
+                    nq_validation["lows"]["caution"] = False
+                else:
+                    es_validation["lows"]["is_valid"] = True
+                    es_validation["lows"]["caution"] = False
+
+            # shorts
+            if (sweep_highs or sweep_highs_key_level):
+                
+                if instrument == "NQ":
+                    nq_validation["highs"]["is_valid"] = True
+                    nq_validation["highs"]["caution"] = False
+                else:
+                    es_validation["highs"]["is_valid"] = True
+                    es_validation["highs"]["caution"] = False
+
+    # completed, review later
     def _validate_value_flip_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("value flip sweep validation")
         # bearish value flip

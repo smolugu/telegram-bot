@@ -804,6 +804,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         # block completed
         elif structure_name == "staircase_early_overlap_bullish":
             print("structure : staircase_early_overlap_bullish")
+            # ideal trades:
+            # 1. sweep of ib8 low + 3m smt long to ATR or HTF
+            # 2. sweep of MTL + 3m smt long to ATR or HTF
+            # 
             # In staircase overlap structures, liquidity resolution matters more than retracement depth
             # bullish migration already accepted
             # latest overlap formed early during migration in early london session
@@ -1596,10 +1600,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 # not a compression zone so we need strong OB displacement filter
                 # sweep + OB below CE for short in decompression zone
                 # sweep + Strong OB at DO
-
+                
                 if (
                     is_smt
-                    and passed_atr_displacement_filter
+                    and 
+                    passed_atr_displacement_filter
                     # TODO:
                     # sweep at ib1 high + OB or sweep at DO + OB
                 ):
@@ -1790,7 +1795,6 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         elif structure_name == "centered_compression":
             print("structure : centered compression")
             
-
 
         # ====================================
         # sandwich confirmations

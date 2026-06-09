@@ -1368,7 +1368,7 @@ def classify_ib_structure(
     # =====================================================
     # BULLISH ACCEPTANCE COMPRESSION
     # =====================================================
-    # Ongoing directional probing is weaker than late staricase overlap bullish structure
+    # Ongoing directional probing is weaker than late staircase overlap bullish structure
 
     if (
         ib1_above_ib18
@@ -2374,7 +2374,7 @@ def classify_ib_structure(
     name = "mixed_overlap"
     return {
         "structure_name": name,
-            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
+        "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
         "category": "mixed",
         "direction": "neutral",
         "is_staircase": False,

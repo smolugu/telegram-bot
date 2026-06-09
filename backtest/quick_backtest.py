@@ -17,10 +17,9 @@ from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
 
-from helpers.liquidity_levels import add_mitigation_level, add_post_8am_mitigation_levels, get_liquidity_values, reset_liquidity, update_compression_range_levels
+from helpers.liquidity_levels import add_8am_ob_mitigation_levels, add_post_8am_mitigation_levels, get_liquidity_values, reset_liquidity, update_compression_range_levels
 from helpers.swing_points import filter_valid_swing_highs, filter_valid_swing_lows, get_valid_swings
 from helpers.time_windows import get_active_window, is_blocked_time
-from modules.imbalance_detector_old import detect_3m_fvg
 from modules.nyam_context import get_morning_context
 from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_7h_open_from_timestamp
@@ -339,14 +338,27 @@ def run_quick_backtest(test_date: str):
                     es_london_market_context.update(last_closed_es, liquidity_es)
                 
                 # at 8am store ob_level formed before 8am
-                if dt.hour == 8 and dt.minute == 0:
-                    bullish_nq_mtl_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"] 
-                    bullish_es_mtl_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
-                    bearish_nq_mtl_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"]
-                    bearish_es_mtl_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
-                    add_post_8am_mitigation_levels(nq_ny_market_context, liquidity_nq, bullish_nq_mtl_level, bearish_nq_mtl_level)
-                    add_post_8am_mitigation_levels(es_ny_market_context, liquidity_es, bullish_es_mtl_level, bearish_es_mtl_level)
-
+                if dt.hour == 7 and dt.minute == 30:
+                    # add bearish and bullish ob levels to liquidity levels
+                    bullish_nq_ob_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else None
+                    bullish_es_ob_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else None
+                    bearish_nq_ob_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else None
+                    bearish_es_ob_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else None
+                    add_8am_ob_mitigation_levels(liquidity_levels=liquidity_nq, bullish_ob_level=bullish_nq_ob_level, bearish_ob_level=bearish_nq_ob_level)
+                    add_8am_ob_mitigation_levels(liquidity_levels=liquidity_es, bullish_ob_level= bullish_es_ob_level, bearish_ob_level=bearish_es_ob_level)
+                    # reset active candidates
+                    sweep_nq_highs = None
+                    sweep_nq_highs_key_level = None
+                    sweep_es_highs = None
+                    sweep_es_highs_key_level = None
+                    sweep_nq_lows = None
+                    sweep_nq_lows_key_level = None
+                    sweep_es_lows = None
+                    sweep_es_lows_key_level = None
+                    nq_buy_candidate.reset()
+                    es_buy_candidate.reset()
+                    nq_sell_candidate.reset()
+                    es_sell_candidate.reset()
                 # update new york context with IBs
                 if dt.hour == 8 and dt.minute == 30:
                     print("nq ibs: ")
@@ -357,13 +369,23 @@ def run_quick_backtest(test_date: str):
                     print("rest es: ", es_ny_market_context.structure)
                     print("add new mitigation or equilibrium level to liquidity key levels")
                     # ob levels as mitigation level for migration structures
-                    bullish_nq_mtl_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"] 
-                    bullish_es_mtl_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
-                    bearish_nq_mtl_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else nq_ny_market_context.structure["mitigation_level"]
-                    bearish_es_mtl_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else es_ny_market_context.structure["mitigation_level"]
+                    # dont mix ob levels and structure migration mtl levels
+                    nq_ny_market_context.structure["bearish_ob_level"] = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else None
+                    nq_ny_market_context.structure["bullish_ob_level"] = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else None
+                    es_ny_market_context.structure["bearish_ob_level"] = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else None
+                    es_ny_market_context.structure["bullish_ob_level"] = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else None
                     
-                    add_post_8am_mitigation_levels(nq_ny_market_context, liquidity_nq, bullish_nq_mtl_level, bearish_nq_mtl_level)
-                    add_post_8am_mitigation_levels(es_ny_market_context, liquidity_es, bullish_es_mtl_level, bearish_es_mtl_level)
+                    # add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq, bullish_mtl_level=bullish_nq_mtl_level, bearish_mtl_level=bearish_nq_mtl_level)
+                    # add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es, bullish_mtl_level=bullish_es_mtl_level, bearish_mtl_level=bearish_es_mtl_level)
+                    add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
+                    add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
+                    # update ob_levels if new are formed after 8am IB
+                    bullish_nq_ob_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else None
+                    bullish_es_ob_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else None
+                    bearish_nq_ob_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else None
+                    bearish_es_ob_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else None
+                    add_8am_ob_mitigation_levels(liquidity_levels=liquidity_nq, bullish_ob_level=bullish_nq_ob_level, bearish_ob_level=bearish_nq_ob_level)
+                    add_8am_ob_mitigation_levels(liquidity_levels=liquidity_es, bullish_ob_level= bullish_es_ob_level, bearish_ob_level=bearish_es_ob_level)
                     
                 if dt.hour == 10 and dt.minute == 0:
                     print("es ibs: ")

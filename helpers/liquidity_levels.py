@@ -12,6 +12,17 @@ def update_compression_range_levels(liquidity_levels, compression_range, session
         liquidity_levels["cr8am_high"]["price"] = compression_range["high"]
         liquidity_levels["cr8am_low"]["price"] = compression_range["low"]
 
+def add_ob_mitigation_level(liquidity_levels, ob_level, session, side):
+    if side == "sell_side" and session == "8AM":
+        liquidity_levels["ob8_mtl_low"]["price"] = ob_level
+    if side == "buy_side" and session == "8AM":
+        liquidity_levels["ob8_mtl_high"]["price"] = ob_level
+    if side == "sell_side" and session == "1AM":
+        liquidity_levels["ob1_mtl_low"]["price"] = ob_level
+    if side == "buy_side" and session == "1AM":
+        liquidity_levels["ob1_mtl_high"]["price"] = ob_level
+
+
 def add_mitigation_level(liquidity_levels, mtl_level, session, side):
     
     if session == "1AM" and liquidity_levels["mr1am_mtl_low"]["price"] is None and side == "sell_side":
@@ -22,19 +33,35 @@ def add_mitigation_level(liquidity_levels, mtl_level, session, side):
         liquidity_levels["mr8am_mtl_low"]["price"] = mtl_level
     elif session == "8AM" and liquidity_levels["mr8am_mtl_high"]["price"] is None and side == "buy_side":
         liquidity_levels["mr8am_mtl_high"]["price"] = mtl_level
-    
-def add_post_8am_mitigation_levels(structure_data, liquidity_levels, bullish_mtl_level, bearish_mtl_level):
+
+def add_8am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_level):
+    if bullish_ob_level is not None:
+        add_ob_mitigation_level(liquidity_levels, bullish_ob_level, "8AM", "sell_side")
+    if bearish_ob_level is not None:
+        add_ob_mitigation_level(liquidity_levels, bearish_ob_level, "8AM", "buy_side")
+
+
+# def add_post_8am_mitigation_levels(structure_data, liquidity_levels, bullish_mtl_level, bearish_mtl_level):
+def add_post_8am_mitigation_levels(structure_data, liquidity_levels):
     structure_name = structure_data.structure["name"]
     mitigation_level = structure_data.structure["mitigation_level"]
+
+    # here we are adding new mitigation levels based on structure specifically for migration structures
+    # no need for structure name check
     
-    if structure_name == "staircase_late_overlap_bullish":
+    # if structure_name == "staircase_late_overlap_bullish":
+    #     add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "sell_side")
+    # elif structure_name == "staircase_late_overlap_bearish":
+    #     add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "buy_side")
+    if "bullish" in structure_name and not structure_name == "bullish_value_flip":
         add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "sell_side")
-    elif structure_name == "staircase_late_overlap_bearish":
+    elif "bearish" in structure_name and not structure_name == "bearish_value_flip":
         add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "buy_side")
-    elif structure_name == "bullish_value_flip" and bearish_mtl_level is not None:
-        add_mitigation_level(liquidity_levels, bearish_mtl_level, "8AM", "buy_side")
-    elif structure_name == "bearish_value_flip" and bullish_mtl_level is not None:
-        add_mitigation_level(liquidity_levels, bullish_mtl_level, "8AM", "sell_side")
+        
+    if structure_name == "bullish_value_flip" and mitigation_level is not None:
+        add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "buy_side")
+    elif structure_name == "bearish_value_flip" and mitigation_level is not None:
+        add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "sell_side")
     
 
 def reset_liquidity():
@@ -54,6 +81,12 @@ def reset_liquidity():
 
         "mr8am_mtl_high": {"name": "mr8am_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "mr8am_mtl_low": {"name": "mr8am_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
+        "ob8_mtl_high": {"name": "ob8_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "ob8_mtl_low": {"name": "ob8_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
+        "ob1_mtl_high": {"name": "ob1_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "ob1_mtl_low": {"name": "ob1_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
 
         "asia_high": {"name": "asia_high","price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "asia_low": {"name": "asia_low","price": None, "side": "sell_side", "swept": False, "timestamp": None},
