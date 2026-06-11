@@ -54,8 +54,8 @@ class NewYorkMarketContext:
             "ib_direction_8": None,
             "is_ib_strong_body": False,
             "ib_body_range": None,
-            "bearish_ob_level": None,
-            "bullish_ob_level": None,
+            # "bearish_ob_level": None,
+            # "bullish_ob_level": None,
 
             "position_vs_1": None,
             "position_vs_18_1": None,

@@ -34,11 +34,18 @@ def add_mitigation_level(liquidity_levels, mtl_level, session, side):
     elif session == "8AM" and liquidity_levels["mr8am_mtl_high"]["price"] is None and side == "buy_side":
         liquidity_levels["mr8am_mtl_high"]["price"] = mtl_level
 
+
 def add_8am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_level):
     if bullish_ob_level is not None:
         add_ob_mitigation_level(liquidity_levels, bullish_ob_level, "8AM", "sell_side")
     if bearish_ob_level is not None:
         add_ob_mitigation_level(liquidity_levels, bearish_ob_level, "8AM", "buy_side")
+
+def add_1am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_level):
+    if bullish_ob_level is not None:
+        add_ob_mitigation_level(liquidity_levels, bullish_ob_level, "1AM", "sell_side")
+    if bearish_ob_level is not None:
+        add_ob_mitigation_level(liquidity_levels, bearish_ob_level, "1AM", "buy_side")
 
 
 # def add_post_8am_mitigation_levels(structure_data, liquidity_levels, bullish_mtl_level, bearish_mtl_level):

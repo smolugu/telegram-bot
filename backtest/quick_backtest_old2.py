@@ -651,7 +651,7 @@ def run_quick_backtest(test_date: str):
                             sweep_es_lows_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
 
                 # TODO: inducement sweep count for strong compression vs weak compression
-                if is_post_1AM_IB and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
                     # below we have a separate block for sweep outside compression range and candle outside compression range
                     # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
@@ -698,7 +698,7 @@ def run_quick_backtest(test_date: str):
                             if sweep_nq_highs_key_level is not None:
                                 sweep_nq_highs_key_level["caution"] = True
                             
-                if is_post_1AM_IB and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
+                if is_post_1am_8am_ibs and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
                     invalidate_sweeps_highs = True
                     print("102:")
@@ -776,7 +776,7 @@ def run_quick_backtest(test_date: str):
                         es_ny_market_context.sweep["sweeper_high"] = None
                     
 
-                if is_post_1AM_IB and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
                     print("sweep_nq_lows: ", sweep_nq_lows)
                     print("104:")
                     if sweep_nq_lows is not None:
@@ -834,7 +834,7 @@ def run_quick_backtest(test_date: str):
                             if sweep_nq_lows_key_level is not None:
                                 sweep_nq_lows_key_level["caution"] = True
                 print("section 8: nq_sweep_rejected_lows: ", nq_sweep_rejected_lows)
-                if is_post_1AM_IB and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
+                if is_post_1am_8am_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
                     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
                     invalidate_sweeps_lows = True
                     print("105:")
@@ -899,8 +899,159 @@ def run_quick_backtest(test_date: str):
                         nq_ny_market_context.sweep["sweeper_low"] = None
                         es_ny_market_context.sweep["sweeper_low"] = None
                 # ----------------------------------
+                nq_sweep_rejected_highs = True
+                es_sweep_rejected_highs = True
+                nq_sweep_rejected_lows = True   
+                es_sweep_rejected_lows = True
+                invalidate_sweeps_highs = False
+                invalidate_sweeps_lows = False
                 
+                # if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["name"] == "bearish_reintegration" and compression_sweep_data_nq["is_valid_sweep"]:
+                    nq_sweep_rejected_lows = False
+                    invalidate_sweeps_lows = True
+                # if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish_neutral" and compression_sweep_data_es["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["name"] == "bearish_reintegration" and compression_sweep_data_es["is_valid_sweep"]:
+                    es_sweep_rejected_lows = False
+                    invalidate_sweeps_lows = True
+                
+                # if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish_neutral" and compression_sweep_data_nq["is_valid_sweep"]:
+                if is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["name"] == "bullish_reintegration" and compression_sweep_data_nq["is_valid_sweep"]:
+                    nq_sweep_rejected_highs = False
+                    invalidate_sweeps_highs = True
+                if is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["name"] == "bullish_reintegration" and compression_sweep_data_es["is_valid_sweep"]:
+                    es_sweep_rejected_highs = False
+                    invalidate_sweeps_highs = True
+                
+                if invalidate_sweeps_lows:
+                    print("107:")
+                    if nq_sweep_rejected_lows and es_sweep_rejected_lows:
+                        # invalidate sweeps
+                        print("partial_overlap_bullish_neutral not ready")
+                        print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
+                        sweep_nq_lows = None
+                        sweep_nq_lows_key_level = None
+                        sweep_es_lows = None
+                        sweep_es_lows_key_level = None
+                    elif nq_sweep_rejected_lows and not es_sweep_rejected_lows:
+                        # smt with ES as sweeper
+                        nq_ny_market_context.sweep["is_smt_low"] = True
+                        es_ny_market_context.sweep["is_smt_low"] = True
+                        nq_ny_market_context.sweep["sweeper_low"] = "ES"
+                        es_ny_market_context.sweep["sweeper_low"] = "ES"
+                    elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_low"] = True
+                        es_ny_market_context.sweep["is_smt_low"] = True
+                        nq_ny_market_context.sweep["sweeper_low"] = "NQ"
+                        es_ny_market_context.sweep["sweeper_low"] = "NQ"
+                    else:
+                        # valid sweep with no smt
+                        nq_ny_market_context.sweep["is_smt_low"] = False
+                        es_ny_market_context.sweep["is_smt_low"] = False
+                        nq_ny_market_context.sweep["sweeper_low"] = None
+                        es_ny_market_context.sweep["sweeper_low"] = None
+                
+                if invalidate_sweeps_highs:
+                    print("108:")
+                    if nq_sweep_rejected_highs and es_sweep_rejected_highs:
+                        # invalidate sweeps
+                        print("partial_overlap_bearish_neutral not ready")
+                        print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
+                        sweep_nq_highs = None
+                        sweep_nq_highs_key_level = None
+                        sweep_es_highs = None
+                        sweep_es_highs_key_level = None
+                    elif nq_sweep_rejected_highs and not es_sweep_rejected_highs:
+                        # smt with ES as sweeper
+                        nq_ny_market_context.sweep["is_smt_high"] = True
+                        es_ny_market_context.sweep["is_smt_high"] = True
+                        nq_ny_market_context.sweep["sweeper_high"] = "ES"
+                        es_ny_market_context.sweep["sweeper_high"] = "ES"
+                    elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
+                        # smt with NQ as sweeper
+                        nq_ny_market_context.sweep["is_smt_high"] = True
+                        es_ny_market_context.sweep["is_smt_high"] = True
+                        nq_ny_market_context.sweep["sweeper_high"] = "NQ"
+                        es_ny_market_context.sweep["sweeper_high"] = "NQ"
+                    else:
+                        # valid sweep with no smt
+                        nq_ny_market_context.sweep["is_smt_high"] = False
+                        es_ny_market_context.sweep["is_smt_high"] = False
+                        nq_ny_market_context.sweep["sweeper_high"] = None
+                        es_ny_market_context.sweep["sweeper_high"] = None
+
+
+                
+                # block for ib_relationship is directional partial_overlap directional
+                    # Rule: Structure
+                    # this applies to staircase bullish, bearish where there are no gaps between IBs
+                    # invalidate sweeps at lows, market is already directional and is compressing so a ping flush is high probable
+                
+                invalidate_sweeps = False
+                # invalidate if either nq or es is a staircase (each IB overlapping others, strong compression)
+                if nq_ny_market_context.structure["is_staircase"] or es_ny_market_context.structure["is_staircase"]:
+                    invalidate_sweeps = True
                 # london session
+                #  TODO
+                # nyam session
+                if invalidate_sweeps and is_post_8AM_IB and nq_ny_market_context.structure["direction"] == "bullish":
+                    # invalidate nq sweep lows
+                    sweep_nq_lows = None
+                    sweep_nq_lows_key_level = None    
+                    # invalidate es sweep lows
+                    sweep_es_lows = None
+                    sweep_es_lows_key_level = None    
+                if invalidate_sweeps and is_post_8AM_IB and nq_ny_market_context.structure["direction"] == "bearish":
+                    # invalidate nq sweep highs
+                    sweep_nq_lows = None
+                    sweep_nq_lows_key_level = None    
+                    # invalidate es sweep highs
+                    sweep_es_lows = None
+                    sweep_es_lows_key_level = None    
+
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                #     # invalidate nq sweep lows
+                #     sweep_nq_lows = None
+                #     sweep_nq_lows_key_level = None
+                    
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bullish":
+                #     # invalidate es sweep lows
+                #     sweep_es_lows = None
+                #     sweep_es_lows_key_level = None
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_nq and nq_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                #     # invalidate nq sweep highs
+                #     sweep_nq_highs = None
+                #     sweep_nq_highs_key_level = None
+                # if invalidate_sweeps and is_post_1am_8am_ibs and is_compression_es and es_ny_market_context.structure["ib_relationship"] == "partial_overlap_bearish":
+                #     # invalidate es sweep highs
+                #     sweep_es_highs = None
+                #     sweep_es_highs_key_level = None
+
+                # block where there is gap on both directional partial overlap
+                # allow reversal sweeps at rebalance levels
+                if not nq_ny_market_context.structure["is_staircase"] and not es_ny_market_context.structure["is_staircase"]:
+                    invalidate_sweeps = False
+
+                # if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and nq_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bearish" and last_closed_nq["open"] > compression_range_nq["high"]:
+                #     # staricase compression and candle above compression range high
+                #     # sweep is valid
+                #     print("NQ: staircase_overlap_bearish - location above - valid sweep")
+                
+                # if is_post_1am_8am_ibs and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and nq_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bullish" and last_closed_nq["open"] < compression_range_nq["low"]:
+                #     # staricase compression and candle below compression range low
+                #     # sweep is valid
+                #     print("NQ: staircase_overlap_bullish - location below - valid sweep")
+                
+                # if is_post_1am_8am_ibs and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and es_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bearish" and last_closed_es["open"] > compression_range_es["high"]:
+                #     # staricase compression and candle above compression range high
+                #     # sweep is valid
+                #     print("ES: staircase_overlap_bearish - location above - valid sweep")
+                
+                # if is_post_1am_8am_ibs and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and es_ny_market_context.structure["ib_relationship"] == "staircase_overlap_bullish" and last_closed_es["open"] < compression_range_es["low"]:
+                #     # staricase compression and candle below compression range low
+                #     # sweep is valid
+                #     print("ES: staircase_overlap_bullish - location below - valid sweep")
                 
                 # compression -> expansion -> re-compression
                 # 1am Ib is engulfing - reset candidates. price will go into re-compression and then manipulate 
