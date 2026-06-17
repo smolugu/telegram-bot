@@ -416,7 +416,8 @@ def validate_sweeps(
                         es_validation["lows"]["is_valid"] = is_valid_sweep_high
                         es_validation["lows"]["caution"] = False
 
-    # skipping for now
+    # completed, review later
+    # long from gap or IB8low or IB8 CE or mitigation level inside gap
     def _validate_acceptance_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("acceptance decompression sweep validation")
         print("skipping sweep filter validation")
@@ -427,22 +428,33 @@ def validate_sweeps(
             is_valid_sweep_high = False
 
             # longs
-            # 
             if (sweep_lows or sweep_lows_key_level):
+                if (
+                    (last_closed["low"] < ny_market_context.ib_8["low"] and last_closed["close"] > ny_market_context.ib_8["low"]) 
+                    or (last_closed["low"] < ny_market_context.structure["mitigation_level"] and last_closed["close"] >  ny_market_context.structure["mitigation_level"])
+                    or (last_closed["low"] < ny_market_context.ib_8["ce"] and last_closed["close"] > ny_market_context.ib_8["ce"])
+                ):
+                    is_valid_sweep_low = True                
                 if instrument == "NQ":
-                    nq_validation["lows"]["is_valid"] = True
+                    nq_validation["lows"]["is_valid"] = is_valid_sweep_low
                     nq_validation["lows"]["caution"] = False
                 else:
-                    es_validation["lows"]["is_valid"] = True
+                    es_validation["lows"]["is_valid"] = is_valid_sweep_low
                     es_validation["lows"]["caution"] = False
 
             # shorts
             if (sweep_highs or sweep_highs_key_level):
+                # sweep should be above ib_8 high and atr exhaustion. allow sweeps which are above and 
+                # let atr filter decide the trade
+                if (
+                    last_closed["high"] > ny_market_context.ib_8["high"]
+                ):
+                    is_valid_sweep_high = True
                 if instrument == "NQ":
-                    nq_validation["highs"]["is_valid"] = True
+                    nq_validation["highs"]["is_valid"] = is_valid_sweep_high
                     nq_validation["highs"]["caution"] = False
                 else:
-                    es_validation["highs"]["is_valid"] = True
+                    es_validation["highs"]["is_valid"] = is_valid_sweep_high
                     es_validation["highs"]["caution"] = False
 
         elif ny_market_context.structure["name"] == "bearish_decompression":
@@ -453,9 +465,16 @@ def validate_sweeps(
             # longs
             # 
             if (sweep_lows or sweep_lows_key_level):
+                # sweep should be below ib_8 low and atr exhaustion. allow sweeps which are below and 
+                # let atr filter decide the trade
+                if (
+                    last_closed["low"] < ny_market_context.ib_8["low"]
+                ):
+                    is_valid_sweep_low = True
+                
                 
                 if instrument == "NQ":
-                    nq_validation["lows"]["is_valid"] = True
+                    nq_validation["lows"]["is_valid"] = is_valid_sweep_low
                     nq_validation["lows"]["caution"] = False
                 else:
                     es_validation["lows"]["is_valid"] = True
@@ -463,12 +482,18 @@ def validate_sweeps(
 
             # shorts
             if (sweep_highs or sweep_highs_key_level):
+                if (
+                    (last_closed["high"] > ny_market_context.ib_8["high"] and last_closed["close"] < ny_market_context.ib_8["high"]) 
+                    or (last_closed["high"] > ny_market_context.structure["mitigation_level"] and last_closed["close"] <  ny_market_context.structure["mitigation_level"])
+                    or (last_closed["high"] > ny_market_context.ib_8["ce"] and last_closed["close"] < ny_market_context.ib_8["ce"])
+                ):
+                    is_valid_sweep_high = True
                 
                 if instrument == "NQ":
-                    nq_validation["highs"]["is_valid"] = True
+                    nq_validation["highs"]["is_valid"] = is_valid_sweep_high
                     nq_validation["highs"]["caution"] = False
                 else:
-                    es_validation["highs"]["is_valid"] = True
+                    es_validation["highs"]["is_valid"] = is_valid_sweep_high
                     es_validation["highs"]["caution"] = False
 
     # skipping for now

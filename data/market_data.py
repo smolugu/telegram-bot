@@ -7,13 +7,29 @@ import pandas as pd
 # Public API
 # ---------------------------
 
-def filter_hourly_candles(hourly_candles, current_ts):
+def filter_daily_candles(daily_candles, current_ts):
+
+    current_dt = datetime.fromisoformat(current_ts)
+    current_date = current_dt.date()
+
+    filtered = []
+
+    for c in daily_candles:
+
+        candle_dt = datetime.fromisoformat(c["timestamp"])
+
+        if candle_dt.date() <= current_date:
+            filtered.append(c)
+
+    return filtered
+
+def filter_htf_candles(htf_candles, current_ts):
 
     current_dt = datetime.fromisoformat(current_ts)
 
     filtered = []
 
-    for c in hourly_candles:
+    for c in htf_candles:
         dt = datetime.fromisoformat(c["timestamp"])
     
 

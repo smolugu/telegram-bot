@@ -666,7 +666,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
         )
 
         # TODO: replace with HTF bias
-        htf_bias = "bullish" if look_for_longs else "bearish"
+        structure_bias = "bullish" if look_for_longs else "bearish"
+        htf_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
         direction_context = determine_ping_direction(
             cross_alignment,
             newyork_context.structure if candidate.instrument == "NQ" else co_asset["newyork_context"].structure,
@@ -689,6 +690,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
             elif direction_context["conflict_resolution_direction"] == "bearish":
                 allow_conflict_longs = False
+                
         # base confidence scoring
         base_confidence_modifier = 0
 

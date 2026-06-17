@@ -78,6 +78,10 @@ class MarketContext:
         self.compression_range = {"high": None, "low": None}
 
         # smt
+        self.bullish_smt_1d = None
+        self.bullish_smt_7h = None
+        self.bearish_smt_1d = None
+        self.bearish_smt_7h = None
         self.bullish_smt_1h = None
         self.bearish_smt_1h = None  
         self.bullish_smt_30m = None 

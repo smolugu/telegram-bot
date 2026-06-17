@@ -6,9 +6,10 @@ from data.models.market_context import MarketContext
 from data.models.nyam_market_context import NewYorkMarketContext
 from data.models.sweep_validation import validate_sweeps
 from data.models.weekly_profile import WeeklyContext
+from data.models.weekly_state import initialize_weekly_state, update_weekly_1h_structure
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, filter_hourly_candles, get_current_contract, get_pdh_pdl_fixed_date
+from data.market_data import fetch_symbol_data_safe, filter_daily_candles, filter_htf_candles, get_current_contract, get_pdh_pdl_fixed_date
 from data.models.reversal_setup import check_for_reversal_setup_confirmation
 from helpers.date_time_helpers import to_ny_datetime
 from helpers.sessions import get_futures_session, in_session
@@ -26,7 +27,7 @@ from helpers.zones import get_7h_open_from_timestamp
 
 from datetime import datetime, timedelta, timezone
 from modules.ob_detector import detect_30m_order_block
-from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_hourly_smt_precise, detect_smt_key_levels, summary_smt
+from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_precise, detect_smt_key_levels, summary_smt
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
@@ -139,6 +140,11 @@ def run_quick_backtest(test_date: str):
     nq_current_session_low = float("inf")
     es_current_session_high = float("-inf")
     es_current_session_low = float("inf")
+
+    # weekly state
+    nq_weekly_state = initialize_weekly_state()
+    es_weekly_state = initialize_weekly_state()
+
     
     #  looping through 30m candles from 18:00 futures start
     for candle_3m in nq_3m:
@@ -311,7 +317,16 @@ def run_quick_backtest(test_date: str):
                 nq_seven_hour_builder.update(last_closed_nq)
                 print("nq 7h after ib ready: ", nq_seven_hour_builder.candles["6PM"].values())   
                 es_seven_hour_builder.update(last_closed_es)
-                
+
+                # update weekly state
+                if dt_current.munyte == 00:
+                    nq_1h_filtered_candles = filter_htf_candles(nq["1h"], current_30m_start)
+                    # print("nq_1h_filtered: ", nq_1h_filtered)
+                    
+                    es_1h_filtered_candles = filter_htf_candles(es["1h"], current_30m_start)
+                    # print("es_1h_filtered: ", es_1h_filtered)
+                    nq_weekly_state = update_weekly_1h_structure(nq_weekly_state, nq_1h_filtered_candles)
+                    es_weekly_state = update_weekly_1h_structure(es_weekly_state, es_1h_filtered_candles)
                 
                 # get liquidity levels at end of each 30m candle
                 historical_nq = nq_30m[:i]
@@ -1081,20 +1096,32 @@ def run_quick_backtest(test_date: str):
                     print("key_level_bearish_smt_result: ", key_level_bearish_smt_result)
                 # detect smt at key level
                 # print("nq keys: ", nq.keys())
-                nq_1h_filtered = filter_hourly_candles(nq["1h"], current_30m_start)
+                nq_1h_filtered = filter_htf_candles(nq["1h"], current_30m_start)
                 # print("nq_1h_filtered: ", nq_1h_filtered)
                 
-                es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
+                es_1h_filtered = filter_htf_candles(es["1h"], current_30m_start)
                 # print("es_1h_filtered: ", es_1h_filtered)
 
                 # detect smt at 1h
-                h1_bullish_smt, h1_bearish_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)
+                h1_bullish_smt, h1_bearish_smt = detect_htf_smt_precise(nq_1h_filtered, es_1h_filtered)
                 if h1_bullish_smt is not None or h1_bearish_smt is not None:
                     # store smt details in market context and update when it fails
                     print("h1 bullish smt, bearish smt: ", h1_bullish_smt, h1_bearish_smt)
                     nq_market_context.update_1h_smt(h1_bullish_smt, h1_bearish_smt)
                 # check if smt is holdinh
                 nq_market_context.update_1h_smt_status(last_closed_nq, last_closed_es)
+                
+                # detect daily smt at current session high and low
+                nq_1d_filtered = filter_daily_candles(nq["1d"], current_30m_start)
+                # print("nq_1h_filtered: ", nq_1h_filtered)
+                
+                es_1d_filtered = filter_daily_candles(es["1d"], current_30m_start)
+                # print("es_1h_filtered: ", es_1h_filtered)
+
+                d1_bullish_smt, d1_bearish_smt = detect_daily_smt_precise(nq_1d_filtered, es_1d_filtered, {"session_high": nq_market_context.session_high, "session_low": nq_market_context.session_low}, {"session_high": es_market_context.session_high, "session_low": es_market_context.session_low})
+
+
+                # smt summary
                 summary_bullish_smt, summary_bearish_smt = summary_smt(h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt)
                 # print for debug
                 print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
@@ -1164,6 +1191,7 @@ def run_quick_backtest(test_date: str):
                     if fvg:
                         es_sell_candidate.register_fvg(fvg)
                         print("Bearish FVG detected:", fvg)
+               
                 if(nq_sell_candidate.fvg_confirmed or nq_sell_candidate.final_ob_confirmed):
                     print("NQ Sell candidate ready for alert. FVG confirmed:", nq_sell_candidate.fvg_confirmed, "| Sweep and OB confirmed:", nq_sell_candidate.sweep_and_ob_confirmed, "| current candle time:", current_30m_start)
                     # print("Market Context: ", nq_market_context.values())
@@ -1195,6 +1223,7 @@ def run_quick_backtest(test_date: str):
                 # group contexts
                 es_context = {
                     "market_context": es_market_context,
+                    "weekly_context": es_weekly_context,
                     "london_context": es_london_market_context,
                     "newyork_context": es_ny_market_context,
                     "liquidity_levels": liquidity_es,
@@ -1202,6 +1231,7 @@ def run_quick_backtest(test_date: str):
                 }
                 nq_context = {
                     "market_context": nq_market_context,
+                    "weekly_context": nq_weekly_context,
                     "london_context": nq_london_market_context,
                     "newyork_context": nq_ny_market_context,
                     "liquidity_levels": liquidity_nq,
