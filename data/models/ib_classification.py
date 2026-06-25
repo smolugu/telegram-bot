@@ -214,9 +214,16 @@ def classify_ib_structure(
         and ib8["low"] > ib18["high"]
     ):
         name = None
+        group = "decompression"
         name = "bullish_decompression"
         return {
+            "execution_edge": 90,
+            "direction": 85,
+            "migration": 90,
+            "pqs": 89,
+            "reaction_levels": {"Pre-market 30m Bullish OB", "Pre-market Lows", "Pre-market Gap"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
@@ -256,7 +263,17 @@ def classify_ib_structure(
 
             "note":
                 "Bullish decompression before NY open. "
-                "Higher pricing accepted."
+                "Higher pricing accepted.",
+            "context": {
+                "market_state":
+                    "Price migrated higher during London before returning into the London range. During the pre-market session both sides of London liquidity were swept, transitioning the market from compression into expansion.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market mitigation levels before delivery continues in the direction of 30m structure",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion and their mitigation levels."
+            }
         }
     # =====================================================
     # BEARISH DECOMPRESSION
@@ -268,9 +285,16 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
+        group = "decompression"
         name = "bearish_decompression"
         return {
+            "execution_edge": 90,
+            "direction": 85,
+            "migration": 90,
+            "pqs": 89,
+            "reaction_levels": {"Pre-market 30m Bearish OB", "Pre-market Highs", "Pre-market Gap"},
             "structure_name": name,
+            "structure_group": group,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bearish",
@@ -308,7 +332,17 @@ def classify_ib_structure(
 
             "note":
                 "Bearish decompression before NY open. "
-                "Lower pricing accepted."
+                "Lower pricing accepted.",
+            "context": {
+                "market_state":
+                    "Price migrated lower during London before returning into the London range. During the pre-market session both sides of London liquidity were swept, transitioning the market from compression into expansion.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market mitigation levels before delivery continues in the direction of 30m structure",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion and their mitigation levels."
+            }
         }
     # =====================================================
     # BULLISH MIXED DECOMPRESSION
@@ -317,9 +351,16 @@ def classify_ib_structure(
     if ib8_engulf_ib1 and ib18["low"] < ib1["low"] < ib18["high"] and ib18["high"] < ib1["high"]:
 
         name = None
+        group = "decompression"
         name = "bullish_mixed_decompression"
         return {
+            "execution_edge": 0,
+            "direction": 0,
+            "migration": 0,
+            "pqs": 70,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
@@ -359,7 +400,17 @@ def classify_ib_structure(
 
             "note":
                 "Early expansion before NY open with unresolved direction, continuation vs reversal. "
-                "Liquidity event likely before direction."
+                "Liquidity event likely before direction.",
+            "context": {
+                "market_state":
+                    "Price migrated higher during London before returning into the London range. During the pre-market session both sides of London liquidity were swept, transitioning the market from compression into expansion.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market mitigation levels before delivery continues in the direction of 30m structure",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion and their mitigation levels."
+            }
         }
     # =====================================================
     # BEARISH MIXED DECOMPRESSION
@@ -368,9 +419,16 @@ def classify_ib_structure(
     if ib8_engulf_ib1 and ib18["low"] < ib1["high"] < ib18["high"] and ib18["low"] > ib1["low"]:
 
         name = None
+        group = "decompression"
         name = "bearish_mixed_decompression"
         return {
+            "execution_edge": 0,
+            "direction": 0,
+            "migration": 0,
+            "pqs": 70,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "neutral",
@@ -410,7 +468,18 @@ def classify_ib_structure(
 
             "note":
                 "Early expansion before NY open with unresolved direction, continuation vs reversal. "
-                "Liquidity event likely before direction."
+                "Liquidity event likely before direction.",
+            
+            "context": {
+                "market_state":
+                    "Price migrated lower during London before returning into the London range. During the pre-market session both sides of London liquidity were swept, transitioning the market from compression into expansion.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market mitigation levels before delivery continues in the direction of 30m structure",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion and their mitigation levels."
+            }
         }
     
     # =====================================================
@@ -433,9 +502,16 @@ def classify_ib_structure(
         and ib1_above_ib18
     ):
         name = None
+        group = "decompression"
         name = "bullish_macro_decompression"
         return {
+            "execution_edge": 100,
+            "direction": 55,
+            "migration": 60,
+            "pqs": 82,
+            "reaction_levels": {"DO", "Pre-market Highs", "Pre-market 30m Bearish OB"},
             "structure_name": name,
+            "structure_group": group,
             "market_phase": "decompression",
             "category": "decompression",
             "direction": "bullish",
@@ -474,7 +550,17 @@ def classify_ib_structure(
 
             "note":
                 "Large price swings developed before NY open. "
-                "Expect volatile conditions until direction becomes clearer."
+                "Expect volatile conditions until direction becomes clearer.",
+            "context": {
+                "market_state":
+                    "Price migrated higher during London before the pre-market session expanded through both sides of the overnight range, rebalancing the earlier migration.",
+
+                "expected_delivery":
+                    "The market has transitioned into expansion after a complete rebalance of the overnight range. Expect retracements into mitigation levels before delivery continues in the direction of the 30m structure.",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion, overnight equilibrium and mitigation levels."
+            }
         }
 
     # =====================================================
@@ -514,9 +600,16 @@ def classify_ib_structure(
     ):
 
         name = None
+        group = "decompression"
         name = "bearish_macro_decompression"
         return {
+            "execution_edge": 100,
+            "direction": 55,
+            "migration": 60,
+            "pqs": 82,
+            "reaction_levels": {"DO", "Pre-market Lows", "Pre-market 30m Bullish OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
@@ -555,7 +648,17 @@ def classify_ib_structure(
 
             "note":
                 "Large price swings developed before NY open. "
-                "Expect volatile conditions until direction becomes clearer."
+                "Expect volatile conditions until direction becomes clearer.",
+            "context": {
+                "market_state":
+                    "Price migrated lower during London before the pre-market session expanded through both sides of the overnight range, rebalancing the earlier migration.",
+
+                "expected_delivery":
+                    "The market has transitioned into expansion after a complete rebalance of the overnight range. Expect retracements into mitigation levels before delivery continues in the direction of the 30m structure.",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion, overnight equilibrium and mitigation levels."
+            }
         }
 
     # =====================================================
@@ -569,10 +672,17 @@ def classify_ib_structure(
     if ib8_engulf_ib18 and ib18["low"] < ib1["low"] < ib18["high"] and ib1["high"]> ib18["high"]:
         
         name = None
+        group = "decompression"
         name = "bullish_mixed_macro_decompression"
 
         return {
+            "execution_edge": 100,
+            "direction": 60,
+            "migration": 70,
+            "pqs": 85,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
@@ -611,7 +721,17 @@ def classify_ib_structure(
 
             "note":
                 "Mixed bias and early signs of market expansion before NY open. "
-                "Liquidity purge environment."
+                "Liquidity purge environment.",
+            "context": {
+                "market_state":
+                    "London attempted to migrate higher but failed to establish full acceptance above the overnight range. During the pre-market session both sides of overnight liquidity were swept, creating a large expansion range.",
+
+                "expected_delivery":
+                    "The market has transitioned into expansion after sweeping both sides of overnight liquidity. Expect retracements into mitigation levels before delivery continues in the direction of the 30m structure.",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion, overnight equilibrium and mitigation levels."
+            }
         }
     
     # =====================================================
@@ -621,9 +741,16 @@ def classify_ib_structure(
     if ib8_engulf_ib18 and ib18["high"] > ib1["high"] > ib18["low"] and ib1["low"] < ib18["low"]:
         
         name = None
+        group = "decompression"
         name = "bearish_mixed_macro_decompression"
         return {
+            "execution_edge": 100,
+            "direction": 60,
+            "migration": 70,
+            "pqs": 85,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
@@ -662,7 +789,17 @@ def classify_ib_structure(
 
             "note":
                 "Mixed bias and early signs of market expansion before NY open. "
-                "Liquidity purge environment."
+                "Liquidity purge environment.",
+            "context": {
+                "market_state":
+                    "London attempted to migrate lower but failed to establish full acceptance below the overnight range. During the pre-market session both sides of overnight liquidity were swept, creating a large expansion range.",
+
+                "expected_delivery":
+                    "The market has transitioned into expansion after sweeping both sides of overnight liquidity. Expect retracements into mitigation levels before delivery continues in the direction of the 30m structure.",
+
+                "trade_focus":
+                    "Focus on 30m structure formed during the pre-market expansion, overnight equilibrium and mitigation levels."
+            }
         }
     # =====================================================
     # ASIA RANGE DECOMPRESSION
@@ -682,9 +819,16 @@ def classify_ib_structure(
         and ib8_above_ib1
     ):
         name = None
+        group = "decompression"
         name = "bullish_early_decompression"
         return {
+            "execution_edge": 92,
+            "direction": 85,
+            "migration": 85,
+            "pqs": 89,
+            "reaction_levels": {"London Range Eq", "Pre-market Lows", "Pre-market 30m Bullish OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
@@ -714,7 +858,17 @@ def classify_ib_structure(
 
             "note":
                 "Bullish early expansion during London session. "
-                "Higher pricing accepted before NY open. Expect price to make shallow retracement towards london equilibrium or sweep of lows before continuation higher."
+                "Higher pricing accepted before NY open. Expect price to make shallow retracement towards london equilibrium or sweep of lows before continuation higher.",
+            "context": {
+                "market_state":
+                    "The market transitioned into expansion during London and continued accepting higher prices into the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market imbalances or mitigation levels before bullish delivery resumes toward higher objectives.",
+
+                "trade_focus":
+                    "Focus on pre-market imbalances, bullish mitigation levels and 30m bullish structure formed during the ongoing expansion."
+            }
         }
 
     # =====================================================
@@ -726,9 +880,16 @@ def classify_ib_structure(
         and ib8_below_ib1
     ):
         name = None
+        group = "decompression"
         name = "bearish_early_decompression"
         return {
+            "execution_edge": 92,
+            "direction": 85,
+            "migration": 85,
+            "pqs": 89,
+            "reaction_levels": {"London Range Eq", "Pre-market Highs", "Pre-market 30m Bearish OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "decompression",
             "category": "decompression",
@@ -753,7 +914,18 @@ def classify_ib_structure(
 
             "note":
                 "Bearish early expansion during London session. "
-                "Lower pricing accepted before NY open. Expect price to make shallow retracement towards london equilibrium or sweep of highs before continuation lower."
+                "Lower pricing accepted before NY open. Expect price to make shallow retracement towards london equilibrium or sweep of highs before continuation lower.",
+            
+            "context": {
+                "market_state":
+                    "The market transitioned into expansion during London and continued accepting lower prices into the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market imbalances or mitigation levels before bearish delivery resumes toward lower objectives.",
+
+                "trade_focus":
+                    "Focus on pre-market imbalances, bearish mitigation levels and 30m bearish structure formed during the ongoing expansion."
+            }
         }
 
     # =====================================================
@@ -800,9 +972,17 @@ def classify_ib_structure(
             },
         
         name = None
+        group = "decompression"
         name = "mixed_early_decompression"
         return {
+            # TODO: scores
+            "execution_edge": 80,
+            "direction": 20,
+            "migration": 20,
+            "pqs": 63,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "category": "decompression",
             "market_phase": "decompression",
@@ -825,7 +1005,18 @@ def classify_ib_structure(
 
             "note":
                 "Market stabilized after early expansion during London session. "
-                "Liquidity event likely before direction."
+                "Liquidity event likely before direction.",
+            
+            "context": {
+                "market_state":
+                    "The market transitioned into expansion during London but failed to accept higher or lower prices into the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market imbalances or mitigation levels before picking a direction.",
+
+                "trade_focus":
+                    "Focus on pre-market imbalances, mitigation levels and 30m structure formed during the ongoing expansion."
+            }
         }
 
     # =====================================================
@@ -836,9 +1027,16 @@ def classify_ib_structure(
         and ib8_inside_ib1
     ):
         name = None
+        group = "compression"
         name = "dual_inside_compression"
         return {
+            "execution_edge": 100,
+            "direction": 40,
+            "migration": 40,
+            "pqs": 73,
+            "reaction_levels": {"Compression Highs", "Compression Lows", "Compression CE"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "category": "compression",
             "market_phase": "compression",
@@ -881,9 +1079,16 @@ def classify_ib_structure(
         and ib1["high"] < ib8["low"]
     ):
         name = None
+        group = "acceptance"
         name = "staircase_gap_bullish"
         return {
+            "execution_edge": 75,
+            "direction": 100,
+            "migration": 100,
+            "pqs": 85,
+            "reaction_levels": {"Pre-market Gap", "Pre-market lows", "Pre-market 30m OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bullish_acceptance",
@@ -921,7 +1126,17 @@ def classify_ib_structure(
                 "Market aggressively accepting higher pricing.",
             "note":
                 "Strong bullish trend with small retracements. "
-                "Market aggressively accepting higher pricing."    
+                "Market aggressively accepting higher pricing.",
+            "context": {
+                "market_state":
+                    "Price continued accepting higher prices throughout Asia and London with minimal overlap between session ranges.",
+
+                "expected_delivery":
+                    "Expect shallow retracement into overnight imbalance followed by continuation higher.",
+
+                "trade_focus":
+                    "Look for Rocket setups from gap retests and mitigation levels."
+            }    
         }
 
     # =====================================================
@@ -933,9 +1148,16 @@ def classify_ib_structure(
         and ib1["low"] > ib8["high"]
     ):
         name = None
+        group = "acceptance"
         name = "staircase_gap_bearish"
         return {
+            "execution_edge": 75,
+            "direction": 100,
+            "migration": 100,
+            "pqs": 85,
+            "reaction_levels": {"Pre-market Gap", "Pre-market highs", "Pre-market 30m bearish OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bearish_acceptance",
@@ -973,7 +1195,17 @@ def classify_ib_structure(
                 "Market aggressively accepting lower pricing.",
             "note":
                 "Strong bearish trend with small retracements. "
-                "Market aggressively accepting higher pricing."
+                "Market aggressively accepting lower pricing.",
+            "context": {
+                "market_state":
+                    "Price continued accepting lower prices throughout Asia and London with minimal overlap between session ranges.",
+
+                "expected_delivery":
+                    "Expect shallow retracement into overnight imbalance followed by continuation lower.",
+
+                "trade_focus":
+                    "Look for shorts from pre market highs, gap retests and mitigation levels."
+            }
         }
 
     # =====================================================
@@ -988,9 +1220,16 @@ def classify_ib_structure(
         and ib1["high"] > ib18["high"]
     ):
         name = None
+        group = "acceptance"
         name = "staircase_early_overlap_bullish"
         return {
+            "execution_edge": 75,
+            "direction": 100,
+            "migration": 100,
+            "pqs": 85,
+            "reaction_levels": {"Pre-market Bullish OB", "Pre-market Gap", "Pre-market Lows"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bullish_acceptance",
@@ -1026,6 +1265,7 @@ def classify_ib_structure(
                 "Bullish staircasing continued overnight, "
                 "with strengthening migration during premarket",
 
+
             # "note":
             #     "Gradual bullish migration developed overnight. "
             #     "Premarket upside efficiency weakened slightly, "
@@ -1035,7 +1275,17 @@ def classify_ib_structure(
             #     "Bullish staircase overlap. "
             #     "Higher pricing accepted with rebalance.",
             "note":
-                "Gradual bullish migration during asia and london sessions with increased migration strength by premarket. "
+                "Gradual bullish migration during asia and london sessions with increased migration strength by premarket. ",
+            "context": {
+                "market_state":
+                    "Price broke higher during London and maintained acceptance above the overnight range through the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into overnight inefficiencies, pre-market lows or mitigation levels before bullish delivery resumes.",
+
+                "trade_focus":
+                    "Focus on pre-market lows, overnight gaps, bullish mitigation levels and rejection from retracement zones. Look for continuation setups in the direction of the overnight migration. Once upside liquidity objectives are completed, monitor for Flush setups from ATR exhaustion, SMT and HTF support levels."
+            }
         }
 
     # =====================================================
@@ -1065,9 +1315,16 @@ def classify_ib_structure(
         
     ):
         name = None
+        group = "compression"
         name = "staircase_late_overlap_bullish"
         return {
+            "execution_edge": 98,
+            "direction": 75,
+            "migration": 70,
+            "pqs": 88,
+            "reaction_levels": {"Pre-market Lows", "Pre-market Gap"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bullish_acceptance",
@@ -1115,7 +1372,17 @@ def classify_ib_structure(
             #     "Bullish staircase overlap. "
             #     "Higher pricing accepted with rebalance.",
             "note":
-                "Gradual bullish migration during asia and london sessions with efficiency weakening slightly during premarket. "
+                "Gradual bullish migration during asia and london sessions with efficiency weakening slightly during premarket. ",
+            "context": {
+                "market_state":
+                    "Price migrated higher with efficiency weakening slightly during premarket.",
+
+                "expected_delivery":
+                    "Expect sweep of pre market highs or lows before directional expansion.",
+
+                "trade_focus":
+                    "Focus on pre market highs and lows."
+            }
         }
 
     # =====================================================
@@ -1129,9 +1396,16 @@ def classify_ib_structure(
         and ib1["low"] < ib18["low"]
     ):
         name = None
+        group = "acceptance"
         name = "staircase_early_overlap_bearish"
         return {
+            "execution_edge": 75,
+            "direction": 100,
+            "migration": 100,
+            "pqs": 85,
+            "reaction_levels": {"Pre-market Bearish OB", "Pre-market Gap", "Pre-market Highs"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "migration",
             "category": "bearish_acceptance",
@@ -1168,7 +1442,17 @@ def classify_ib_structure(
                 "with strengthening migration during premarket",
                 
             "note":
-                "Gradual bearish migration during asia and london sessions with increased migration strength by premarket."
+                "Gradual bearish migration during asia and london sessions with increased migration strength by premarket.",
+            "context": {
+                "market_state":
+                    "Price broke lower during London and maintained acceptance below the overnight range through the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into overnight inefficiencies, pre-market highs or mitigation levels before bearish delivery resumes.",
+
+                "trade_focus":
+                    "Focus on pre-market highs, overnight gaps, bearish mitigation levels and rejection from retracement zones. Look for continuation setups in the direction of the overnight migration. Once downside liquidity objectives are completed, monitor for Rocket setups from ATR exhaustion, SMT and HTF support levels."
+            }
         }
     
     # =====================================================
@@ -1197,9 +1481,16 @@ def classify_ib_structure(
         and ib8["low"] < ib1["low"]
     ):
         name = None
+        group = "compression"
         name = "staircase_late_overlap_bearish"
         return {
+            "execution_edge": 98,
+            "direction": 75,
+            "migration": 70,
+            "pqs": 88,
+            "reaction_levels": {"Pre-market Highs", "Pre-market Gap"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bearish_acceptance",
@@ -1237,7 +1528,17 @@ def classify_ib_structure(
                 "with weakened migration strength by premarket",
                 
             "note":
-                "Gradual bearish migration during asia and london sessions with weakened migration strength by premarket."
+                "Gradual bearish migration during asia and london sessions with weakened migration strength by premarket.",
+            "context": {
+                "market_state":
+                    "Price migrated lower during asia and london sessions, with efficiency weakening slightly during premarket.",
+
+                "expected_delivery":
+                    "Expect sweep of pre market highs or lows before directional expansion.",
+
+                "trade_focus":
+                    "Focus on pre market highs and lows."
+            }
         }
     
     # =====================================================
@@ -1258,9 +1559,16 @@ def classify_ib_structure(
         and ib1["high"] < ib8["high"]
     ):
         name = None
+        group = "compression"
         name = "staircase_bullish"
         return {
+            "execution_edge": 95,
+            "direction": 65,
+            "migration": 60,
+            "pqs": 83,
+            "reaction_levels": {"Pre-market Lows", "London Range EQ", "Pre-market 30m Bullish OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "acceptance",
@@ -1305,7 +1613,17 @@ def classify_ib_structure(
             #     "accelerate quickly due to gradually engineered liquidity."
             
             "note":
-                "Bullish trend accepting higher prices with less efficiency. "
+                "Bullish trend accepting higher prices with less efficiency. ",
+            "context": {
+                "market_state":
+                    "Price consistently accepted higher prices throughout the overnight session, forming a sequence of higher highs and higher lows.",
+
+                "expected_delivery":
+                    "Expect retracements into overnight inefficiencies or pre-market lows before bullish delivery resumes toward higher objectives.",
+
+                "trade_focus":
+                    "Focus on pre-market lows, overnight gaps, bullish mitigation levels and rejection from retracement levels. At 9:30 open look for continuation higher. Wait for Ping confirmation for Flush setup upon exhaustion of ATR"
+            }
         }
     
     # =====================================================
@@ -1323,9 +1641,16 @@ def classify_ib_structure(
         and ib1["low"] > ib8["low"]
     ):
         name = None
+        group = "compression"
         name = "staircase_bearish"
         return {
+            "execution_edge": 95,
+            "direction": 65,
+            "migration": 60,
+            "pqs": 83,
+            "reaction_levels": {"Pre-market Highs", "London Range EQ", "Pre-market 30m Bearish OB"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "acceptance",
@@ -1362,7 +1687,17 @@ def classify_ib_structure(
                 "but migration remained inefficient as price "
                 "continued overlapping prior value.",
             "note":
-                "Bearish trend continued accepting lower prices with less efficiency. "
+                "Bearish trend continued accepting lower prices with less efficiency. ",
+            "context": {
+                "market_state":
+                    "Price consistently accepted lower prices throughout the overnight session, forming a sequence of lower highs and lower lows.",
+
+                "expected_delivery":
+                    "Expect retracements into overnight inefficiencies or pre-market highs before bearish delivery resumes toward lower objectives.",
+
+                "trade_focus":
+                    "Focus on pre-market highs, overnight gaps, bearish mitigation levels and rejection from retracement levels. At 9:30 open look for continuation lower. Wait for Ping confirmation for a Rocket setup upon exhaustion of ATR"
+            }
         }
 
     # =====================================================
@@ -1375,9 +1710,16 @@ def classify_ib_structure(
         and ib8_inside_ib1
     ):
         name = None
+        group = "compression"
         name = "bullish_acceptance_compression"
         return {
+            "execution_edge": 100,
+            "direction": 85,
+            "migration": 75,
+            "pqs": 92.5,
+            "reaction_levels": {"Pre-market Consolidation Lows"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bullish_acceptance",
@@ -1413,7 +1755,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish acceptance and compression at new value after prior expansion.",
             "note":
-                "Bullish redistribution after prior expansion. Expect sweep of lows before continuation higher."
+                "Bullish redistribution after prior expansion. Expect sweep of lows before continuation higher.",
+            "context": {
+                "market_state":
+                    "Price accepted higher prices during London and is consolidating within the higher portion of the overnight range.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep before directional expansion develops. Sell-side liquidity may be sought before bullish delivery resumes.",
+
+                "trade_focus":
+                    "Focus on local highs, overnight gaps and reactions after liquidity sweeps. A sweep of sell-side liquidity followed by rejection may provide the foundation for bullish continuation."
+            }
         }
 
     # =====================================================
@@ -1425,9 +1777,16 @@ def classify_ib_structure(
         and ib8_inside_ib1
     ):
         name = None
+        group = "compression"
         name = "bearish_acceptance_compression"
         return {
+            "execution_edge": 100,
+            "direction": 85,
+            "migration": 75,
+            "pqs": 92.5,
+            "reaction_levels": {"Pre-market Consolidation Highs"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "bearish_acceptance",
@@ -1462,7 +1821,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish acceptance and compression at new value after prior expansion.",
             "note":
-                "Bearish redistribution after prior expansion. Expect sweep of highs before continuation lower."
+                "Bearish expansion followed by compression during pre market. Expect sweep of highs before continuation lower.",
+            "context": {
+                "market_state":
+                    "Price accepted lower prices during London and is consolidating within the lower portion of the overnight range.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep before directional expansion develops. Buy-side liquidity may be sought before bearish delivery resumes.",
+
+                "trade_focus":
+                    "Focus on local highs, overnight gaps and reactions after liquidity sweeps. A sweep of buy-side liquidity followed by rejection may provide the foundation for bearish continuation."
+            }
         }
 
     # =====================================================
@@ -1474,9 +1843,16 @@ def classify_ib_structure(
         and ib8_inside_ib18
     ):
         name = None
+        group = "rebalance"
         name = "bullish_rebalance_compression"
         return {
+            "execution_edge": 100,
+            "direction": 50,
+            "migration": 45,
+            "pqs": 79,
+            "reaction_levels": {"Pre-market Consolidation Highs", "London Range Eq", "Consolidation Lows"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "rebalance",
@@ -1511,7 +1887,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish expansion weakened into rebalance.",
             "note":
-                "Bullish expansion weakened into rebalance near daily open."    
+                "Bullish expansion weakened into rebalance near daily open."    ,
+            "context": {
+                "market_state":
+                    "Price migrated higher during London but later returned back into the broader overnight range, rebalancing a significant portion of the bullish move.",
+
+                "expected_delivery":
+                    "Expect liquidity sweeps at overnight extremes before directional expansion develops. The earlier bullish migration creates a slight upside bias if sell-side liquidity is collected.",
+
+                "trade_focus":
+                    "Focus on overnight range highs and lows, overnight equilibrium and reactions after liquidity sweeps. Wait for Ping confirmation before anticipating expansion."
+            }
         }
 
     # =====================================================
@@ -1523,9 +1909,16 @@ def classify_ib_structure(
         and ib8_inside_ib18
     ):
         name = None
+        group = "rebalance"
         name = "bearish_rebalance_compression"
         return {
+            "execution_edge": 100,
+            "direction": 50,
+            "migration": 45,
+            "pqs": 79,
+            "reaction_levels": {"Pre-market Consolidation Highs", "London Range Eq", "Consolidation Lows"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "rebalance",
@@ -1559,7 +1952,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish expansion weakened into rebalance.",
             "note":
-                "Bearish expansion weakened into rebalance at daily open."
+                "Bearish expansion weakened into rebalance at daily open.",
+            "context": {
+                "market_state":
+                    "Price migrated lower during London but later returned back into the broader overnight range, rebalancing a significant portion of the bearish move.",
+
+                "expected_delivery":
+                    "Expect liquidity sweeps at overnight extremes before directional expansion develops. The earlier bearish migration creates a slight downside bias if buy-side liquidity is collected.",
+
+                "trade_focus":
+                    "Focus on overnight range highs and lows, overnight equilibrium and reactions after liquidity sweeps. Wait for Ping confirmation before anticipating expansion."
+            }
         }
 
     # =====================================================
@@ -1576,9 +1979,16 @@ def classify_ib_structure(
         and ib8["low"] < ib18["low"]
     ):
         name = None
+        group = "reintegration"
         name = "bullish_reintegration"
         return {
+            "execution_edge": 95,
+            "direction": 75,
+            "migration": 75,
+            "pqs": 86,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "reintegration",
             "category": "reintegration",
@@ -1615,7 +2025,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish expansion weakened into reintegration.",
             "note":
-                "Bullish expansion weakened significantly. Need bullish SMT to confirm bullish continuation."
+                "Bullish expansion weakened significantly. Need bullish SMT to confirm bullish continuation.",
+            "context": {
+                "market_state":
+                    "Earlier bullish delivery weakened significantly and price returned back into value.",
+
+                "expected_delivery":
+                    "Expect liquidity sweeps at pre-market extremes before the next directional move develops.",
+
+                "trade_focus":
+                    "Focus on pre-market highs, pre-market lows and London session gaps."
+            }
         }
 
     # =====================================================
@@ -1631,9 +2051,16 @@ def classify_ib_structure(
         and ib8["high"] > ib18["high"]
     ):
         name = None
+        group = "reintegration"
         name = "bearish_reintegration"
         return {
+            "execution_edge": 95,
+            "direction": 75,
+            "migration": 75,
+            "pqs": 86,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "reintegration",
             "category": "reintegration",
@@ -1664,7 +2091,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish expansion weakened into reintegration.",
             "note":
-                "Bearish expansion weakened significantly. Need bearish SMT to confirm bearish continuation."
+                "Bearish expansion weakened significantly. Need bearish SMT to confirm bearish continuation.",
+            "context": {
+                "market_state":
+                    "Earlier bearish delivery weakened significantly and price returned back into value.",
+
+                "expected_delivery":
+                    "Expect liquidity sweeps at pre-market extremes before the next directional move develops.",
+
+                "trade_focus":
+                    "Focus on pre-market highs, pre-market lows and London session gaps."
+            }
         }
     
     # =====================================================
@@ -1682,9 +2119,16 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
+        group = "value_flip"
         name = "bullish_value_flip"
         return {
+            "execution_edge": 95,
+            "direction": 90,
+            "migration": 90,
+            "pqs": 92,
+            "reaction_levels": {"Bearish 30m OB", "Pre-market Highs"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "value_flip",
             "category": "value_flip",
@@ -1719,7 +2163,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish expansion failed with ib8 flipping value and transitioning direction.",
             "note":
-                "Bullish expansion during london failed and bearish prices accepted in premarket."
+                "Bullish expansion during london failed and bearish prices accepted in premarket.",
+            "context": {
+                "market_state":
+                    "Market initially expanded higher, but the move failed as price migrated below the daily open and accepted lower prices.",
+
+                "expected_delivery":
+                    "Expect retracements to be sold and bearish delivery to continue toward lower objectives.",
+
+                "trade_focus":
+                    "Focus on overnight gaps, pre-market highs, bearish mitigation levels and continuation setups below the daily open."
+            }
         }
 
     # =====================================================
@@ -1734,9 +2188,16 @@ def classify_ib_structure(
         and ib8["high"] > ib18["high"]
     ):
         name = None
+        group = "value_flip"
         name = "bearish_value_flip"
         return {
+            "execution_edge": 95,
+            "direction": 90,
+            "migration": 90,
+            "pqs": 92,
+            "reaction_levels": {"Bullish 30m OB", "Pre-market Lows"},
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "value_flip",
             "category": "value_flip",
@@ -1770,7 +2231,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish expansion failed with ib8 flipping value and transitioning direction.",
             "note":
-                "Bearish expansion during dondon failed and bullish prices accepted in premarket."
+                "Bearish expansion during dondon failed and bullish prices accepted in premarket.",
+            "context": {
+                "market_state":
+                    "Market initially expanded lower, but the move failed as price migrated above the daily open and accepted higher prices.",
+
+                "expected_delivery":
+                    "Expect retracements to be bought and bullish delivery to continue toward higher objectives.",
+
+                "trade_focus":
+                    "Focus on overnight gaps, pre-market lows, bullish mitigation levels and continuation setups above the daily open."
+            }
         }
     
     # =====================================================
@@ -1791,9 +2262,16 @@ def classify_ib_structure(
         and ib8["low"] > ib18["high"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_gap_bullish"
         return {
+            "execution_edge": 90,
+            "direction": 70,
+            "migration": 40,
+            "pqs": 77,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -1829,7 +2307,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish sandwich compression between separated ranges.",
             "note":
-                "Early bullish move followed by consolidation at equilibrium of asia and london range."
+                "Early bullish move followed by consolidation at equilibrium of asia and london range.",
+            "context": {
+                "market_state":
+                    "Market is consolidating near the equilibrium of the overnight range after early bullish move.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep at local highs or lows before a directional expansion emerges.",
+
+                "trade_focus":
+                    "Focus on local highs, local lows and overnight range extremes. Wait for Ping confirmation before trading the expansion."
+            }
         }
 
     # =====================================================
@@ -1842,9 +2330,16 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_gap_bearish"
         return {
+            "execution_edge": 90,
+            "direction": 70,
+            "migration": 40,
+            "pqs": 77,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -1880,7 +2375,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish sandwich compression between separated ranges.",
             "note":
-                "Early bearish move followed by consolidation at equilibrium of asia and london range."
+                "Early bearish move followed by consolidation at equilibrium of asia and london range.",
+            "context": {
+                "market_state":
+                    "Market is consolidating near the equilibrium of the overnight range after early bearish move.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep at local highs or lows before a directional expansion emerges.",
+
+                "trade_focus":
+                    "Focus on local highs, local lows and overnight range extremes. Wait for Ping confirmation before trading the expansion."
+            }
         }
     # =====================================================
     # SANDWICH PARTIAL OVERLAP
@@ -1901,9 +2406,16 @@ def classify_ib_structure(
         and ib8["low"] > ib18["high"]
     ):  
         name = None
+        group = "compression"
         name = "sandwich_partial_overlap_bullish"
         return {
+            "execution_edge": 100,
+            "direction": 70,
+            "migration": 50,
+            "pqs": 85,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -1938,7 +2450,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish sandwich compression with acceptance weakeness.",
             "note": 
-                "Consolidation inside asia-london range with weakness in accepting higher prices after early bullish move."
+                "Consolidation inside asia-london range with weakness in accepting higher prices after early bullish move.",
+            "context": {
+                "market_state":
+                    "Market accepted higher prices earlier but has since transitioned into consolidation within the overnight range.",
+
+                "expected_delivery":
+                    "Expect liquidity sweep at lows before expansion as upside continuation remains possible while higher prices continue to be accepted.",
+
+                "trade_focus":
+                    "Focus on local lows, and gaps in asia range and reactions after liquidity sweeps. A sweep of sell-side liquidity may provide the foundation for bullish expansion."
+            }
         }
     if (
         ib1_above_ib18
@@ -1946,9 +2468,16 @@ def classify_ib_structure(
         and ib18["low"] < ib8["low"] <= ib18["high"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_partial_overlap_bullish"
         return {
+            "execution_edge": 90,
+            "direction": 60,
+            "migration": 40,
+            "pqs": 75,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -1984,7 +2513,15 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish sandwich compression with rebalance.",
             "note": 
-                "Consolidation inside asia-london range. Price tapped into deeper asia range, weakening earlier bullish move"
+                "Consolidation inside asia-london range. Price tapped into deeper asia range, weakening earlier bullish move",
+            "context": {
+                "market_state": 
+                    "Price initially accepted higher prices during the overnight session but later retraced back toward the earlier range, rebalancing a significant portion of the bullish migration.",
+                "expected_delivery": 
+                    "Expect liquidity sweeps at local highs or lows before directional expansion develops. The deeper retracement suggests the market is seeking equilibrium before choosing direction.",
+                "trade_focus":
+                    "Focus on local highs, local lows, overnight range equilibrium and gaps formed during London. Wait for a liquidity sweep and Ping confirmation before anticipating expansion."
+            }
         }
     # =====================================================
     # SANDWICH PARTIAL OVERLAP BEARISH
@@ -1996,9 +2533,16 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_partial_overlap_bearish"
         return {
+            "execution_edge": 100,
+            "direction": 70,
+            "migration": 50,
+            "pqs": 85,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -2032,7 +2576,17 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish sandwich compression with acceptance weakness.",
             "note": 
-                "Consolidation inside asia-london range with weakness in accepting lower prices after early bearish move."
+                "Consolidation inside asia-london range with weakness in accepting lower prices after early bearish move.",
+            "context": {
+                "market_state":
+                    "Market accepted lower prices earlier but has since transitioned into consolidation within the overnight range.",
+
+                "expected_delivery":
+                    "Expect liquidity sweep at highs before expansion as downside continuation remains possible while lower prices continue to be accepted.",
+
+                "trade_focus":
+                    "Focus on local highs, and gaps in asia range and reactions after liquidity sweeps. A sweep of buy-side liquidity may provide the foundation for bearish expansion."
+            }
         }
     if (
         ib1_below_ib18
@@ -2040,9 +2594,16 @@ def classify_ib_structure(
         and ib18["low"] <= ib8["high"] < ib18["high"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_partial_overlap_bearish"
         return {
+            "execution_edge": 90,
+            "direction": 60,
+            "migration": 40,
+            "pqs": 75,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -2076,7 +2637,15 @@ def classify_ib_structure(
             "note_internal":
                 "Bearish sandwich compression with rebalance at daily open.",
             "note": 
-                "Consolidation inside asia-london range. Price tapped into deeper asia range, weakening earlier bearish move"
+                "Consolidation inside asia-london range. Price tapped into deeper asia range, weakening earlier bearish move",
+            "context": {
+                "market_state": 
+                    "Price initially accepted lower prices during the overnight session but later retraced back toward the earlier range, rebalancing a significant portion of the bearish migration.",
+                "expected_delivery": 
+                    "Expect liquidity sweeps at local highs or lows before directional expansion develops. The deeper retracement suggests the market is seeking equilibrium before choosing direction.",
+                "trade_focus":
+                    "Focus on local highs, local lows, overnight range equilibrium and gaps formed during London. Wait for a liquidity sweep and Ping confirmation before anticipating expansion."
+            }
         }
 
     # =====================================================
@@ -2090,9 +2659,16 @@ def classify_ib_structure(
         and ib18["high"] > ib8["low"] > ib18["low"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_overlap_bullish"
         return {
+            "execution_edge": 100,
+            "direction": 70,
+            "migration": 50,
+            "pqs": 85,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -2126,7 +2702,15 @@ def classify_ib_structure(
             "note_internal":
                 "Balanced bullish sandwich compression.",
             "note": 
-                "Price is consolidating at eq of asia-london range after bullish move in asia."
+                "Price is consolidating at eq of asia-london range after bullish move in asia.",
+            "context": {
+                "market_state":
+                    "Price consolidated between the earlier overnight ranges, compressing after an initial bullish migration without fully accepting higher prices.",
+                "expected_delivery":
+                    "Expect a sweep of local highs or lows before directional expansion develops. Compression remains the dominant characteristic of the structure.",
+                "trade_focus":
+                    "Focus on compression highs, compression lows and overnight equilibrium. Wait for a liquidity sweep and Ping confirmation before trading the expansion."
+            }
         }
 
     # =====================================================
@@ -2139,9 +2723,16 @@ def classify_ib_structure(
         
     ):
         name = None
+        group = "compression"
         name = "sandwich_overlap_bearish"
         return {
+            "execution_edge": 100,
+            "direction": 70,
+            "migration": 50,
+            "pqs": 85,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "balanced_compression",
@@ -2175,7 +2766,15 @@ def classify_ib_structure(
             "note_internal":
                 "Balanced bearish sandwich compression.",
             "note": 
-                "Price is consolidating at eq of asia-london range after bearish move in asia."
+                "Price is consolidating at eq of asia-london range after bearish move in asia.",
+            "context": {
+                "market_state":
+                    "Price consolidated between the earlier overnight ranges, compressing after an initial bearish migration without fully accepting lower prices.",
+                "expected_delivery":
+                    "Expect a sweep of local highs or lows before directional expansion develops. Compression remains the dominant characteristic of the structure.",
+                "trade_focus":
+                    "Focus on compression highs, compression lows and overnight equilibrium. Wait for a liquidity sweep and Ping confirmation before trading the expansion."
+            }
         }
     # =====================================================
     # SANDWICH BULLISH
@@ -2190,9 +2789,16 @@ def classify_ib_structure(
         and ib18["high"] > ib8["low"] > ib18["low"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_bullish"
         return {
+            "execution_edge": 100,
+            "direction": 45,
+            "migration": 40,
+            "pqs": 77,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
@@ -2221,7 +2827,17 @@ def classify_ib_structure(
             "note_internal":
                 "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
             "note": 
-                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range."
+                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range.",
+            "context": {
+                "market_state":
+                    "Market remains in a tight overnight consolidation with liquidity building above and below the range.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep of the consolidation range before directional expansion develops.",
+
+                "trade_focus":
+                    "Focus on consolidation highs, consolidation lows and overnight equilibrium. Wait for a liquidity sweep and Ping confirmation before trading the expansion."
+            }
         }
     
     # =====================================================
@@ -2236,9 +2852,16 @@ def classify_ib_structure(
         and ib1["high"] > ib8["low"] > ib1["low"]
     ):
         name = None
+        group = "compression"
         name = "sandwich_bearish"
         return {
+            "execution_edge": 100,
+            "direction": 45,
+            "migration": 40,
+            "pqs": 77,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
@@ -2272,7 +2895,17 @@ def classify_ib_structure(
             "note_internal":
                 "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
             "note": 
-                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range."
+                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range.",
+            "context": {
+                "market_state":
+                    "Market remains in a tight overnight consolidation with liquidity building above and below the range.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep of the consolidation range before directional expansion develops.",
+
+                "trade_focus":
+                    "Focus on consolidation highs, consolidation lows and overnight equilibrium. Wait for a liquidity sweep and Ping confirmation before trading the expansion."
+            }
         }
     
     # =====================================================
@@ -2285,9 +2918,17 @@ def classify_ib_structure(
         ib1_engulf_ib18 and ib8_inside_ib1
     ):
         name = None
+        group = "compression"
         name = "sandwich_neutral"
         return {
+            "execution_edge": 100,
+            "direction": 20,
+            "migration": 30,
+            "pqs": 70,
+            "pqs": 83,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
@@ -2321,7 +2962,17 @@ def classify_ib_structure(
             "note_internal":
                 "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
             "note": 
-                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range."
+                "The market is in a tight consolidation with no clear directional bias. Expect a strong directional move after sweep of consolidation range.",
+            "context": {
+                "market_state":
+                    "Market remains in a tight overnight consolidation with liquidity building above and below the range.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep of the consolidation range before directional expansion develops.",
+
+                "trade_focus":
+                    "Focus on consolidation highs, consolidation lows and overnight equilibrium. Wait for a liquidity sweep and Ping confirmation before trading the expansion."
+            }
         }
     
     # =====================================================
@@ -2342,9 +2993,16 @@ def classify_ib_structure(
         < 0.15 * ib_range(ib18)
     ):
         name = None
+        group = "compression"
         name = "centered_compression"
         return {
+            "execution_edge": 0,
+            "direction": 0,
+            "migration": 0,
+            "pqs": 70,
+            "reaction_levels": None,
             "structure_name": name,
+            "structure_group": group,
             "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
             "market_phase": "compression",
             "category": "compression",
@@ -2364,16 +3022,33 @@ def classify_ib_structure(
             "mitigation_level": (ib1["high"] + ib1["low"]) / 2,
             "notes_internal": "IB1 inside IB18 with midpoints within 15% of IB18 range.",
             "note":
-                "Tight consolidation inside larger asia range."
+                "Tight consolidation inside larger asia range.",
+            "context": {
+                "market_state":
+                    "Market remains in a tight overnight consolidation with liquidity building above and below the range.",
+
+                "expected_delivery":
+                    "Expect a liquidity sweep of the consolidation range before directional expansion develops.",
+
+                "trade_focus":
+                    "Focus on consolidation highs, consolidation lows and overnight equilibrium. Wait for a liquidity sweep and Ping confirmation before trading the expansion."
+            }
         }
 
     # =====================================================
     # DEFAULT
     # =====================================================
     name = None
+    group = "compression"
     name = "mixed_overlap"
     return {
+        "execution_edge": 0,
+        "direction": 0,
+        "migration": 0,
+        "pqs": 70,
+        "reaction_levels": None,
         "structure_name": name,
+        "structure_group": group,
         "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
         "category": "mixed",
         "direction": "neutral",

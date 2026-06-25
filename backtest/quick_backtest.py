@@ -1246,7 +1246,7 @@ def run_quick_backtest(test_date: str):
                     # filter based on SMT and other market context
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bearish_smt, es_context, es_sell_candidate)
+                    send = check_for_reversal_setup_confirmation(nq_weekly_context, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bearish_smt, es_context, es_sell_candidate)
                     # check for alert at 9:30
                     if send:
                         # check for blocked time
@@ -1304,7 +1304,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, es_context, es_buy_candidate)
+                    send = check_for_reversal_setup_confirmation(nq_weekly_context, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, es_context, es_buy_candidate)
                     print("send from check nq buy candidate: ", send)
                     # check for alert at 9:30
                     if send:
@@ -1354,7 +1354,7 @@ def run_quick_backtest(test_date: str):
                     # rejection of IB at asia session sweep
                     # atr for move
                     send = False                    
-                    send = check_for_reversal_setup_confirmation(es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bearish_smt, nq_context, nq_sell_candidate)
+                    send = check_for_reversal_setup_confirmation(es_weekly_context, es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bearish_smt, nq_context, nq_sell_candidate)
                     print("send 1: ", send)
                     # if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                     #     send = True
@@ -1422,7 +1422,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if es_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, nq_context, nq_buy_candidate)
+                    send = check_for_reversal_setup_confirmation(es_weekly_context, es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, nq_context, nq_buy_candidate)
                     print("send 3: ", send)
                     # check for alert at 9:30
                     if send:

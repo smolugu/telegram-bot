@@ -22,7 +22,8 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     default_risk = None
 
     instrument = candidate.instrument
-    initial_target = candidate.initial_target
+    initial_target = candidate.initial_target_price
+    final_target = candidate.final_target_price
     if instrument == "NQ":
         default_risk = 80
     elif instrument == "ES":
@@ -203,6 +204,9 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     # set stop loss based on OB or IB high or low when we have sweep with displacement
     direction = "bearish" if side == "buy_side" else "bullish"
     tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1)
+
+    # candidate.final_target_price is not None
+
     candidate.insert_trade_data = {
             "entry": entry,
             "side": side,
@@ -239,23 +243,8 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         return None
 
     # rr = 1.5
-    if candidate.final_target == "LIQUIDITY":
-        alert_message = f"""
-        ⚡️Ping Time - {candidate.ping_type}
-
-        Instrument: {instrument}
-        Bias: {bias}
-        Time: {time_formatted}
-
-        Entry: {round(entry, 2)}
-        Stop Loss: {round(stop, 2)}
-        Take Profit 1 - {rr} RR: {round(tp1, 2)}
-        Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
-        
-        Risk (tp1): {round(risk, 2)}
-        RR (tp1): {rr}
-        """
-    else:
+    # final_target = "MINI", "DO", "ATR", "MITL"
+    if candidate.final_target == "ATR":
         alert_message = f"""
         ⚡️Ping Time - {candidate.ping_type}
 
@@ -269,8 +258,56 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
         Take Profit 3 - ATR: {round(tp3, 2)}
 
-        Risk (tp1): {round(risk, 2)}
-        RR (tp1): {rr}
+        Risk (Take Profit 1): {round(risk, 2)}
+        RR (Take Profit 1): {rr}
+        """
+    
+    elif candidate.final_target in ["DO", "MITL", "LIQUIDITY"]:
+        if final_target is not None and final_target < tp2:
+            tp2 = final_target
+        if tp1 > tp2:
+            alert_message = f"""
+            ⚡️Ping Time - {candidate.ping_type}
+
+            Instrument: {instrument}
+            Bias: {bias}
+            Time: {time_formatted}
+
+            Entry: {round(entry, 2)}
+            Stop Loss: {round(stop, 2)}
+            Take Profit 1 - {rr} RR: {round(tp1, 2)}
+            Risk (Take Profit 1): {round(risk, 2)}
+            RR (Take Profit 1): {rr}
+            """
+        else:
+            alert_message = f"""
+            ⚡️Ping Time - {candidate.ping_type}
+
+            Instrument: {instrument}
+            Bias: {bias}
+            Time: {time_formatted}
+
+            Entry: {round(entry, 2)}
+            Stop Loss: {round(stop, 2)}
+            Take Profit 1 - {rr} RR: {round(tp1, 2)}
+            Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+            
+            Risk (tp1): {round(risk, 2)}
+            RR (tp1): {rr}
+            """
+    elif candidate.final_target == "MINI":
+        alert_message = f"""
+        ⚡️Ping Time - {candidate.ping_type}
+
+        Instrument: {instrument}
+        Bias: {bias}
+        Time: {time_formatted}
+
+        Entry: {round(entry, 2)}
+        Stop Loss: {round(stop, 2)}
+        Take Profit - {rr} RR: {round(tp1, 2)}
+        Risk: {round(risk, 2)}
+        RR: {rr}
         """
 
     return alert_message

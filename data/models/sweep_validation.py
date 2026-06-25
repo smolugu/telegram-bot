@@ -15,11 +15,17 @@ def determine_asset_sweep_model(structure):
         "sandwich_bullish",
         "sandwich_bearish",
 
+        "sandwich_gap_bullish",
+        "sandwich_gap_bearish",
+
         "sandwich_overlap_bullish",
         "sandwich_overlap_bearish",
 
         "sandwich_partial_overlap_bullish",
         "sandwich_partial_overlap_bearish",
+
+        "bullish_acceptance_compression",
+        "bearish_acceptance_compression",
 
         "bullish_rebalance_compression",
         "bearish_rebalance_compression",

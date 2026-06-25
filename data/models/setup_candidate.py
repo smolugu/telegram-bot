@@ -48,7 +48,9 @@ class SetupCandidate:
         self.insert_trade_data = None
         self.ping_type = None
         self.initial_target = None
+        self.initial_target_price = None
         self.final_target = None
+        self.final_target_price = None
         
 
     # --------------------------------------------------

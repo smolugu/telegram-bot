@@ -182,7 +182,7 @@ def context_for_london(market_context):
         "require_smt_confirmation": require_smt_confirmation,  # update with actual logic
     }
 
-def check_for_reversal_setup_confirmation(market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, smt_summary, co_asset, co_asset_candidate):
+def check_for_reversal_setup_confirmation(weekly_context, market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, smt_summary, co_asset, co_asset_candidate):
     # get session time
     # bias from previous 7hr candle (ex: bearish)
     # price is below (bearish) previous 7hr candle and (or) rejecting previous 7hr ib
@@ -357,7 +357,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 is_smt = True
         return is_smt
     
-
+    def overextended_atr():
+        return market_context.atr_usage >= 2.0
     # HTF BIAS
     # Primarily for the following structures as these are balanced inventory structures
         # sandwich_bullish
@@ -454,6 +455,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
     # smt check
     is_smt = smt_check()
     is_atr_filter = atr_filter()
+    is_atr_overextended = overextended_atr()
     is_displacement = displacement_filter()
     is_rejection = rejection_filter()
     passed_atr_displacement_filter = displacement_atr_filter()
@@ -664,8 +666,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             # es atr exhasution
             co_asset["market_context"].overnight_expansion or co_asset["market_context"].exhaustion if candidate.instrument == "NQ" else market_context.overnight_expansion or market_context.exhaustion,
         )
-
-        # TODO: replace with HTF bias
+        
         structure_bias = "bullish" if look_for_longs else "bearish"
         htf_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
         direction_context = determine_ping_direction(
@@ -738,7 +739,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     # continuation target
-                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
                     candidate.final_target = "ATR"
 
             elif look_for_shorts and allow_conflict_shorts:
@@ -755,10 +756,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                     # retracement/reversal target = gap between ib18 and ib1
-                    candidate.initial_target = (newyork_context.ib_1["low"] + newyork_context.ib_18["high"]) / 2
-                    candidate.final_target = "DO"
+                    candidate.initial_target_price = (newyork_context.ib_1["low"] + newyork_context.ib_18["high"]) / 2
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
         # block completed
         elif structure_name == "staircase_gap_bearish":
             print("structure : staircase_gap_bearish")
@@ -784,7 +787,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     # continuation target
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
 
             elif look_for_longs and allow_conflict_longs:
@@ -799,10 +802,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" 
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket" 
                     # retracement/reversal target = gap between ib18 and ib1
-                    candidate.initial_target = (newyork_context.ib_1["high"] + newyork_context.ib_18["low"]) / 2
-                    candidate.final_target = "DO"
+                    candidate.initial_target_price = (newyork_context.ib_1["high"] + newyork_context.ib_18["low"]) / 2
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
         # block completed
         elif structure_name == "staircase_early_overlap_bullish":
             print("structure : staircase_early_overlap_bullish")
@@ -831,10 +835,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     # target opposite end of active migration range
-                    candidate.initial_target = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
+                    candidate.final_target = "MINI" if is_atr_overextended else "ATR"
 
             elif look_for_shorts and allow_conflict_shorts:
                 # only allow shorts after:
@@ -847,11 +851,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                     # retracement/reversal target - equilibrium of IB18 to ib8 range
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     # TODO: recheck final_target DO or early Compression high IB1["high"]
-                    candidate.final_target = "DO"
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
         # block completed
         elif structure_name == "staircase_late_overlap_bullish":
             print("structure : staircase_late_overlap_bullish")
@@ -867,13 +873,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     candidate.final_target = "ATR"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
 
             elif look_for_shorts and allow_conflict_shorts:
                 if is_atr_filter and is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     candidate.final_target = "DO"
             
 
@@ -904,10 +910,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                     # target opposite end of active migration range
-                    candidate.initial_target = newyork_context.structure["range_low"]
-                    candidate.final_target = "ATR"
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
+                    # candidate.final_target = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else "ATR"
+                    candidate.final_target_price = None
+
             
             elif look_for_longs and allow_conflict_longs:
                 # only allow longs after:
@@ -920,11 +929,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     # retracement/reversal target - equilibrium of IB18 to ib8 range
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     # TODO: recheck final_target DO or early Compression high IB1["high"]
-                    candidate.final_target = "DO"
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
             
         # block completed
         elif structure_name == "staircase_late_overlap_bearish":
@@ -940,14 +951,16 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     candidate.final_target = "ATR"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
 
             elif look_for_longs and allow_conflict_longs:
                 if is_atr_filter and is_smt and is_rejection:
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.final_target = "DO"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
+                    candidate.final_target_price = market_context.session_open
             
         # block completed
         elif structure_name == "staircase_bullish":
@@ -973,9 +986,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
+                    # candidate.final_target = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else "ATR"
 
                     # optional:
                     # lower confidence weighting
@@ -992,10 +1006,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.ib_18["high"]
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                    candidate.initial_target_price = newyork_context.ib_18["high"]
                     # final target ATR or DO
-                    candidate.final_target = "DO"
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
 
         # block completed
         elif structure_name == "staircase_bearish":
@@ -1022,7 +1038,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
 
                     # optional:
@@ -1042,9 +1058,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
 
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.ib_18["low"]
-                    candidate.final_target = "DO"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = newyork_context.ib_18["low"]
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
 
         # =====================================================
         # ACCEPTANCE COMPRESSION CONFIRMATIONS
@@ -1087,9 +1105,10 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
+                    # candidate.final_target = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else "ATR"
 
             elif look_for_shorts and allow_conflict_shorts:
 
@@ -1106,9 +1125,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
 
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
-                    candidate.final_target = "DO"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
 
         # block completed
         elif structure_name == "bearish_acceptance_compression":
@@ -1145,7 +1166,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
 
             elif look_for_longs and allow_conflict_longs:
@@ -1161,9 +1182,11 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
-                    candidate.final_target = "DO"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
         
         # =====================================================
         # REBALANCE COMPRESSION CONFIRMATIONS
@@ -1214,7 +1237,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
 
                     # if ATR still available:
                     # expansion can continue higher
@@ -1236,7 +1259,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     
 
                     # if upside ATR already exhausted:
@@ -1291,7 +1314,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
 
                     # if ATR still available:
                     # downside expansion can continue
@@ -1312,7 +1335,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
 
                     # if downside ATR already exhausted:
                     # upside move likely terminates
@@ -1356,17 +1379,18 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and candidate.ob_level < newyork_context.structure["mitigation_level"] and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     candidate.final_target = "ATR"
             # for longs we want to use atr_filter, because the bearish move into reintegration should exhaust
             # for ideal flush
             elif look_for_longs and allow_conflict_longs:
                 if is_atr_filter and is_smt and is_rejection:
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     # tp1 other end of compression range
-                    candidate.initial_target = newyork_context.structure["compression_high"]
-                    candidate.final_target = "MITL"
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
+                    # candidate.final_target = "MITL"
+                    candidate.final_target = "MINI" if is_atr_overextended else "MITL"
             # bullish reintegration reversed to ib1 ce or high
             # at this point dont allow 30m OB as it is still in expansion
             print("candidate.sweep level: ", candidate.sweep_level)
@@ -1395,7 +1419,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and candidate.ob_level > newyork_context.structure["mitigation_level"] and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     candidate.final_target = "ATR"
 
             # for shorts we want to use atr_filter, because the bullish move into reintegration should exhaust
@@ -1403,11 +1427,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
             elif look_for_shorts and allow_conflict_shorts:
                 if is_atr_filter and is_smt and is_rejection:
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                     # tp1 other end of compression range
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     # candidate.final_target = newyork_context.structure["mitigation_level"]
-                    candidate.final_target = "MITL"
+                    # candidate.final_target = "MITL"
+                    candidate.final_target = "MINI" if is_atr_overextended else "MITL"
             # bearish reintegration reversed to ib1 ce or low
             # at this point dont allow 30m OB as it is still in expansion
             print("candidate.sweep level: ", candidate.sweep_level)
@@ -1444,7 +1469,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     # opposite end of active range
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
 
             elif look_for_longs and allow_conflict_longs:
@@ -1461,12 +1486,14 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
 
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     # reversal objective back into failed migration equilibrium
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["mitigation_level"]
                     )
-                    candidate.final_target = "DO"
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
 
             # after successful bullish reversal reclaim above open,
             # do not allow fresh shorts
@@ -1499,7 +1526,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     # opposite end of active range
-                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
                     candidate.final_target = "ATR"
 
             elif look_for_shorts and allow_conflict_shorts:
@@ -1513,10 +1540,12 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                     # reversal objective back into failed migration equilibrium
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
-                    candidate.final_target = "DO"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "DO"
+                    candidate.final_target_price = market_context.session_open
 
             # after successful bearish reversal reclaim below open,
             # do not allow fresh longs
@@ -1563,7 +1592,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Expansion"
                     # opposite side of expansion
-                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
                     candidate.final_target = "ATR"
 
             elif look_for_shorts and allow_conflict_shorts:
@@ -1578,7 +1607,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     candidate.final_target = "DO"
 
         elif structure_name == "bearish_decompression":
@@ -1614,7 +1643,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Expansion"
                     # opposite side of expansion
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
 
             elif look_for_longs and allow_conflict_longs:
@@ -1628,8 +1657,8 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Mini Rockets"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.ping_type = "Mini Rocket"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     candidate.final_target = "DO"
         elif structure_name == "bullish_mixed_decompression":
             print("structure : bullish mixed decompression")
@@ -1642,14 +1671,14 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     candidate.final_target = "ATR"
             elif look_for_shorts and allow_conflict_shorts:
                 # TODO: Ob level below ce of decompression range
                 if candidate.ob_level < newyork_context.structure["range_ce"]:
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     candidate.final_target = "MINI"
         elif structure_name == "bearish_mixed_decompression":
             print("structure : bearish mixed decompression")
@@ -1662,14 +1691,14 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     candidate.final_target = "ATR"
             elif look_for_longs and allow_conflict_longs:
                 # TODO: Ob level below ce of decompression range or strong Ob
                 if candidate.ob_level > newyork_context.structure["range_ce"]:
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     candidate.final_target = "MINI"
         # ====================================
         # Set 2 Decompression Structures
@@ -1682,14 +1711,14 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and passed_atr_displacement_filter:
                     reversal_confirmation = True
                     candidate.ping_type = "Expansion"
-                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
                     candidate.final_target = "ATR"
             
             elif look_for_shorts and allow_conflict_shorts:
                 if is_smt and passed_atr_displacement_filter:
                     reversal_confirmation = True
                     candidate.ping_type = "Expansion"
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
 
         elif structure_name == "bearish_macro_decompression":
@@ -1700,14 +1729,14 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and passed_atr_displacement_filter:
                     reversal_confirmation = True
                     candidate.ping_type = "Expansion"
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
             
             elif look_for_longs and allow_conflict_longs:
                 if is_smt and passed_atr_displacement_filter:
                     reversal_confirmation = True
                     candidate.ping_type = "Expansion"
-                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
                     candidate.final_target = "ATR"
         elif structure_name == "bullish_mixed_macro_decompression":
             print("structure : bullish mixed macro decompression")
@@ -1719,13 +1748,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = newyork_context["compression_high"]
+                    candidate.initial_target_price = newyork_context["compression_high"]
                     candidate.final_target = "MINI"
             elif look_for_shorts and allow_conflict_shorts:
                 if is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context["compression_low"]
+                    candidate.initial_target_price = newyork_context["compression_low"]
                     candidate.final_target = "ATR"
         elif structure_name == "bearish_mixed_macro_decompression":
             print("structure : bearish mixed macro decompression")
@@ -1737,13 +1766,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = newyork_context["compression_low"]
+                    candidate.initial_target_price = newyork_context["compression_low"]
                     candidate.final_target = "MINI"
             elif look_for_longs and allow_conflict_longs:
                 if is_smt and is_rejection:
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context["compression_high"]
+                    candidate.initial_target_price = newyork_context["compression_high"]
                     candidate.final_target = "ATR"
 
         # ====================================
@@ -1761,13 +1790,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and is_rejection:
                     reversal_confirmation + True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["range_high"]
+                    candidate.initial_target_price = newyork_context.structure["range_high"]
                     candidate.final_target = "ATR"
             elif look_for_shorts and allow_conflict_shorts:
                 if is_smt and is_rejection and is_atr_filter:
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     # TODO: final target can be IB1 high or DO
                     candidate.final_target = "MINI"
         elif structure_name == "bearish_early_decompression":
@@ -1780,13 +1809,13 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 if is_smt and is_rejection:
                     reversal_confirmation + True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["range_low"]
+                    candidate.initial_target_price = newyork_context.structure["range_low"]
                     candidate.final_target = "ATR"
             elif look_for_longs and allow_conflict_longs:
                 if is_smt and is_rejection and is_atr_filter:
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["mitigation_level"]
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = newyork_context.structure["mitigation_level"]
                     # TODO: final target can be IB1 low or DO
                     candidate.final_target = "MINI"
         elif structure_name == "mixed_early_decompression":
@@ -1879,7 +1908,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     # opposite side of compression
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     
                     # if ATR still available:
                     # continuation expansion possible
@@ -1904,7 +1933,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     candidate.ping_type = "Mini Flush"
 
                     # opposite side of compression
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
 
                     # if upside ATR exhausted:
                     # downside likely terminates
@@ -1962,7 +1991,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     # opposite side of compression
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
 
@@ -1987,7 +2016,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
                     # opposite side of compression
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
 
                     # if downside ATR exhausted:
                     # upside likely terminates
@@ -2069,7 +2098,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                         reversal_confirmation = True
                         candidate.ping_type = "Rocket"
                         # opposite side of compression
-                        candidate.initial_target = newyork_context.structure["compression_high"]
+                        candidate.initial_target_price = newyork_context.structure["compression_high"]
 
                         # bullish expansion is preferred expectation, so ATR
                         candidate.final_target = "ATR"
@@ -2093,7 +2122,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                         reversal_confirmation = True
                         candidate.ping_type = "Mini Flush"
                         # opposite side of compression
-                        candidate.initial_target = newyork_context.structure["compression_low"]
+                        candidate.initial_target_price = newyork_context.structure["compression_low"]
 
                         # final target is compression low
                         candidate.final_target = "MINI"
@@ -2156,7 +2185,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                         reversal_confirmation = True
                         candidate.ping_type = "Rocket"
-                        candidate.initial_target = newyork_context.structure["compression_high"]
+                        candidate.initial_target_price = newyork_context.structure["compression_high"]
                         # primary expansion candidate, final target is ATR
                         candidate.final_target = "ATR"
 
@@ -2176,7 +2205,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                         reversal_confirmation = True
                         candidate.ping_type = "Mini Flush"
 
-                        candidate.initial_target = newyork_context.structure["compression_low"]
+                        candidate.initial_target_price = newyork_context.structure["compression_low"]
                         candidate.final_target = "MINI"
 
         # block completed
@@ -2235,7 +2264,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                         candidate.ping_type = "Flush"
 
                         # opposite side of compression
-                        candidate.initial_target = newyork_context.structure["compression_low"]
+                        candidate.initial_target_price = newyork_context.structure["compression_low"]
 
                         # primary scenario towards ATR
 
@@ -2262,7 +2291,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                         candidate.ping_type = "Mini Rocket"
 
                         # opposite side of compression
-                        candidate.initial_target = newyork_context.structure["compression_high"]
+                        candidate.initial_target_price = newyork_context.structure["compression_high"]
                         candidate.final_target = "MINI"
 
             # rebalance block
@@ -2337,7 +2366,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                         candidate.ping_type = "Flush"
 
-                        candidate.initial_target = newyork_context.structure["compression_low"]
+                        candidate.initial_target_price = newyork_context.structure["compression_low"]
 
                         # primary expansion towards ATR in bearish structure
                         candidate.final_target = "ATR"
@@ -2360,7 +2389,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                         reversal_confirmation = True
                         candidate.ping_type = "Mini Rocket"
-                        candidate.initial_target = newyork_context.structure["compression_high"]
+                        candidate.initial_target_price = newyork_context.structure["compression_high"]
                         # close at compression highs.
                         candidate.final_target = "MINI"
 
@@ -2436,7 +2465,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     # market still hasnt decided direction, close at compression high
                     candidate.final_target = "MINI"
                 elif (
@@ -2449,7 +2478,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     # both sides liquidity harvested, price ready to expand
                     candidate.final_target = "ATR"
 
@@ -2471,7 +2500,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     # market hasnt decided yet
                     candidate.final_target = "MINI"
                 elif (
@@ -2485,7 +2514,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     # market harvested liquidity on both sides
                     candidate.final_target = "ATR"
                     
@@ -2551,7 +2580,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
 
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     # market is not ready yet for the move
                     candidate.final_target = "MINI"
                 elif (
@@ -2566,7 +2595,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
 
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     # market has harvested liquidity on both sides and ready to expand
                     candidate.final_target = "ATR"
 
@@ -2588,7 +2617,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     # market not ready yet for the final move
                     candidate.final_target = "MINI"
                 elif (
@@ -2602,7 +2631,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     # market has harvested liquidity on both sides and ready to expand
                     candidate.final_target = "ATR"
         # block completed
@@ -2660,7 +2689,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
                     candidate.final_target = "MINI"
@@ -2675,7 +2704,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
                     candidate.final_target = "ATR"
@@ -2698,7 +2727,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
                     candidate.final_target = "MINI"
@@ -2712,7 +2741,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
                     candidate.final_target = "ATR"
@@ -2776,7 +2805,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     candidate.final_target = "MINI"
                 elif (
                     is_smt
@@ -2789,7 +2818,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
                     candidate.final_target = "ATR"
@@ -2812,7 +2841,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     candidate.final_target = "MINI"
                 elif (
                     is_smt
@@ -2825,7 +2854,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = (
+                    candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
                     candidate.final_target = "ATR"
@@ -2857,7 +2886,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     candidate.final_target = "MINI"
                 elif (
                     is_smt
@@ -2868,7 +2897,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
 
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target = newyork_context.structure["compression_low"]
+                    candidate.initial_target_price = newyork_context.structure["compression_low"]
                     candidate.final_target = "ATR"
 
             elif look_for_longs and allow_conflict_longs:
@@ -2884,7 +2913,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     candidate.final_target = "MINI"
                 elif (
                     is_smt
@@ -2897,7 +2926,7 @@ def check_for_reversal_setup_confirmation(market_context, london_context, newyor
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target = newyork_context.structure["compression_high"]
+                    candidate.initial_target_price = newyork_context.structure["compression_high"]
                     candidate.final_target = "ATR"
                         
         
