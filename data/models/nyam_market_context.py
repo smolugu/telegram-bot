@@ -19,17 +19,29 @@ class NewYorkMarketContext:
         self.preferred_sweep = None
         self.quality = None
         self.note = None
+        self.execution_state = {
+            "rocket_triggered": False,
+            "rocket_completed": False,
+            "flush_triggered": False,
+            "flush_completed": False,
+        }
+        self.auction_phase = None
 
         # -------- STRUCTURE --------
         # Ib_relationship: inside_1am, inside_18, engulfing_1am, engulfing_18, sandwich, above_1_18,
         # partial_overlap_bullish, partial_overlap_neutral, below_1_18, partial_overlap_bearish
         self.structure = {
             "name": None,
+            "group": None,
+            "structure_phase": None,
+            "auction_phase": None,
+            "is_neutral_direction_structure": False,
             "category": None,
             "direction": None,
             "is_staircase": False,
             "migration_strength": None,
             "is_compression": False,
+            "is_compression_resolution": False,
             "is_strong_compression": False,
             "range_high_swept": False,
             "range_low_swept": False,
@@ -41,8 +53,14 @@ class NewYorkMarketContext:
             "is_value_flip": False,
             "note_internal": None,
             "note": None,
-            "compressison_high": None,
-            "compressison_low": None,
+            "context_summary": None,
+            "compression_state": {
+                "first_sweep": None,      # "high" | "low"
+                "second_sweep": None,     # "high" | "low"
+                "compression_resolved": False,
+            },
+            "compression_high": None,
+            "compression_low": None,
             "compressison_ce": None,
             "range_high": None,
             "range_low": None,
@@ -178,11 +196,23 @@ class NewYorkMarketContext:
             self.ib_18["high"] < self.ib_1["high"]
         )
         ib_classification_data = classify_ib_structure(self.ib_18, self.ib_1, self.ib_8)
-        print("ib_data: ", ib_classification_data)
+        print("ib_dataXX: ", ib_classification_data)
+        
+        self.structure["execution_edge"] = ib_classification_data["execution_edge"]
+        self.structure["direction_score"] = ib_classification_data["direction_score"]
+        self.structure["migration_score"] = ib_classification_data["migration_score"]
+        self.structure["pqs"] = ib_classification_data["pqs"]
+        self.structure["reaction_levels"] = ib_classification_data["reaction_levels"]
         self.structure["name"] = ib_classification_data["structure_name"]
+        self.structure["structure_phase"] = ib_classification_data["structure_phase"]
+        self.structure["auction_phase"] = ib_classification_data["auction_phase"]
+        self.structure["group"] = ib_classification_data["structure_group"]
+        self.structure["is_neutral_direction_structure"] = ib_classification_data["is_neutral_direction_structure"]
+        
         self.structure["category"] = ib_classification_data["category"]
         self.structure["direction"] = ib_classification_data["direction"]
         self.structure["is_compression"] = ib_classification_data["is_compression"]
+        self.structure["is_compression_resolution"] = ib_classification_data["is_compression_resolution"]
         self.structure["is_strong_compression"] = ib_classification_data["is_strong_compression"]
         self.structure["compression_strength"] = ib_classification_data["compression_strength"]
         self.structure["is_acceptance"] = ib_classification_data["is_acceptance"]
@@ -192,15 +222,16 @@ class NewYorkMarketContext:
         self.structure["is_value_flip"] = ib_classification_data["is_value_flip"]
         self.structure["note"] = ib_classification_data["note"]
         self.structure["note_internal"] = ib_classification_data["note_internal"]
-        self.structure["compression_high"] = ib_classification_data["range"]["high"]
-        self.structure["compression_low"] = ib_classification_data["range"]["low"]
-        self.structure["compression_ce"] = ib_classification_data["range"]["ce"]
+        self.structure["context_summary"] = ib_classification_data["context_summary"]
+        self.structure["compression_high"] = ib_classification_data["compression_range"]["high"]
+        self.structure["compression_low"] = ib_classification_data["compression_range"]["low"]
+        self.structure["compression_ce"] = ib_classification_data["compression_range"]["ce"]
         self.structure["range_high"] = ib_classification_data["range"]["high"]
         self.structure["range_low"] = ib_classification_data["range"]["low"]
         self.structure["range_ce"] = ib_classification_data["range"]["ce"]
-        self.structure["equilibrium_high"] = ib_classification_data["range"]["high"]
-        self.structure["equilibrium_low"] = ib_classification_data["range"]["low"]
-        self.structure["equilibrium_ce"] = ib_classification_data["range"]["ce"]
+        self.structure["equilibrium_high"] = ib_classification_data["equilibrium_range"]["high"]
+        self.structure["equilibrium_low"] = ib_classification_data["equilibrium_range"]["low"]
+        self.structure["equilibrium_ce"] = ib_classification_data["equilibrium_range"]["ce"]
         self.structure["mitigation_level"] = ib_classification_data["mitigation_level"]
         self.structure["migration_strength"] = ib_classification_data["migration_strength"]
         self.structure["is_staircase"] = ib_classification_data["is_staircase"]
@@ -656,12 +687,27 @@ class NewYorkMarketContext:
         self.update_phase()
     
     # =========================================
-    # 7. Compression Summary
+    # 7. Compression state
+    # =========================================
+    def update_compression_state(self, liquidity_level):
+        if liquidity_level["cr8am_high"]["swept"] and not liquidity_level["cr8am_low"]["swept"]:
+            self.structure["compression_state"]["first_sweep"] = "high"
+        elif not liquidity_level["cr8am_high"]["swept"] and liquidity_level["cr8am_low"]["swept"]:
+            self.structure["compression_state"]["first_sweep"] = "low"
+        elif liquidity_level["cr8am_high"]["swept"] and liquidity_level["cr8am_low"]["swept"]:
+            if self.structure["compression_state"]["first_sweep"] == "high":
+                self.structure["compression_state"]["second_sweep"] = "low"
+            else:
+                self.structure["compression_state"]["second_sweep"] = "high"
+            self.structure["compression_state"]["compression_resolved"] = True
+        
+    # =========================================
+    # 8. Compression Summary
     # =========================================
     def get_compression_data(self):
         is_compression = False
         compression_range = {"high": None, "low": None}
         is_compression = self.structure["is_compression"] or self.phase == "recompression"
-        compression_range["high"] = self.structure["range_high"]
-        compression_range["low"] = self.structure["range_low"]
+        compression_range["high"] = self.structure["compression_high"]
+        compression_range["low"] = self.structure["compression_low"]
         return is_compression, compression_range, self.sweep

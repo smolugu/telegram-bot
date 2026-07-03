@@ -84,6 +84,8 @@ class MarketContext:
         self.bearish_smt_7h = None
         self.bullish_smt_1h = None
         self.bearish_smt_1h = None  
+        self.bullish_smt_1h_liquidity = None
+        self.bearish_smt_1h_liquidity = None  
         self.bullish_smt_30m = None 
         self.bearish_smt_30m = None
         self.bullish_key_level_smt = None
@@ -436,6 +438,9 @@ class MarketContext:
     def update_1h_smt(self, bullish_smt_1h, bearish_smt_1h):
         self.bullish_smt_1h = bullish_smt_1h
         self.bearish_smt_1h = bearish_smt_1h
+    def update_1h_smt_liquidity(self, bullish_smt_1h_liquidity, bearish_smt_1h_liquidity):
+        self.bullish_smt_1h_liquidity = bullish_smt_1h_liquidity
+        self.bearish_smt_1h_liquidity = bearish_smt_1h_liquidity
 
     def update_1h_smt_status(self, last_closed_nq, last_closed_es):
         if self.bullish_smt_1h is not None:

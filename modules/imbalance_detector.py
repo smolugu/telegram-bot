@@ -93,14 +93,23 @@ def detect_3m_imbalance_inside_ob_candle(
     candidate, instrument, last_closed_candle
 ):
 
-    if not candidate.ob_confirmed:
+    if not candidate.final_ob_confirmed:
         return None
-
-    ob = candidate.ob_data
+    if candidate.ob_data is not None:
+        ob = candidate.ob_data
+        confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+        ob_high = ob["ob_high"]
+        ob_low = ob["ob_low"]
+        ce_ob = (ob_high + ob_low) / 2
+    else:
+        ob_high = last_closed_candle["high"]
+        ob_low = last_closed_candle["low"]
+        confirmation_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
+        ce_ob = (ob_high + ob_low) / 2
 
     # we are detecting imbalances in the current candle which created the OB
     last_closed_candle_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
-    confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
+    # confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
     
     if last_closed_candle_ts > confirmation_ts:
         confirmation_ts = last_closed_candle_ts
@@ -111,9 +120,9 @@ def detect_3m_imbalance_inside_ob_candle(
         sweep_time = datetime.fromisoformat(last_closed_candle["timestamp"])
     else:
         sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
-    ob_high = ob["ob_high"]
-    ob_low = ob["ob_low"]
-    ce_ob = (ob_high + ob_low) / 2
+    # ob_high = ob["ob_high"]
+    # ob_low = ob["ob_low"]
+    # ce_ob = (ob_high + ob_low) / 2
     sweep_extreme_price = candidate.sweep_candle_extreme
     # print("Ob high/low:", ob_high, ob_low, "| OB candle window:", ob_candle_start, "to", ob_candle_end)
     # print("Sweep timestamp:", sweep_time)
@@ -183,6 +192,7 @@ def detect_3m_imbalance_inside_ob_candle(
                         "instrument": instrument,
                         "ce_ob": ce_ob
                     })
+                    # print("candidates vi: ", candidates)
             
             # ---------------------------
             # 2️⃣ Bearish FVG (3 candle logic)
@@ -210,6 +220,7 @@ def detect_3m_imbalance_inside_ob_candle(
                             "instrument": instrument,
                             "ce_ob": ce_ob  
                         })
+                        # print("candidates fvg: ", candidates)
 
         # ==========================================================
         # 🟢 BULLISH SETUP (sell_side sweep → looking for long)
@@ -274,6 +285,7 @@ def detect_3m_imbalance_inside_ob_candle(
                         })
 
     if not candidates:
+        # print("no candidates")
         return None
     # print("Imbalance candidates:", candidates)
 

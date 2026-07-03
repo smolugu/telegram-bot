@@ -130,6 +130,7 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, tolerance=0):
         price = level_data["price"]
         swept = level_data["swept"]
 
+        # if price is None or swept or level_type == "ob8_mtl_low" or level_type == "ob8_mtl_high":
         if price is None or swept:
             continue
 
@@ -192,6 +193,7 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, tolerance=0):
         price = level_data["price"]
         swept = level_data["swept"]
 
+        # if price is None or swept or level_type == "ob8_mtl_low" or level_type == "ob8_mtl_high":
         if price is None or swept:
             continue
 
@@ -294,6 +296,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "side": "sell_side",
             "timestamp": last_closed_candle["timestamp"],
             "sweep_candle_low": low,
+            "sweep_candle_extreme": low,
             "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
             "sweep_time": sweep_time_low,
             "sweep_level": max_sweep_level_low,
@@ -306,6 +309,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
             "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
             "caution": False,
+            "is_valid": True,
+            "sweep_model": None,
             "ob_level": ob_level,
             "is_level_rejection": is_level_rejection,
             "rejection_ob_level": rejection_ob_level
@@ -350,6 +355,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "side": "buy_side",
             "timestamp": last_closed_candle["timestamp"],
             "sweep_candle_high": high,
+            "sweep_candle_extreme": high,
             "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
             "sweep_time": sweep_time_high,
             "sweep_level": max_sweep_level_high,
@@ -362,6 +368,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
             "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
             "caution": False,
+            "is_valid": True,
+            "sweep_model": None,
             "ob_level": ob_level,
             "is_level_rejection": is_level_rejection,
             "rejection_ob_level": rejection_ob_level
@@ -455,6 +463,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "side": "buy_side",
                 "timestamp": last_closed_candle["timestamp"],
                 "sweep_candle_high": high,
+                "sweep_candle_extreme": high,
                 "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
                 "sweep_time": sweep_time,
                 "sweep_level": max(swing["high"], max_swl) if max_swl else swing["high"],
@@ -467,6 +476,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
                 "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
                 "caution": False,
+                "is_valid": True,
+                "sweep_model": None,
                 "ob_level": ob_level,
                 "is_level_rejection": is_level_rejection,
                 "rejection_ob_level": rejection_ob_level
@@ -519,6 +530,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "side": "sell_side",
                 "timestamp": last_closed_candle["timestamp"],
                 "sweep_candle_low": low,
+                "sweep_candle_extreme": low,
                 "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
                 "sweep_time": sweep_time,
                 "sweep_level": min(swing["low"], max_swl) if max_swl else swing["low"],
@@ -531,8 +543,11 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_and_ob_ce_entry": nq_sweep_and_ob_ce_entry,
                 "sweep_and_ob_confirmation_timestamp": nq_sweep_and_ob_confirmation_timestamp,
                 "caution": False,
+                "is_valid": True,
+                "sweep_model": None,
                 "ob_level": ob_level,
-                "is_level_rejection": is_level_rejection
+                "is_level_rejection": is_level_rejection,
+                "rejection_ob_level": rejection_ob_level
             }
             break
 

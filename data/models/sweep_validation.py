@@ -162,9 +162,10 @@ def validate_sweeps(
     }
     nq_sweep_model = None
     es_sweep_model = None
-    nq_validation = None
-    es_validation = None
+    # nq_validation = None
+    # es_validation = None
     # completed, review later
+    
     def _validate_compression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         sweep_rejected_highs = True
         caution_highs = False
@@ -228,6 +229,7 @@ def validate_sweeps(
             else:
                 es_validation["highs"]["is_valid"] = not sweep_rejected_highs
                 es_validation["highs"]["caution"] = caution_highs
+            
         # =================
         # sweep lows block
         # =================
@@ -254,7 +256,7 @@ def validate_sweeps(
             
             if swept_level > compression_range["low"] and last_closed["low"] > compression_range["low"]:
                 print("Asset Sweep at lows rejected due to compression. invalidating sweep inside compression range")
-                print("section 4")
+                print("section 44")
                 # sweep_lows = None
                 # sweep_lows_key_level = None
                 sweep_rejected_lows = True
@@ -659,10 +661,12 @@ def validate_sweeps(
                 _validate_compression_sweeps(
                     instrument= instrument, ny_market_context=nq_ny_market_context, last_closed=last_closed_nq, prev_last_closed=prev_last_closed_nq , sweep_highs=sweep_nq_highs, sweep_highs_key_level=sweep_nq_highs_key_level, sweep_lows=sweep_nq_lows, sweep_lows_key_level=sweep_nq_lows_key_level
                 )
+                print("nq_validation: ", nq_validation)
             elif instrument == "ES":
                 _validate_compression_sweeps(
                     instrument= instrument, ny_market_context=es_ny_market_context, last_closed=last_closed_es, prev_last_closed=prev_last_closed_es , sweep_highs=sweep_es_highs, sweep_highs_key_level=sweep_es_highs_key_level, sweep_lows=sweep_es_lows, sweep_lows_key_level=sweep_es_lows_key_level
                 )
+                print("es_validation: ", es_validation)
 
         elif sweep_model == "migration":
             if instrument == "NQ":
@@ -728,18 +732,17 @@ def validate_sweeps(
 
     nq_sweep_model = determine_asset_sweep_model(nq_ny_market_context.structure)
     es_sweep_model = determine_asset_sweep_model(es_ny_market_context.structure)
-
+    
     # step 2: validate sweeps based on sweep model
-    nq_validation = validate_asset_sweeps(
-        asset_name="NQ",
+    validate_asset_sweeps(
+        instrument="NQ",
         sweep_model=nq_sweep_model,
     )
 
-    es_validation = validate_asset_sweeps(
-        asset_name="ES",
+    validate_asset_sweeps(
+        instrument="ES",
         sweep_model=es_sweep_model,
     )
-
     
     return {
         "NQ": {

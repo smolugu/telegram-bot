@@ -8,8 +8,8 @@ def initialize_weekly_state():
         "weekly_open": None,
         "price_location": None,      # above | below
 
-        "bullish_cisd": False,
-        "bearish_cisd": False,
+        "bullish_cisd": None,
+        "bearish_cisd": None,
 
         "bullish_fvg": None,
         "bearish_fvg": None,
@@ -50,13 +50,6 @@ def filter_weekly_1h_candles(candles_1h):
         ) >= week_start
     ]
 
-def detect_bullish_cisd(candles):
-
-    return True
-
-def detect_bearish_cisd(candles):
-
-    return True
 
 def _detect_latest_fvg(candles):
 

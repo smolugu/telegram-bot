@@ -1,8 +1,11 @@
+import uuid
+
 class SetupCandidate:
 
     def __init__(self, side, instrument):
         self.side = side  # "buy_side" or "sell_side"
         self.instrument = instrument
+        self.id =  uuid.uuid4().hex[:8]
         
         self.reset()
 
@@ -10,6 +13,7 @@ class SetupCandidate:
         # if instrument:
         #     self.instrument = instrument
         self.active = False
+        self.id = uuid.uuid4().hex[:8]
         self.sweep_timestamp = None
         self.sweep_candle_extreme = None
         self.sweep_3m_timestamp = None
@@ -62,26 +66,7 @@ class SetupCandidate:
     # --------------------------------------------------
 
 
-    def register_sweep_old(self, timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False):
-        self.reset()
-        self.active = True
-        self.sweep_timestamp = timestamp
-        self.sweep_candle_extreme = sweep_candle_extreme
-        self.sweep_3m_timestamp = sweep_time
-        self.sweep_and_ob_confirmed = sweep_and_ob_confirmed
-        self.sweep_and_ob_entry = sweep_and_ob_entry
-        self.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
-        self.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
-        self.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
-        self.confirmation_time = sweep_and_ob_confirmation_timestamp
-        self.swept_levels = swept_levels
-        self.sweep_type = sweep_type
-        self.check_breakout_rejection = sweep_type == "breakout"
-        self.instrument = instrument
-        self.sweep_candle = sweep_candle
-        self.sweep_level = sweep_level
-        self.caution = caution
-
+    
     def register_sweep(self, sweep_data):
         # timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False
         

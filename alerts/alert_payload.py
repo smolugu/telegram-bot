@@ -24,6 +24,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     instrument = candidate.instrument
     initial_target = candidate.initial_target_price
     final_target = candidate.final_target_price
+    alert_message = ""
     if instrument == "NQ":
         default_risk = 80
     elif instrument == "ES":
@@ -72,7 +73,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
             print("entry1 buyside: ", entry)
             rr = 2
             print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
-        else:
+        elif entry is None:
             if candidate.ob_data is not None:
                 entry = candidate.ob_data["ob_low"]
                 print("entry2 buyside: ", entry)
@@ -91,26 +92,39 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         #     rr = 4
         risk = stop - entry
         if initial_target is not None:
-            tp1 = initial_target
-            print("tp1 based on initial target: ", tp1)
-            rr = abs(entry - tp1) / risk
-            rr = round(rr, 2)
-        else:
+            print("risk: ", risk)
+            print("entry: ", entry)
+            print("initial_target: ", initial_target)
+            rr_initial_target = abs(entry - initial_target) / risk
+            rr_initial_target = round(rr_initial_target, 2)
+            print("rr_in1: ", rr_initial_target)
+        if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry - (risk * rr)
             print("tp1: ", tp1)
+        else:
+            rr = rr_initial_target
+            tp1 = initial_target
+            print("tp1 based on initial target and rr_initial_targetxx: ", tp1, rr_initial_target)
+            
 
     elif side == "buy_side" and entry < ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
         if initial_target is not None:
-            tp1 = initial_target
-            print("tp1 based on initial target: ", tp1)
-            rr = abs(entry - tp1) / risk
-            rr = round(rr, 2)
-        else:
+            print("risk: ", risk)
+            print("entry: ", entry)
+            print("initial_target: ", initial_target)
+            rr_initial_target = abs(entry - initial_target) / risk
+            rr_initial_target = round(rr_initial_target, 2)
+            print("rr_in2: ", rr_initial_target)
+        if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry - (risk * rr)
             print("tp1 based on rr: ", tp1)
+        else:
+            rr = rr_initial_target
+            tp1 = initial_target
+            print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
 
         # candidate.insert_trade_data = {
         #     "entry": entry,
@@ -125,20 +139,26 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         rr = 1.5
         risk = abs(entry - stop)
         if initial_target is not None:
-            tp1 = initial_target
-            print("tp1 based on initial target: ", tp1)
-            rr = abs(entry - tp1) / risk
-            rr = round(rr, 2)
-        else:
+            print("risk: ", risk)
+            print("entry: ", entry)
+            print("initial_target: ", initial_target)
+            rr_initial_target = abs(entry - initial_target) / risk
+            rr_initial_target = round(rr_initial_target, 2)
+            print("rr_in3: ", rr_initial_target)
+        if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry - (risk * rr)
             print("Using original imbalance entry. TP adjusted to:", entry)
+        else:
+            rr = rr_initial_target
+            tp1 = initial_target
+            print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
             entry = candidate.sweep_and_ob_ce_entry
             print("entry1: ", entry)
             rr = 2
             print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
-        else:
+        elif entry is None:
             if candidate.ob_data is not None:
                 entry = candidate.ob_data["ob_high"]
                 print("entry2: ", entry)
@@ -157,37 +177,43 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         #     rr = 4
         risk = abs(entry - stop)
         if initial_target is not None:
-            tp1 = initial_target
-            print("tp1 based on initial target: ", tp1)
-            rr = abs(entry - tp1) / risk
-            rr = round(rr, 2)
-        else:
-            print("tp1 based on rr: ", tp1)
+            rr_initial_target = abs(entry - initial_target) / risk
+            rr_initial_target = round(rr_initial_target, 2)
+        if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
+            print("tp1: ", tp1)
+        else:
+            rr = rr_initial_target
+            tp1 = initial_target
+            print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
         
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
         if initial_target is not None:
-            tp1 = initial_target
-            print("tp1 based on initial target: ", tp1)
-            rr = abs(entry - tp1) / risk
-            rr = round(rr, 2)
-        else:
+            rr_initial_target = abs(entry - initial_target) / risk
+            rr_initial_target = round(rr_initial_target, 2)
+        if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
             print("tp1 based on rr: ", tp1)
+        else:
+            rr = rr_initial_target
+            tp1 = initial_target
+            print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
     elif side == "sell_side":
         rr = 1.5
         risk = abs(entry - stop)
         if initial_target is not None:
-            tp1 = initial_target
-            print("tp1 based on initial target: ", tp1)
-            rr = abs(entry - tp1) / risk
-            rr = round(rr, 2)
-        else:
+            rr_initial_target = abs(entry - initial_target) / risk
+            rr_initial_target = round(rr_initial_target, 2)
+        if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
             print("Using original imbalance entry. TP adjusted to:", entry)
+        else:
+            rr = rr_initial_target
+            tp1 = initial_target
+            print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
         
         # candidate.insert_trade_data = {
         #     "entry": entry,
@@ -206,6 +232,16 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1)
 
     # candidate.final_target_price is not None
+    if side == "buy_side" and instrument == "ES":
+        stop = stop + 0.50
+    elif side == "sell_side" and instrument == "ES":
+        stop = stop - 0.05
+    
+    if side == "buy_side" and instrument == "NQ":
+        stop = stop + 2
+    elif side == "sell_side" and instrument == "NQ":
+        stop = stop - 2
+
 
     candidate.insert_trade_data = {
             "entry": entry,
@@ -242,9 +278,25 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     else:
         return None
 
+    alert_type = "t1"
+    if candidate.final_target == "ATR":
+        alert_type = "t3"
+    elif candidate.final_target in ["DO", "MITL", "LIQUIDITY", "RL", "RH"]:
+        alert_type = "t2"
+        if final_target is not None and side == "buy_side" and final_target > tp2:
+            tp2 = final_target
+            if tp1 < tp2:
+                alert_type = "t1"
+        if final_target is not None and side == "sell_side" and final_target < tp2:
+            tp2 = final_target
+            if tp1 > tp2:
+                alert_type = "t1"
+    else:
+        alert_type = "t1"
+
     # rr = 1.5
     # final_target = "MINI", "DO", "ATR", "MITL"
-    if candidate.final_target == "ATR":
+    if alert_type == "t3":
         alert_message = f"""
         ⚡️Ping Time - {candidate.ping_type}
 
@@ -259,43 +311,27 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         Take Profit 3 - ATR: {round(tp3, 2)}
 
         Risk (Take Profit 1): {round(risk, 2)}
-        RR (Take Profit 1): {rr}
+        Min RR: {rr}
         """
     
-    elif candidate.final_target in ["DO", "MITL", "LIQUIDITY"]:
-        if final_target is not None and final_target < tp2:
-            tp2 = final_target
-        if tp1 > tp2:
-            alert_message = f"""
-            ⚡️Ping Time - {candidate.ping_type}
+    elif alert_type == "t2":
+    
+        alert_message = f"""
+        ⚡️Ping Time - {candidate.ping_type}
 
-            Instrument: {instrument}
-            Bias: {bias}
-            Time: {time_formatted}
+        Instrument: {instrument}
+        Bias: {bias}
+        Time: {time_formatted}
 
-            Entry: {round(entry, 2)}
-            Stop Loss: {round(stop, 2)}
-            Take Profit 1 - {rr} RR: {round(tp1, 2)}
-            Risk (Take Profit 1): {round(risk, 2)}
-            RR (Take Profit 1): {rr}
-            """
-        else:
-            alert_message = f"""
-            ⚡️Ping Time - {candidate.ping_type}
-
-            Instrument: {instrument}
-            Bias: {bias}
-            Time: {time_formatted}
-
-            Entry: {round(entry, 2)}
-            Stop Loss: {round(stop, 2)}
-            Take Profit 1 - {rr} RR: {round(tp1, 2)}
-            Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
-            
-            Risk (tp1): {round(risk, 2)}
-            RR (tp1): {rr}
-            """
-    elif candidate.final_target == "MINI":
+        Entry: {round(entry, 2)}
+        Stop Loss: {round(stop, 2)}
+        Take Profit 1 - {rr} RR: {round(tp1, 2)}
+        Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+        
+        Risk: {round(risk, 2)}
+        Min RR: {rr}
+        """
+    elif alert_type == "t1":
         alert_message = f"""
         ⚡️Ping Time - {candidate.ping_type}
 
@@ -307,9 +343,8 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         Stop Loss: {round(stop, 2)}
         Take Profit - {rr} RR: {round(tp1, 2)}
         Risk: {round(risk, 2)}
-        RR: {rr}
+        Min RR: {rr}
         """
-
     return alert_message
 
 

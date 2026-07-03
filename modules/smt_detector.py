@@ -65,11 +65,11 @@ def detect_htf_smt_precise(
     # -------------------------
     nq_unswept_highs = filter_unswept_highs(nq_prev)
     nq_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in nq_unswept_highs]
-    # print("nq prevv hihgs: ", nq_prev_highs)
+    print("nq prevv hihgs: ", nq_prev_highs)
 
     es_unswept_highs = filter_unswept_highs(es_prev)
     es_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in es_unswept_highs]
-    # print("es prevv hihgs: ", es_prev_highs)
+    print("es prevv hihgs: ", es_prev_highs)
 
     nq_unswept_lows = filter_unswept_lows(nq_prev)
     nq_prev_lows = [{"low": c["low"], "timestamp": c["timestamp"]} for c in nq_unswept_lows]
@@ -184,6 +184,67 @@ def detect_htf_smt_precise(
                     "es_level_price": es_low["low"],
                     "level_ts": es_low["timestamp"]
                 }
+            
+    return bullish_smt, bearish_smt
+
+def detect_htf_smt_liquidity(
+    nq_candles,
+    es_candles,
+    lookback=30,
+    time_tolerance=timedelta(minutes=5)
+):
+    bearish_smt = None
+    bullish_smt = None
+    if len(nq_candles) < lookback + 1:
+        return None, None
+    
+    nq_current = nq_candles[-1]
+    es_current = es_candles[-1]
+    
+    nq_prev = nq_candles[-(lookback+1):-1]
+    es_prev = es_candles[-(lookback+1):-1]
+    
+    # -------------------------
+    # Build ALL previous levels
+    # -------------------------
+    nq_unswept_highs = filter_unswept_highs(nq_prev)
+    nq_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in nq_unswept_highs]
+    print("nq prevv hihgs: ", nq_prev_highs)
+
+    es_unswept_highs = filter_unswept_highs(es_prev)
+    es_prev_highs = [{"high": c["high"], "timestamp": c["timestamp"]} for c in es_unswept_highs]
+    print("es prevv hihgs: ", es_prev_highs)
+
+    nq_unswept_lows = filter_unswept_lows(nq_prev)
+    nq_prev_lows = [{"low": c["low"], "timestamp": c["timestamp"]} for c in nq_unswept_lows]
+
+    es_unswept_lows = filter_unswept_lows(es_prev)
+    es_prev_lows = [{"low": c["low"], "timestamp": c["timestamp"]} for c in es_unswept_lows]
+    
+    nq_buyside_remaining = len(nq_prev_highs)
+    es_buyside_remaining = len(es_prev_highs)
+
+    nq_sellside_remaining = len(nq_prev_lows)
+    es_sellside_remaining = len(es_prev_lows)
+    buy_diff = abs(nq_buyside_remaining - es_buyside_remaining)
+    sell_diff = abs(nq_sellside_remaining - es_sellside_remaining)
+    # -------------------------
+    # Bearish SMT (high sweep mismatch)
+    # -------------------------
+
+    if buy_diff > 0:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "sweeper": "es" if nq_sellside_remaining > es_sellside_remaining else "nq",
+            # "nq_level_price": nq_high["high"],
+            # "es_level_price": es_high["high"],
+            # "level_ts": nq_high["timestamp"]
+        }
+    if sell_diff > 0:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "sweeper": "es" if nq_sellside_remaining > es_sellside_remaining else "nq",
+        }
             
     return bullish_smt, bearish_smt
 
@@ -696,7 +757,7 @@ def _find_swing_lows(candles):
             swings.append(candles[i])
     return swings
 
-def summary_smt(h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt):
+def summary_smt(h1_bullish_smt_liquidity, h1_bearish_smt_liquidity, h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt):
 
     # # Priority 1: 1h SMT
     # if h1_bullish_smt:
@@ -718,8 +779,10 @@ def summary_smt(h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, ke
 
     return {
         "bullish_smt_1h": h1_bullish_smt,
+        "bullish_smt_1h_liquidity": h1_bullish_smt_liquidity,
         "bullish_smt_30m_swing": bullish_30m_swing_smt,
         "bullish_smt_key_level": key_level_bullish_smt_result,
     }, {"bearish_smt_1h": h1_bearish_smt,
+        "bearish_smt_1h_liquidity": h1_bearish_smt_liquidity,
         "bearish_smt_30m_swing": bearish_30m_swing_smt,
         "bearish_smt_key_level": key_level_bearish_smt_result}

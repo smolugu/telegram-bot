@@ -9,6 +9,7 @@ from data.models.weekly_profile import WeeklyContext
 from data.models.weekly_state import initialize_weekly_state, update_weekly_1h_structure
 from data.sqlite.db import DB_FILE
 
+
 from data.market_data import fetch_symbol_data_safe, filter_daily_candles, filter_htf_candles, get_current_contract, get_pdh_pdl_fixed_date
 from data.models.reversal_setup import check_for_reversal_setup_confirmation
 from helpers.date_time_helpers import to_ny_datetime
@@ -27,7 +28,7 @@ from helpers.zones import get_7h_open_from_timestamp
 
 from datetime import datetime, timedelta, timezone
 from modules.ob_detector import detect_30m_order_block
-from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_precise, detect_smt_key_levels, summary_smt
+from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, detect_smt_key_levels, summary_smt
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
@@ -298,7 +299,15 @@ def run_quick_backtest(test_date: str):
                         print("breakout sweep ob confirmed for es sell candidate")
                     es_sell_candidate.check_breakout_rejection = False
                         
-
+                # invalidate failed candidates
+                if nq_buy_candidate.active and nq_buy_candidate.sweep_candle_extreme > last_closed_nq["low"]:
+                    nq_buy_candidate.reset()
+                if nq_sell_candidate.active and nq_sell_candidate.sweep_candle_extreme < last_closed_nq["high"]:
+                    nq_sell_candidate.reset()
+                if es_buy_candidate.active and es_buy_candidate.sweep_candle_extreme > last_closed_es["low"]:
+                    es_buy_candidate.reset()
+                if es_sell_candidate.active and es_sell_candidate.sweep_candle_extreme < last_closed_es["high"]:
+                    es_sell_candidate.reset()
                 #  track current current day high and low (HOD, LOD)
                 # Removed: current day session tracked and updated in market context
                 # if last_closed_nq["high"] > nq_current_session_high:
@@ -319,7 +328,7 @@ def run_quick_backtest(test_date: str):
                 es_seven_hour_builder.update(last_closed_es)
 
                 # update weekly state
-                if dt_current.munyte == 00:
+                if dt_current.minute == 00:
                     nq_1h_filtered_candles = filter_htf_candles(nq["1h"], current_30m_start)
                     # print("nq_1h_filtered: ", nq_1h_filtered)
                     
@@ -417,6 +426,14 @@ def run_quick_backtest(test_date: str):
                     bearish_es_ob_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else None
                     add_8am_ob_mitigation_levels(liquidity_levels=liquidity_nq, bullish_ob_level=bullish_nq_ob_level, bearish_ob_level=bearish_nq_ob_level)
                     add_8am_ob_mitigation_levels(liquidity_levels=liquidity_es, bullish_ob_level= bullish_es_ob_level, bearish_ob_level=bearish_es_ob_level)
+                    # reset or disable or allow pre 8am Ib candidates
+                    # reset active candidates.
+                    # TODO: reset based on structures
+                    # nq_buy_candidate.reset()
+                    # es_buy_candidate.reset()
+                    # nq_sell_candidate.reset()
+                    # es_sell_candidate.reset()
+                    
                     
                 if dt.hour == 10 and dt.minute == 0:
                     print("es ibs: ")
@@ -437,8 +454,6 @@ def run_quick_backtest(test_date: str):
                 if dt.hour > 8 and dt.hour < 15:
                     nq_ny_market_context.update(last_closed_nq, liquidity_nq)
                     es_ny_market_context.update(last_closed_es, liquidity_es)
-                    print("nq market structure ny at each 30m candle: ", nq_ny_market_context.structure)
-                    print("es market structure ny at each 30m candle: ", es_ny_market_context.structure)
                     
                 # update atr_usage based on daily atr and session range
                 nq_market_context.update_atr_usage(current_30m_start, last_closed_nq["close"])
@@ -578,6 +593,12 @@ def run_quick_backtest(test_date: str):
                     is_compression_es, compression_range_es, compression_sweep_data_es = es_ny_market_context.get_compression_data()
                     update_compression_range_levels(liquidity_nq, compression_range_nq, "8AM")
                     update_compression_range_levels(liquidity_es, compression_range_es, "8AM")
+                    # update compression state values. remaining updates to structure at end of 30m done above
+                    nq_ny_market_context.update_compression_state(liquidity_nq)
+                    es_ny_market_context.update_compression_state(liquidity_es)
+                    print("nq market structure ny at each 30m candle: ", nq_ny_market_context.structure)
+                    print("es market structure ny at each 30m candle: ", es_ny_market_context.structure)
+            
                     
                 is_post_1am_8am_ibs = is_post_8AM_IB or is_post_1AM_IB
 
@@ -622,47 +643,52 @@ def run_quick_backtest(test_date: str):
                         sweep_nq_lows_key_level=sweep_nq_lows_key_level,
                         sweep_es_lows=sweep_es_lows,
                         sweep_es_lows_key_level=sweep_es_lows_key_level,
-                        is_post_1am_8am_ibs=is_post_1am_8am_ibs,
+                        # is_post_1am_8am_ibs=is_post_1am_8am_ibs,
                         last_closed_nq=last_closed_nq,
                         last_closed_es=last_closed_es,
                         nq_ny_market_context = nq_ny_market_context,
                         es_ny_market_context = es_ny_market_context,
                     )
+                    print("sweep_validation_result: ", sweep_validation_result)
                     # update sweep candidates with sweep validation data
                     if sweep_validation_result["NQ"]["sweep_model"] is not None:
                         if sweep_nq_highs is not None:
-                            sweep_nq_highs["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["is_valid"]
-                            sweep_nq_highs["caution"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["caution"]
+                            sweep_nq_highs["is_valid"] = sweep_validation_result["NQ"]["validation"]["highs"]["is_valid"]
+                            sweep_nq_highs["caution"] = sweep_validation_result["NQ"]["validation"]["highs"]["caution"]
                             sweep_nq_highs["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
                         if sweep_nq_highs_key_level is not None:
-                            sweep_nq_highs_key_level["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["is_valid"]
-                            sweep_nq_highs_key_level["caution"] = sweep_validation_result["NQ"]["nq_validation"]["highs"]["caution"]
-                            sweep_nq_highs["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
+                            print("sweep_valid result: ", sweep_validation_result)
+                            sweep_nq_highs_key_level["is_valid"] = sweep_validation_result["NQ"]["validation"]["highs"]["is_valid"]
+                            sweep_nq_highs_key_level["caution"] = sweep_validation_result["NQ"]["validation"]["highs"]["caution"]
+                            sweep_nq_highs_key_level["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
+                        print("swp 10000: ", sweep_nq_lows)
                         if sweep_nq_lows is not None:
-                            sweep_nq_lows["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["is_valid"]
-                            sweep_nq_lows["caution"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["caution"]
+                            print("100000")
+                            sweep_nq_lows["is_valid"] = sweep_validation_result["NQ"]["validation"]["lows"]["is_valid"]
+                            sweep_nq_lows["caution"] = sweep_validation_result["NQ"]["validation"]["lows"]["caution"]
                             sweep_nq_lows["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
                         if sweep_nq_lows_key_level is not None:
-                            sweep_nq_lows_key_level["is_valid"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["is_valid"]
-                            sweep_nq_lows_key_level["caution"] = sweep_validation_result["NQ"]["nq_validation"]["lows"]["caution"]
+                            sweep_nq_lows_key_level["is_valid"] = sweep_validation_result["NQ"]["validation"]["lows"]["is_valid"]
+                            sweep_nq_lows_key_level["caution"] = sweep_validation_result["NQ"]["validation"]["lows"]["caution"]
                             sweep_nq_lows_key_level["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
                     if sweep_validation_result["ES"]["sweep_model"] is not None:
                         if sweep_es_highs is not None:
-                            sweep_es_highs["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
-                            sweep_es_highs["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_highs["is_valid"] = sweep_validation_result["ES"]["validation"]["highs"]["is_valid"]
+                            sweep_es_highs["caution"] = sweep_validation_result["ES"]["validation"]["highs"]["caution"]
                             sweep_es_highs["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
 
                         if sweep_es_highs_key_level is not None:
-                            sweep_es_highs_key_level["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
-                            sweep_es_highs_key_level["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_highs_key_level["is_valid"] = sweep_validation_result["ES"]["validation"]["highs"]["is_valid"]
+                            sweep_es_highs_key_level["caution"] = sweep_validation_result["ES"]["validation"]["highs"]["caution"]
                             sweep_es_highs_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
                         if sweep_es_lows is not None:
-                            sweep_es_lows["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
-                            sweep_es_lows["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            sweep_es_lows["is_valid"] = sweep_validation_result["ES"]["validation"]["lows"]["is_valid"]
+                            sweep_es_lows["caution"] = sweep_validation_result["ES"]["validation"]["lows"]["caution"]
                             sweep_es_lows["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
                         if sweep_es_lows_key_level is not None:
-                            sweep_es_lows_key_level["is_valid"] = sweep_validation_result["ES"]["es_validation"]["is_valid"]
-                            sweep_es_lows_key_level["caution"] = sweep_validation_result["ES"]["es_validation"]["caution"]
+                            print("swp: ", sweep_validation_result)
+                            sweep_es_lows_key_level["is_valid"] = sweep_validation_result["ES"]["validation"]["lows"]["is_valid"]
+                            sweep_es_lows_key_level["caution"] = sweep_validation_result["ES"]["validation"]["lows"]["caution"]
                             sweep_es_lows_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
 
                 # TODO: inducement sweep count for strong compression vs weak compression
@@ -959,42 +985,50 @@ def run_quick_backtest(test_date: str):
                     if sweep_nq_highs_key_level:
                         print("SWEEP DETECTED NQ Highs at Key Level:", sweep_nq_highs_key_level)
                         # nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"], sweep_nq_highs_key_level["sweep_candle"], sweep_nq_highs_key_level["sweep_level"], sweep_nq_highs_key_level.get("caution", False))
-                        nq_sell_candidate.register_sweep(sweep_nq_highs_key_level)
+                        if sweep_nq_highs_key_level["is_valid"]:
+                            nq_sell_candidate.register_sweep(sweep_nq_highs_key_level)
                     elif sweep_nq_highs:
                         print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
                         # nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"], sweep_nq_highs["sweep_candle"], sweep_nq_highs["sweep_level"], sweep_nq_highs.get("caution", False))
-                        nq_sell_candidate.register_sweep(sweep_nq_highs)
+                        if sweep_nq_highs["is_valid"]:
+                            nq_sell_candidate.register_sweep(sweep_nq_highs)
                 if sweep_nq_lows or sweep_nq_lows_key_level:
                     if sweep_nq_lows_key_level:
                         print("SWEEP DETECTED NQ Lows at Key Level:", sweep_nq_lows_key_level)
                         # nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"], sweep_nq_lows_key_level["sweep_candle"], sweep_nq_lows_key_level["sweep_level"], sweep_nq_lows_key_level.get("caution", False))
-                        nq_buy_candidate.register_sweep(sweep_nq_lows_key_level)
+                        if sweep_nq_lows_key_level["is_valid"]:
+                            nq_buy_candidate.register_sweep(sweep_nq_lows_key_level)
                     elif sweep_nq_lows:
                         print("Sweep detected NQ Lows:", sweep_nq_lows)
                         # nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"], sweep_nq_lows["sweep_candle"], sweep_nq_lows["sweep_level"], sweep_nq_lows.get("caution", False))
-                        nq_buy_candidate.register_sweep(sweep_nq_lows)
+                        if sweep_nq_lows["is_valid"]:
+                            nq_buy_candidate.register_sweep(sweep_nq_lows)
 
 
                 if sweep_es_highs or sweep_es_highs_key_level:
                     if sweep_es_highs_key_level:
                         print("SWEEP DETECTED ES Highs at Key Level:", sweep_es_highs_key_level)
                         # es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"], sweep_es_highs_key_level["sweep_level"], sweep_es_highs_key_level.get("caution", False))
-                        es_sell_candidate.register_sweep(sweep_es_highs_key_level)
+                        if sweep_es_highs_key_level["is_valid"]:
+                            es_sell_candidate.register_sweep(sweep_es_highs_key_level)
                     elif sweep_es_highs:     
                         print("SWEEP DETECTED ES Highs:", sweep_es_highs)
                         # es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"], sweep_es_highs["sweep_level"], sweep_es_highs.get("caution", False))
-                        es_sell_candidate.register_sweep(sweep_es_highs)
+                        if sweep_es_highs["is_valid"]:
+                            es_sell_candidate.register_sweep(sweep_es_highs)
                         
                 
                 if sweep_es_lows or sweep_es_lows_key_level:
                     if sweep_es_lows_key_level:
                         print("SWEEP DETECTED ES Lows at Key Level:", sweep_es_lows_key_level)
                         # es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"], sweep_es_lows_key_level["sweep_candle"], sweep_es_lows_key_level["sweep_level"], sweep_es_lows_key_level.get("caution", False))
-                        es_buy_candidate.register_sweep(sweep_es_lows_key_level)
+                        if sweep_es_lows_key_level["is_valid"]:
+                            es_buy_candidate.register_sweep(sweep_es_lows_key_level)
                     elif sweep_es_lows:
                         print("Sweep detected ES Lows:", sweep_es_lows)
                         # es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"], sweep_es_lows["sweep_level"], sweep_es_lows.get("caution", False))
-                        es_buy_candidate.register_sweep(sweep_es_lows)
+                        if sweep_es_lows["is_valid"]:
+                            es_buy_candidate.register_sweep(sweep_es_lows)
        
                 #  continue if there are no active candidates
                 if not nq_buy_candidate.active and not nq_sell_candidate.active and not es_buy_candidate.active and not es_sell_candidate.active:
@@ -1101,15 +1135,23 @@ def run_quick_backtest(test_date: str):
                 
                 es_1h_filtered = filter_htf_candles(es["1h"], current_30m_start)
                 # print("es_1h_filtered: ", es_1h_filtered)
-
+                print("pre detect smt")
+                print("bullish_smt_1h: ", nq_market_context.bullish_smt_1h)
+                print("bearish_smt_1h: ", nq_market_context.bearish_smt_1h)
                 # detect smt at 1h
                 h1_bullish_smt, h1_bearish_smt = detect_htf_smt_precise(nq_1h_filtered, es_1h_filtered)
+                h1_bullish_smt_liquidity, h1_bearish_smt_liquidity = detect_htf_smt_liquidity(nq_1h_filtered, es_1h_filtered)
                 if h1_bullish_smt is not None or h1_bearish_smt is not None:
                     # store smt details in market context and update when it fails
                     print("h1 bullish smt, bearish smt: ", h1_bullish_smt, h1_bearish_smt)
                     nq_market_context.update_1h_smt(h1_bullish_smt, h1_bearish_smt)
                 # check if smt is holdinh
                 nq_market_context.update_1h_smt_status(last_closed_nq, last_closed_es)
+
+                if h1_bullish_smt_liquidity is not None or h1_bearish_smt_liquidity is not None:
+                    # store smt details in market context and update when it fails
+                    print("h1 bullish smt liquidity, bearish smt liquidity: ", h1_bullish_smt_liquidity, h1_bearish_smt_liquidity)
+                    nq_market_context.update_1h_smt_liquidity(h1_bullish_smt_liquidity, h1_bearish_smt_liquidity)
                 
                 # detect daily smt at current session high and low
                 nq_1d_filtered = filter_daily_candles(nq["1d"], current_30m_start)
@@ -1122,7 +1164,7 @@ def run_quick_backtest(test_date: str):
 
 
                 # smt summary
-                summary_bullish_smt, summary_bearish_smt = summary_smt(h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt)
+                summary_bullish_smt, summary_bearish_smt = summary_smt(h1_bullish_smt_liquidity, h1_bearish_smt_liquidity, h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt)
                 # print for debug
                 print("Nq Buy candidate OB:", nq_buy_candidate.ob_confirmed, "| NQ sweep at:", nq_buy_candidate.sweep_timestamp,
                     "| OB data:", nq_buy_candidate.ob_data, "| Final OB confirmed:", nq_buy_candidate.final_ob_confirmed)
@@ -1162,6 +1204,7 @@ def run_quick_backtest(test_date: str):
                         "NQ",
                         last_closed_nq
                     )
+                    print("bearish fvg: ", fvg)
                     if fvg:
                         nq_sell_candidate.register_fvg(fvg)
                         print("Bearish FVG detected:", fvg)
@@ -1223,7 +1266,7 @@ def run_quick_backtest(test_date: str):
                 # group contexts
                 es_context = {
                     "market_context": es_market_context,
-                    "weekly_context": es_weekly_context,
+                    "weekly_context": es_weekly_state,
                     "london_context": es_london_market_context,
                     "newyork_context": es_ny_market_context,
                     "liquidity_levels": liquidity_es,
@@ -1231,7 +1274,7 @@ def run_quick_backtest(test_date: str):
                 }
                 nq_context = {
                     "market_context": nq_market_context,
-                    "weekly_context": nq_weekly_context,
+                    "weekly_context": nq_weekly_state,
                     "london_context": nq_london_market_context,
                     "newyork_context": nq_ny_market_context,
                     "liquidity_levels": liquidity_nq,
@@ -1246,7 +1289,8 @@ def run_quick_backtest(test_date: str):
                     # filter based on SMT and other market context
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_weekly_context, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bearish_smt, es_context, es_sell_candidate)
+                    send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bearish_smt, es_context, es_sell_candidate)
+                    print("nq rocket triggered: ", nq_ny_market_context.execution_state["rocket_triggered"])
                     # check for alert at 9:30
                     if send:
                         # check for blocked time
@@ -1304,7 +1348,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_weekly_context, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, es_context, es_buy_candidate)
+                    send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, es_context, es_buy_candidate)
                     print("send from check nq buy candidate: ", send)
                     # check for alert at 9:30
                     if send:
@@ -1354,7 +1398,7 @@ def run_quick_backtest(test_date: str):
                     # rejection of IB at asia session sweep
                     # atr for move
                     send = False                    
-                    send = check_for_reversal_setup_confirmation(es_weekly_context, es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bearish_smt, nq_context, nq_sell_candidate)
+                    send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bearish_smt, nq_context, nq_sell_candidate)
                     print("send 1: ", send)
                     # if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                     #     send = True
@@ -1422,7 +1466,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if es_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(es_weekly_context, es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, nq_context, nq_buy_candidate)
+                    send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, nq_context, nq_buy_candidate)
                     print("send 3: ", send)
                     # check for alert at 9:30
                     if send:

@@ -45,28 +45,36 @@ def get_current_contract(instrument, date_str=None):
         today = datetime.strptime(date_str, "%Y-%m-%d")
     print("month: ", today.month)
     print("day:", today.day)
+    print("year:", f"{today.year % 100:02d}")
+    year = f"{today.year % 100:02d}"
     
     # Very simple quarterly logic (adjust the exact switch day if your broker rolls on a different date)
     if today.month < 3: 
-        return instrument + "H26.CME"
+        return f"{instrument}H{year}.CME"
     elif today.month == 3 and today.day < 18:
-        return instrument + "H26.CME"
+        # return instrument + "H26.CME"
+        return f"{instrument}H{year}.CME"
     elif today.month == 3 and today.day >= 18:
-        return instrument + "M26.CME"
+        # return instrument + "M26.CME"
+        return f"{instrument}M{year}.CME"
     elif today.month < 6:
-        return instrument + "M26.CME"
+        # return instrument + "M26.CME"
+        return f"{instrument}M{year}.CME"
     elif today.month == 6 and today.day < 15:
-        return instrument + "M26.CME"
+        # return instrument + "M26.CME"
+        return f"{instrument}M{year}.CME"
     elif today.month == 6 and today.day >= 15:
-        return "NQU26"
+        # return instrument + "U26.CME"
+        return f"{instrument}U{year}.CME"
     elif today.month < 9:
-        return "NQU26"
+        # return instrument + "U26.CME"
+        return f"{instrument}U{year}.CME"
     elif today.month == 9 and today.day < 15:
-        return "NQU26"
+        return f"{instrument}U{year}.CME"
     elif today.month == 9 and today.day >= 15:
-        return "NQZ26"
+        return f"{instrument}Z{year}.CME"
     else: 
-        return "NQZ26"
+        return f"{instrument}Z{year}.CME"
     
 
 def fetch_market_data():
@@ -119,11 +127,10 @@ def fetch_symbol_data(symbol: str):
         return None
     # print("1m candles: ", df_1m)
 
-    date = "2026-05-18"
+    # date = "2026-05-18"
+    # filtered = df_5m.loc[date]
 
-    filtered = df_5m.loc[date]
-
-    candles_1800 = filtered.between_time("18:00", "23:59")
+    # candles_1800 = filtered.between_time("18:00", "23:59")
     # print("raw 5m candles for date: ", date)
     # print(candles_1800.head(50).to_string())
     df_3m = resample_to_3m(df_1m)

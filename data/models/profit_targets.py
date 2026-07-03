@@ -76,9 +76,11 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
             continue
 
         if side == "buy_side":
+            print("level name, price, swept, side: ", lvl)
             buy_levels.append(price)
 
         elif side == "sell_side":
+            print("level name, price, swept, side: ", lvl)
             sell_levels.append(price)
 
     # -------------------------

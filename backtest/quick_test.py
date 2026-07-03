@@ -3,7 +3,7 @@ from data.models.candle_7h import SevenHourBuilder
 from data.models.market_context import MarketContext
 from data.sqlite.db import DB_FILE
 
-from data.market_data import fetch_symbol_data_safe, filter_hourly_candles, get_current_contract, get_pdh_pdl_fixed_date
+from data.market_data import fetch_symbol_data_safe, get_current_contract, get_pdh_pdl_fixed_date
 from data.models.setup_candidate import SetupCandidate
 from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
@@ -18,7 +18,7 @@ from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_7h_open_from_timestamp
 
 from datetime import datetime, timedelta, timezone
-from modules.smt_detector import detect_30m_swing_smt, detect_hourly_smt_precise, detect_smt_key_levels
+from modules.smt_detector import detect_30m_swing_smt, detect_smt_key_levels
 from modules.ob_detector import detect_30m_order_block
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle

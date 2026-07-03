@@ -255,6 +255,7 @@ def determine_ping_direction(
         result["reason"] = (
             "structural_conflict"
         )
+        print("nq structure: ", nq_structure)
         result["true_directional_conflict"] = (
             not nq_structure["is_neutral_direction_structure"]
             and

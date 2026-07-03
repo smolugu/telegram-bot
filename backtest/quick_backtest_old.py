@@ -20,7 +20,7 @@ from helpers.zones import get_7h_open_from_timestamp
 
 from datetime import datetime, timedelta, timezone
 from modules.ob_detector import detect_30m_order_block
-from modules.smt_detector import detect_30m_swing_smt, detect_hourly_smt_precise, detect_smt_key_levels
+from modules.smt_detector import detect_30m_swing_smt, detect_htf_smt_precise, detect_smt_key_levels
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
@@ -470,7 +470,7 @@ def run_quick_backtest(test_date: str):
                 es_1h_filtered = filter_hourly_candles(es["1h"], current_30m_start)
 
                 # detect smt at 1h
-                h1_smt = detect_hourly_smt_precise(nq_1h_filtered, es_1h_filtered)
+                h1_smt = detect_htf_smt_precise(nq_1h_filtered, es_1h_filtered)
                 if h1_smt is not None:
                     print("smt on 1h: ", h1_smt)
                 
