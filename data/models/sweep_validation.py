@@ -35,6 +35,8 @@ def determine_asset_sweep_model(structure):
         # weak compression
         "staircase_late_overlap_bullish",
         "staircase_late_overlap_bearish",
+
+        "mixed_early_decompression",
     }:
         return "compression"
 
@@ -48,6 +50,9 @@ def determine_asset_sweep_model(structure):
 
         "staircase_early_overlap_bullish",
         "staircase_early_overlap_bearish",
+
+        "bullish_early_decompression",
+        "bearish_early_decompression",
     }:
         return "migration"
 
@@ -58,9 +63,8 @@ def determine_asset_sweep_model(structure):
     if structure_name in {
         "bullish_decompression",
         "bearish_decompression",
-
-        "bullish_early_decompression",
-        "bearish_early_decompression",
+        "bullish_mixed_decompression",
+        "bearish_mixed_decompression",
     }:
         return "acceptance_decompression"
 
@@ -71,6 +75,8 @@ def determine_asset_sweep_model(structure):
     if structure_name in {
         "bullish_macro_decompression",
         "bearish_macro_decompression",
+        "bullish_mixed_macro_decompression",
+        "bearish_mixed_macro_decompression",
     }:
         return "rebalance_decompression"
 

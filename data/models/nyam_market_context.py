@@ -24,6 +24,9 @@ class NewYorkMarketContext:
             "rocket_completed": False,
             "flush_triggered": False,
             "flush_completed": False,
+            "auction_direction": None,     # bullish | bearish
+            "auction_locked": False,
+            "delivery_complete": False,
         }
         self.auction_phase = None
 

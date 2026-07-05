@@ -692,280 +692,281 @@ def run_quick_backtest(test_date: str):
                             sweep_es_lows_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
 
                 # TODO: inducement sweep count for strong compression vs weak compression
-                if is_post_1AM_IB and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
-                    # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
-                    # below we have a separate block for sweep outside compression range and candle outside compression range
-                    # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
-                    print("101:")
-                    invalidate_sweeps_highs = True
-                    nq_swept_level = (
-                        max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs is not None and sweep_nq_highs_key_level is not None
-                        else sweep_nq_highs["sweep_level"] if sweep_nq_highs is not None
-                        else sweep_nq_highs_key_level["sweep_level"] if sweep_nq_highs_key_level is not None
-                        else None
-                    )
-                    if nq_swept_level < compression_range_nq["high"] and last_closed_nq["high"] < compression_range_nq["high"]:
-                        print("NQ Sweep at highs rejected due to compression. invalidating sweep inside compression range")
-                        print("1011:")
-                        # sweep_nq_highs = None
-                        # sweep_nq_highs_key_level = None
-                        # here rejected highs implies price is still inside compression range
-                        nq_sweep_rejected_highs = True
-                    elif compression_sweep_data_nq["count_high"] == 1 and nq_ny_market_context.structure["range_low_swept"]:
-                        print("1012-1:")
-                        # price already swept compression low and is out of inducement phase, 
-                        # so expect sharp rejection because of liquidity
-                        nq_sweep_rejected_highs = False
+                # moved to validate_sweep function
+                # if is_post_1AM_IB and is_compression_nq and (sweep_nq_highs or sweep_nq_highs_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                #     # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
+                #     # below we have a separate block for sweep outside compression range and candle outside compression range
+                #     # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
+                #     print("101:")
+                #     invalidate_sweeps_highs = True
+                #     nq_swept_level = (
+                #         max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs is not None and sweep_nq_highs_key_level is not None
+                #         else sweep_nq_highs["sweep_level"] if sweep_nq_highs is not None
+                #         else sweep_nq_highs_key_level["sweep_level"] if sweep_nq_highs_key_level is not None
+                #         else None
+                #     )
+                #     if nq_swept_level < compression_range_nq["high"] and last_closed_nq["high"] < compression_range_nq["high"]:
+                #         print("NQ Sweep at highs rejected due to compression. invalidating sweep inside compression range")
+                #         print("1011:")
+                #         # sweep_nq_highs = None
+                #         # sweep_nq_highs_key_level = None
+                #         # here rejected highs implies price is still inside compression range
+                #         nq_sweep_rejected_highs = True
+                #     elif compression_sweep_data_nq["count_high"] == 1 and nq_ny_market_context.structure["range_low_swept"]:
+                #         print("1012-1:")
+                #         # price already swept compression low and is out of inducement phase, 
+                #         # so expect sharp rejection because of liquidity
+                #         nq_sweep_rejected_highs = False
 
-                    elif compression_sweep_data_nq["count_high"] >= 2:
-                        print("1012:")
-                        # here count_high == 1 => inducecment level
-                        # count_high >=2 => sweep of inducement level => actual move
-                        nq_sweep_rejected_highs = False
-                    else:
-                        print("1013:")
-                        # here nq swept keylevel and compression high, inducement is not confirmed
-                        # disallow sweep if the breakout is less than 10 points on nq and less than 
-                        # 3 points on ES
-                        nq_sweep_rejected_highs = False
-                        if abs(last_closed_nq["high"] - compression_range_nq["high"]) < 10:
-                            print("1014:")
-                            print("NQ sweep at highs accepted but price near compression range. exercise caution")
-                            # add caution flag to sweep as the sweep is not deep and could be inducement
-                            # dont invalidate the sweep but use extra confirmation at final trade filter
-                            nq_sweep_rejected_highs = False
-                            if sweep_nq_highs is not None:
-                                sweep_nq_highs["caution"] = True
-                            if sweep_nq_highs_key_level is not None:
-                                sweep_nq_highs_key_level["caution"] = True
+                #     elif compression_sweep_data_nq["count_high"] >= 2:
+                #         print("1012:")
+                #         # here count_high == 1 => inducecment level
+                #         # count_high >=2 => sweep of inducement level => actual move
+                #         nq_sweep_rejected_highs = False
+                #     else:
+                #         print("1013:")
+                #         # here nq swept keylevel and compression high, inducement is not confirmed
+                #         # disallow sweep if the breakout is less than 10 points on nq and less than 
+                #         # 3 points on ES
+                #         nq_sweep_rejected_highs = False
+                #         if abs(last_closed_nq["high"] - compression_range_nq["high"]) < 10:
+                #             print("1014:")
+                #             print("NQ sweep at highs accepted but price near compression range. exercise caution")
+                #             # add caution flag to sweep as the sweep is not deep and could be inducement
+                #             # dont invalidate the sweep but use extra confirmation at final trade filter
+                #             nq_sweep_rejected_highs = False
+                #             if sweep_nq_highs is not None:
+                #                 sweep_nq_highs["caution"] = True
+                #             if sweep_nq_highs_key_level is not None:
+                #                 sweep_nq_highs_key_level["caution"] = True
                             
-                if is_post_1AM_IB and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
-                    # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
-                    invalidate_sweeps_highs = True
-                    print("102:")
+                # if is_post_1AM_IB and is_compression_es and (sweep_es_highs or sweep_es_highs_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
+                #     # es_swept_level = max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs and sweep_es_highs_key_level else (sweep_es_highs["sweep_level"] if sweep_es_highs else sweep_es_highs_key_level["sweep_level"])
+                #     invalidate_sweeps_highs = True
+                #     print("102:")
 
-                    print("compre3: ", compression_sweep_data_es)
-                    es_swept_level = (
-                        max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs is not None and sweep_es_highs_key_level is not None
-                        else sweep_es_highs["sweep_level"] if sweep_es_highs is not None
-                        else sweep_es_highs_key_level["sweep_level"] if sweep_es_highs_key_level is not None
-                        else None
-                    )
-                    if es_swept_level < compression_range_es["high"] and last_closed_es["high"] < compression_range_es["high"]:
-                        print("ES Sweep at highs rejected due to compression. invalidating sweep inside compression range")
-                        print("1021:")
-                        # sweep_es_highs = None
-                        # sweep_es_highs_key_level = None
-                        es_sweep_rejected_highs = True
-                    elif compression_sweep_data_es["count_high"] == 1 and es_ny_market_context.structure["range_low_swept"]:
-                        print("1012-1:")
-                        # price already swept compression low and is out of inducement phase, 
-                        # so expect sharp rejection because of liquidity
-                        es_sweep_rejected_highs = False
-                    elif compression_sweep_data_es["count_high"] >= 2:
-                        print("1022:")
-                        es_sweep_rejected_highs = False
-                    else:
-                        print("1023:")
-                        es_sweep_rejected_highs = False
-                        if abs(last_closed_es["high"] - compression_range_es["high"]) < 3:        
-                            print("1024:")        
-                            print("ES sweep at highs accepted but price near compression range. exercise caution")
-                            # add caution flag to sweep as the sweep is not deep and could be inducement
-                            # dont invalidate the sweep but use extra confirmation at final trade filter
-                            es_sweep_rejected_highs = False
-                            if sweep_es_highs is not None:
-                                sweep_es_highs["caution"] = True
-                            if sweep_es_highs_key_level is not None:
-                                sweep_es_highs_key_level["caution"] = True
+                #     print("compre3: ", compression_sweep_data_es)
+                #     es_swept_level = (
+                #         max(sweep_es_highs["sweep_level"], sweep_es_highs_key_level["sweep_level"]) if sweep_es_highs is not None and sweep_es_highs_key_level is not None
+                #         else sweep_es_highs["sweep_level"] if sweep_es_highs is not None
+                #         else sweep_es_highs_key_level["sweep_level"] if sweep_es_highs_key_level is not None
+                #         else None
+                #     )
+                #     if es_swept_level < compression_range_es["high"] and last_closed_es["high"] < compression_range_es["high"]:
+                #         print("ES Sweep at highs rejected due to compression. invalidating sweep inside compression range")
+                #         print("1021:")
+                #         # sweep_es_highs = None
+                #         # sweep_es_highs_key_level = None
+                #         es_sweep_rejected_highs = True
+                #     elif compression_sweep_data_es["count_high"] == 1 and es_ny_market_context.structure["range_low_swept"]:
+                #         print("1012-1:")
+                #         # price already swept compression low and is out of inducement phase, 
+                #         # so expect sharp rejection because of liquidity
+                #         es_sweep_rejected_highs = False
+                #     elif compression_sweep_data_es["count_high"] >= 2:
+                #         print("1022:")
+                #         es_sweep_rejected_highs = False
+                #     else:
+                #         print("1023:")
+                #         es_sweep_rejected_highs = False
+                #         if abs(last_closed_es["high"] - compression_range_es["high"]) < 3:        
+                #             print("1024:")        
+                #             print("ES sweep at highs accepted but price near compression range. exercise caution")
+                #             # add caution flag to sweep as the sweep is not deep and could be inducement
+                #             # dont invalidate the sweep but use extra confirmation at final trade filter
+                #             es_sweep_rejected_highs = False
+                #             if sweep_es_highs is not None:
+                #                 sweep_es_highs["caution"] = True
+                #             if sweep_es_highs_key_level is not None:
+                #                 sweep_es_highs_key_level["caution"] = True
                             
 
                 #  if both es and nq sweeps inside compression, invalidate sweeps
                 #  store smt with sweeper information
-                if invalidate_sweeps_highs:
-                    print("103:")
-                    if es_sweep_rejected_highs and nq_sweep_rejected_highs:
-                        print("Both NQ and ES sweeps at highs rejected due to compression. no smt, invalidating all sweeps inside compression range")
-                        print("1031:")
-                        sweep_nq_highs = None
-                        sweep_nq_highs_key_level = None
-                        sweep_es_highs = None
-                        sweep_es_highs_key_level = None
-                    elif es_sweep_rejected_highs and not nq_sweep_rejected_highs:
-                        # smt with NQ as sweeper
-                        # TODO: here there could be no es compresion and candle closed above IB breakout. above flow is skipping this
-                        # as there is no compression on es es_sweep_rejected_highs is always truse
-                        print("1032:")
-                        nq_ny_market_context.sweep["is_smt_high"] = True
-                        es_ny_market_context.sweep["is_smt_high"] = True
-                        nq_ny_market_context.sweep["sweeper_high"] = "NQ"
-                        es_ny_market_context.sweep["sweeper_high"] = "NQ"
-                    elif nq_sweep_rejected_highs and not es_sweep_rejected_highs:
-                        # smt with NQ as sweeper
-                        # TODO: same as above 1032:
-                        print("1033:")
-                        nq_ny_market_context.sweep["is_smt_high"] = True
-                        es_ny_market_context.sweep["is_smt_high"] = True
-                        nq_ny_market_context.sweep["sweeper_high"] = "ES"
-                        es_ny_market_context.sweep["sweeper_high"] = "ES"
-                    else:
-                        print("1034:")
-                        # valid sweep with no smt
-                        nq_ny_market_context.sweep["is_smt_high"] = False
-                        es_ny_market_context.sweep["is_smt_high"] = False
-                        nq_ny_market_context.sweep["sweeper_high"] = None
-                        es_ny_market_context.sweep["sweeper_high"] = None
+                # if invalidate_sweeps_highs:
+                #     print("103:")
+                #     if es_sweep_rejected_highs and nq_sweep_rejected_highs:
+                #         print("Both NQ and ES sweeps at highs rejected due to compression. no smt, invalidating all sweeps inside compression range")
+                #         print("1031:")
+                #         sweep_nq_highs = None
+                #         sweep_nq_highs_key_level = None
+                #         sweep_es_highs = None
+                #         sweep_es_highs_key_level = None
+                #     elif es_sweep_rejected_highs and not nq_sweep_rejected_highs:
+                #         # smt with NQ as sweeper
+                #         # TODO: here there could be no es compresion and candle closed above IB breakout. above flow is skipping this
+                #         # as there is no compression on es es_sweep_rejected_highs is always truse
+                #         print("1032:")
+                #         nq_ny_market_context.sweep["is_smt_high"] = True
+                #         es_ny_market_context.sweep["is_smt_high"] = True
+                #         nq_ny_market_context.sweep["sweeper_high"] = "NQ"
+                #         es_ny_market_context.sweep["sweeper_high"] = "NQ"
+                #     elif nq_sweep_rejected_highs and not es_sweep_rejected_highs:
+                #         # smt with NQ as sweeper
+                #         # TODO: same as above 1032:
+                #         print("1033:")
+                #         nq_ny_market_context.sweep["is_smt_high"] = True
+                #         es_ny_market_context.sweep["is_smt_high"] = True
+                #         nq_ny_market_context.sweep["sweeper_high"] = "ES"
+                #         es_ny_market_context.sweep["sweeper_high"] = "ES"
+                #     else:
+                #         print("1034:")
+                #         # valid sweep with no smt
+                #         nq_ny_market_context.sweep["is_smt_high"] = False
+                #         es_ny_market_context.sweep["is_smt_high"] = False
+                #         nq_ny_market_context.sweep["sweeper_high"] = None
+                #         es_ny_market_context.sweep["sweeper_high"] = None
                     
 
-                if is_post_1AM_IB and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
-                    print("sweep_nq_lows: ", sweep_nq_lows)
-                    print("104:")
-                    if sweep_nq_lows is not None:
-                        print("sweep_nq_lows: ", sweep_nq_lows["sweep_level"])
-                    print("sweep_nq_lows_key_level: ", sweep_nq_lows_key_level)
-                    print("last_closed_nq: ", last_closed_nq)
-                    print("compression_range_nq: ", compression_range_nq)
-                    # nq_swept_level = min(sweep_nq_lows["sweep_level"], sweep_nq_lows_key_level["sweep_level"]) if sweep_nq_lows and sweep_nq_lows_key_level else (sweep_nq_lows["sweep_level"] if sweep_nq_lows else sweep_nq_lows_key_level["sweep_level"])
-                    invalidate_sweeps_lows = True
-                    nq_swept_level = (
-                        min(sweep_nq_lows["sweep_level"], sweep_nq_lows_key_level["sweep_level"])
-                        if sweep_nq_lows is not None and sweep_nq_lows_key_level is not None
-                        else sweep_nq_lows["sweep_level"] if sweep_nq_lows is not None
-                        else sweep_nq_lows_key_level["sweep_level"] if sweep_nq_lows_key_level is not None
-                        else None
-                    )
-                    print("nq swept level 1: ", nq_swept_level)
-                    print("com r low 2: ", compression_range_nq["low"])
-                    print("last closed low 3: ", last_closed_nq["low"])
+                # if is_post_1AM_IB and is_compression_nq and (sweep_nq_lows or sweep_nq_lows_key_level) and last_closed_nq["open"] > compression_range_nq["low"] and last_closed_nq["open"] < compression_range_nq["high"]:
+                #     print("sweep_nq_lows: ", sweep_nq_lows)
+                #     print("104:")
+                #     if sweep_nq_lows is not None:
+                #         print("sweep_nq_lows: ", sweep_nq_lows["sweep_level"])
+                #     print("sweep_nq_lows_key_level: ", sweep_nq_lows_key_level)
+                #     print("last_closed_nq: ", last_closed_nq)
+                #     print("compression_range_nq: ", compression_range_nq)
+                #     # nq_swept_level = min(sweep_nq_lows["sweep_level"], sweep_nq_lows_key_level["sweep_level"]) if sweep_nq_lows and sweep_nq_lows_key_level else (sweep_nq_lows["sweep_level"] if sweep_nq_lows else sweep_nq_lows_key_level["sweep_level"])
+                #     invalidate_sweeps_lows = True
+                #     nq_swept_level = (
+                #         min(sweep_nq_lows["sweep_level"], sweep_nq_lows_key_level["sweep_level"])
+                #         if sweep_nq_lows is not None and sweep_nq_lows_key_level is not None
+                #         else sweep_nq_lows["sweep_level"] if sweep_nq_lows is not None
+                #         else sweep_nq_lows_key_level["sweep_level"] if sweep_nq_lows_key_level is not None
+                #         else None
+                #     )
+                #     print("nq swept level 1: ", nq_swept_level)
+                #     print("com r low 2: ", compression_range_nq["low"])
+                #     print("last closed low 3: ", last_closed_nq["low"])
                     
-                    if nq_swept_level > compression_range_nq["low"] and last_closed_nq["low"] > compression_range_nq["low"]:
-                        print("NQ Sweep at lows rejected due to compression. invalidating sweep inside compression range")
-                        print("section 4")
-                        # sweep_nq_lows = None
-                        # sweep_nq_lows_key_level = None
-                        nq_sweep_rejected_lows = True
-                    elif compression_sweep_data_nq["count_low"] == 1 and nq_ny_market_context.structure["range_high_swept"]:
-                        print("1012-1:")
-                        # price already swept compression low and is out of inducement phase, 
-                        # so expect sharp rejection because of liquidity
-                        nq_sweep_rejected_lows = False
-                    elif compression_sweep_data_nq["count_low"] >= 2:
-                        print("section 5")
-                        # if sweep is previous candle low then be cautious, wait for displacement or one more sweep
-                        prev_to_last_closed_nq = nq_30m[i - 2]
-                        print("prev_to_last_closed_nq: ", prev_to_last_closed_nq["low"])
-                        if nq_swept_level == prev_to_last_closed_nq["low"]:
-                            print("section 5.1")
-                            nq_sweep_rejected_lows = True
-                        else:
-                            nq_sweep_rejected_lows = False
-                    else:
-                        print("section 6")
-                        nq_sweep_rejected_lows = False
-                        print("compression_range_nq: ", compression_range_nq)
-                        print("last_closed_nq: ", last_closed_nq["low"])
-                        if abs(last_closed_nq["low"] - compression_range_nq["low"]) < 10:
-                            print("section 7")
-                            print("NQ sweep at lows accepted but price near compression range. exercise caution: ", abs(last_closed_nq["low"] - compression_range_nq["low"]))
-                            # add caution flag to sweep as the sweep is not deep and could be inducement
-                            # dont invalidate the sweep but use extra confirmation at final trade filter
-                            nq_sweep_rejected_lows = False
-                            if sweep_nq_lows is not None:
-                                sweep_nq_lows["caution"] = True
-                            if sweep_nq_lows_key_level is not None:
-                                sweep_nq_lows_key_level["caution"] = True
-                print("section 8: nq_sweep_rejected_lows: ", nq_sweep_rejected_lows)
-                if is_post_1AM_IB and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
-                    # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
-                    invalidate_sweeps_lows = True
-                    print("105:")
-                    es_swept_level = (
-                        min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"])
-                        if sweep_es_lows is not None and sweep_es_lows_key_level is not None
-                        else sweep_es_lows["sweep_level"] if sweep_es_lows is not None
-                        else sweep_es_lows_key_level["sweep_level"] if sweep_es_lows_key_level is not None
-                        else None
-                    )
-                    if es_swept_level > compression_range_es["low"] and last_closed_es["low"] > compression_range_es["low"]:
-                        print("ES Sweep at lows rejected due to compression. invalidating sweep inside compression range")
-                        # sweep_es_lows = None
-                        # sweep_es_lows_key_level = None
-                        es_sweep_rejected_lows = True
-                    elif compression_sweep_data_es["count_low"] == 1 and es_ny_market_context.structure["range_high_swept"]:
-                        print("1012-1:")
-                        # price already swept compression low and is out of inducement phase, 
-                        # so expect sharp rejection because of liquidity
-                        es_sweep_rejected_lows = False
-                    elif compression_sweep_data_es["count_low"] >= 2:
-                        es_sweep_rejected_highs = False
-                    else:
-                        es_sweep_rejected_lows = False
-                        print("last_closed_es low: ", last_closed_es["low"], "compression_range_es low: ", compression_range_es["low"])
-                        if abs(last_closed_es["low"] - compression_range_es["low"]) < 3:
-                            print("last_closed_es low: ", last_closed_es["low"], "compression_range_es low: ", compression_range_es["low"])
-                            print("ES sweep at lows accepted but price near compression range. exercise caution", abs(last_closed_es["low"] - compression_range_es["low"]))
-                            es_sweep_rejected_lows = True
-                            # add caution flag to sweep as the sweep is not deep and could be inducement
-                            # dont invalidate the sweep but use extra confirmation at final trade filter
-                            es_sweep_rejected_lows = False
-                            if sweep_es_lows is not None:
-                                sweep_es_lows["caution"] = True
-                            if sweep_es_lows_key_level is not None:
-                                sweep_es_lows_key_level["caution"] = True
-                #  if both es and nq sweeps at lows inside compression, invalidate sweeps
-                if invalidate_sweeps_lows:
-                    print("106:")
-                    if es_sweep_rejected_lows and nq_sweep_rejected_lows:
-                        print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
-                        sweep_nq_lows = None
-                        sweep_nq_lows_key_level = None
-                        sweep_es_lows = None
-                        sweep_es_lows_key_level = None
-                    elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
-                        # smt with NQ as sweeper
-                        nq_ny_market_context.sweep["is_smt_low"] = True
-                        es_ny_market_context.sweep["is_smt_low"] = True
-                        nq_ny_market_context.sweep["sweeper_low"] = "NQ"
-                        es_ny_market_context.sweep["sweeper_low"] = "NQ"
-                    elif nq_sweep_rejected_lows and not es_sweep_rejected_lows:
-                        # smt with ES as sweeper
-                        nq_ny_market_context.sweep["is_smt_low"] = True
-                        es_ny_market_context.sweep["is_smt_low"] = True
-                        nq_ny_market_context.sweep["sweeper_low"] = "ES"
-                        es_ny_market_context.sweep["sweeper_low"] = "ES"
-                    else:
-                        # valid sweep with no smt
-                        nq_ny_market_context.sweep["is_smt_low"] = False
-                        es_ny_market_context.sweep["is_smt_low"] = False
-                        nq_ny_market_context.sweep["sweeper_low"] = None
-                        es_ny_market_context.sweep["sweeper_low"] = None
-                # ----------------------------------
+                #     if nq_swept_level > compression_range_nq["low"] and last_closed_nq["low"] > compression_range_nq["low"]:
+                #         print("NQ Sweep at lows rejected due to compression. invalidating sweep inside compression range")
+                #         print("section 4")
+                #         # sweep_nq_lows = None
+                #         # sweep_nq_lows_key_level = None
+                #         nq_sweep_rejected_lows = True
+                #     elif compression_sweep_data_nq["count_low"] == 1 and nq_ny_market_context.structure["range_high_swept"]:
+                #         print("1012-1:")
+                #         # price already swept compression low and is out of inducement phase, 
+                #         # so expect sharp rejection because of liquidity
+                #         nq_sweep_rejected_lows = False
+                #     elif compression_sweep_data_nq["count_low"] >= 2:
+                #         print("section 5")
+                #         # if sweep is previous candle low then be cautious, wait for displacement or one more sweep
+                #         prev_to_last_closed_nq = nq_30m[i - 2]
+                #         print("prev_to_last_closed_nq: ", prev_to_last_closed_nq["low"])
+                #         if nq_swept_level == prev_to_last_closed_nq["low"]:
+                #             print("section 5.1")
+                #             nq_sweep_rejected_lows = True
+                #         else:
+                #             nq_sweep_rejected_lows = False
+                #     else:
+                #         print("section 6")
+                #         nq_sweep_rejected_lows = False
+                #         print("compression_range_nq: ", compression_range_nq)
+                #         print("last_closed_nq: ", last_closed_nq["low"])
+                #         if abs(last_closed_nq["low"] - compression_range_nq["low"]) < 10:
+                #             print("section 7")
+                #             print("NQ sweep at lows accepted but price near compression range. exercise caution: ", abs(last_closed_nq["low"] - compression_range_nq["low"]))
+                #             # add caution flag to sweep as the sweep is not deep and could be inducement
+                #             # dont invalidate the sweep but use extra confirmation at final trade filter
+                #             nq_sweep_rejected_lows = False
+                #             if sweep_nq_lows is not None:
+                #                 sweep_nq_lows["caution"] = True
+                #             if sweep_nq_lows_key_level is not None:
+                #                 sweep_nq_lows_key_level["caution"] = True
+                # print("section 8: nq_sweep_rejected_lows: ", nq_sweep_rejected_lows)
+                # if is_post_1AM_IB and is_compression_es and (sweep_es_lows or sweep_es_lows_key_level) and last_closed_es["open"] > compression_range_es["low"] and last_closed_es["open"] < compression_range_es["high"]:
+                #     # es_swept_level = min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"]) if sweep_es_lows and sweep_es_lows_key_level else (sweep_es_lows["sweep_level"] if sweep_es_lows else sweep_es_lows_key_level["sweep_level"])
+                #     invalidate_sweeps_lows = True
+                #     print("105:")
+                #     es_swept_level = (
+                #         min(sweep_es_lows["sweep_level"], sweep_es_lows_key_level["sweep_level"])
+                #         if sweep_es_lows is not None and sweep_es_lows_key_level is not None
+                #         else sweep_es_lows["sweep_level"] if sweep_es_lows is not None
+                #         else sweep_es_lows_key_level["sweep_level"] if sweep_es_lows_key_level is not None
+                #         else None
+                #     )
+                #     if es_swept_level > compression_range_es["low"] and last_closed_es["low"] > compression_range_es["low"]:
+                #         print("ES Sweep at lows rejected due to compression. invalidating sweep inside compression range")
+                #         # sweep_es_lows = None
+                #         # sweep_es_lows_key_level = None
+                #         es_sweep_rejected_lows = True
+                #     elif compression_sweep_data_es["count_low"] == 1 and es_ny_market_context.structure["range_high_swept"]:
+                #         print("1012-1:")
+                #         # price already swept compression low and is out of inducement phase, 
+                #         # so expect sharp rejection because of liquidity
+                #         es_sweep_rejected_lows = False
+                #     elif compression_sweep_data_es["count_low"] >= 2:
+                #         es_sweep_rejected_highs = False
+                #     else:
+                #         es_sweep_rejected_lows = False
+                #         print("last_closed_es low: ", last_closed_es["low"], "compression_range_es low: ", compression_range_es["low"])
+                #         if abs(last_closed_es["low"] - compression_range_es["low"]) < 3:
+                #             print("last_closed_es low: ", last_closed_es["low"], "compression_range_es low: ", compression_range_es["low"])
+                #             print("ES sweep at lows accepted but price near compression range. exercise caution", abs(last_closed_es["low"] - compression_range_es["low"]))
+                #             es_sweep_rejected_lows = True
+                #             # add caution flag to sweep as the sweep is not deep and could be inducement
+                #             # dont invalidate the sweep but use extra confirmation at final trade filter
+                #             es_sweep_rejected_lows = False
+                #             if sweep_es_lows is not None:
+                #                 sweep_es_lows["caution"] = True
+                #             if sweep_es_lows_key_level is not None:
+                #                 sweep_es_lows_key_level["caution"] = True
+                # #  if both es and nq sweeps at lows inside compression, invalidate sweeps
+                # if invalidate_sweeps_lows:
+                #     print("106:")
+                #     if es_sweep_rejected_lows and nq_sweep_rejected_lows:
+                #         print("Both NQ and ES sweeps at lows rejected due to compression. invalidating all sweeps inside compression range")
+                #         sweep_nq_lows = None
+                #         sweep_nq_lows_key_level = None
+                #         sweep_es_lows = None
+                #         sweep_es_lows_key_level = None
+                #     elif es_sweep_rejected_lows and not nq_sweep_rejected_lows:
+                #         # smt with NQ as sweeper
+                #         nq_ny_market_context.sweep["is_smt_low"] = True
+                #         es_ny_market_context.sweep["is_smt_low"] = True
+                #         nq_ny_market_context.sweep["sweeper_low"] = "NQ"
+                #         es_ny_market_context.sweep["sweeper_low"] = "NQ"
+                #     elif nq_sweep_rejected_lows and not es_sweep_rejected_lows:
+                #         # smt with ES as sweeper
+                #         nq_ny_market_context.sweep["is_smt_low"] = True
+                #         es_ny_market_context.sweep["is_smt_low"] = True
+                #         nq_ny_market_context.sweep["sweeper_low"] = "ES"
+                #         es_ny_market_context.sweep["sweeper_low"] = "ES"
+                #     else:
+                #         # valid sweep with no smt
+                #         nq_ny_market_context.sweep["is_smt_low"] = False
+                #         es_ny_market_context.sweep["is_smt_low"] = False
+                #         nq_ny_market_context.sweep["sweeper_low"] = None
+                #         es_ny_market_context.sweep["sweeper_low"] = None
+                # # ----------------------------------
                 
                 # london session
                 
                 # compression -> expansion -> re-compression
                 # 1am Ib is engulfing - reset candidates. price will go into re-compression and then manipulate 
                 # and expand. here is we are basically ignoring continuation signals from the first 7hr candle if there is compression detected because of the potential for manipulation and false breakouts. we will wait for a clean breakout from the compression range and then look for continuation signals. this is especially important for the first 7hr candle because it sets the tone for the rest of the day and is more likely to be manipulated. by ignoring continuation signals from the first 7hr candle in a compression scenario, we can avoid getting caught in false breakouts and increase our chances of identifying genuine continuation setups later in the day when the price breaks out of the compression range.
-                if (compression_flags_nq["engulfing_1_over_18"] or compression_flags_es["engulfing_1_over_18"]) and dt_current.hour == 2 and dt_current.minute == 0:
-                    # at the formation of engulfing 1am IB reset all candidates and current candle sweeps
-                    # this is not true. the price movement can be directional in the direction of IB. 
-                    # so 1am can sweep one side and also sweep the other side with strong body which
-                    # can continue in IB direction when there is a strong body or not recompression
-                    print("Engulfing compression detected in NQ. rejecting all sweeps for the first 7hr candle to avoid false breakouts and manipulation. waiting for a clean breakout from the compression range before looking for continuation signals.")
-                    print("commenting")
-                    # sweep_nq_highs = None
-                    # sweep_nq_highs_key_level = None
-                    # sweep_nq_lows = None
-                    # sweep_nq_lows_key_level = None
-                    # sweep_es_highs = None
-                    # sweep_es_highs_key_level = None
-                    # sweep_es_lows = None
-                    # sweep_es_lows_key_level = None
-                    # nq_buy_candidate.reset()
-                    # nq_sell_candidate.reset()
-                    # es_buy_candidate.reset()
-                    # es_sell_candidate.reset()
-                # sweep detection at previous hour highs and lows
+                # if (compression_flags_nq["engulfing_1_over_18"] or compression_flags_es["engulfing_1_over_18"]) and dt_current.hour == 2 and dt_current.minute == 0:
+                #     # at the formation of engulfing 1am IB reset all candidates and current candle sweeps
+                #     # this is not true. the price movement can be directional in the direction of IB. 
+                #     # so 1am can sweep one side and also sweep the other side with strong body which
+                #     # can continue in IB direction when there is a strong body or not recompression
+                #     print("Engulfing compression detected in NQ. rejecting all sweeps for the first 7hr candle to avoid false breakouts and manipulation. waiting for a clean breakout from the compression range before looking for continuation signals.")
+                #     print("commenting")
+                #     # sweep_nq_highs = None
+                #     # sweep_nq_highs_key_level = None
+                #     # sweep_nq_lows = None
+                #     # sweep_nq_lows_key_level = None
+                #     # sweep_es_highs = None
+                #     # sweep_es_highs_key_level = None
+                #     # sweep_es_lows = None
+                #     # sweep_es_lows_key_level = None
+                #     # nq_buy_candidate.reset()
+                #     # nq_sell_candidate.reset()
+                #     # es_buy_candidate.reset()
+                #     # es_sell_candidate.reset()
+                # # sweep detection at previous hour highs and lows
 
                 # if not sweep_nq and not sweep_es:
                 #     continue

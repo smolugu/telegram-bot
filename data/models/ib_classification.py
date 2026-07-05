@@ -577,8 +577,6 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
-            
-            
             "compression_range": {
                 "high": ib8["high"],
                 "low": ib18["low"],
@@ -594,7 +592,7 @@ def classify_ib_structure(
                 "low": ib1["low"],
                 "ce": (ib1["high"] + ib1["low"]) / 2
             },
-            "mitigation_level": None,
+            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
 
             "note_internal":
 
