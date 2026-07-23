@@ -12,7 +12,7 @@ class NewYorkMarketContext:
         self.ib_10 = {}
         self.ib_8 = {}
         self.directional_mode = None
-
+        
         # -------- SUMMARY --------
         self.structure_type = None
         self.delivery = None
@@ -61,6 +61,8 @@ class NewYorkMarketContext:
                 "first_sweep": None,      # "high" | "low"
                 "second_sweep": None,     # "high" | "low"
                 "compression_resolved": False,
+                "is_fresh_compression_resolution": False,
+                "compression_partially_resolved": False,
             },
             "compression_high": None,
             "compression_low": None,
@@ -176,14 +178,39 @@ class NewYorkMarketContext:
 
         body = abs(ib8_close - ib8_open)
         range_ = ib8_high - ib8_low
+        upper_wick = ib8_high - max(ib8_open, ib8_close)
+        lower_wick = min(ib8_open, ib8_close) - ib8_low
+        wick_ratio = min(upper_wick, lower_wick) / max(upper_wick, lower_wick)
+        print("body rangexx: ", body/range_)
         is_strong_body = body/range_ > 0.75
         ib_body_range = body/range_
+        body_pct = body / range_
+        upper_pct = upper_wick / range_
+        lower_pct = lower_wick / range_
         self.structure["ib_direction_8"] = "bullish" if ib8_open < ib8_close else "bearish"
         self.structure["is_ib_strong_body"] = is_strong_body
         self.structure["ib_body_range"] = ib_body_range
         # also store in ib_8
         self.ib_8["direction"] = "bullish" if ib8_open < ib8_close else "bearish"
         self.ib_8["is_strong_body"] = is_strong_body
+        if body_pct >= 0.75:
+            self.ib_8["acceptance"] = "very strong"
+        elif body_pct >= 0.5:
+            self.ib_8["acceptance"] = "strong"
+
+        elif body_pct <= 0.2:
+
+            if wick_ratio >= 0.5:
+                self.ib_8["acceptance"] = "neutral"
+
+            elif upper_wick > lower_wick:
+                self.ib_8["acceptance"] = "bearish_rejection"
+
+            else:
+                self.ib_8["acceptance"] = "bullish_rejection"
+
+        else:
+            self.ib_8["acceptance"] = "moderate"
 
         # relative position of IBs
         self.structure["ib18_above_ib1"] = (
@@ -695,14 +722,21 @@ class NewYorkMarketContext:
     def update_compression_state(self, liquidity_level):
         if liquidity_level["cr8am_high"]["swept"] and not liquidity_level["cr8am_low"]["swept"]:
             self.structure["compression_state"]["first_sweep"] = "high"
+            self.structure["compression_state"]["compression_partially_resolved"] = True
         elif not liquidity_level["cr8am_high"]["swept"] and liquidity_level["cr8am_low"]["swept"]:
             self.structure["compression_state"]["first_sweep"] = "low"
+            self.structure["compression_state"]["compression_partially_resolved"] = True
         elif liquidity_level["cr8am_high"]["swept"] and liquidity_level["cr8am_low"]["swept"]:
             if self.structure["compression_state"]["first_sweep"] == "high":
                 self.structure["compression_state"]["second_sweep"] = "low"
             else:
                 self.structure["compression_state"]["second_sweep"] = "high"
-            self.structure["compression_state"]["compression_resolved"] = True
+            if not self.structure["compression_state"]["compression_resolved"]:
+                self.structure["compression_state"]["compression_resolved"] = True
+                self.structure["compression_state"]["is_fresh_compression_resolution"] = True
+            else:
+                self.structure["compression_state"]["is_fresh_compression_resolution"] = False
+
         
     # =========================================
     # 8. Compression Summary
@@ -713,4 +747,4 @@ class NewYorkMarketContext:
         is_compression = self.structure["is_compression"] or self.phase == "recompression"
         compression_range["high"] = self.structure["compression_high"]
         compression_range["low"] = self.structure["compression_low"]
-        return is_compression, compression_range, self.sweep
+        return is_compression, compression_range, self.sweep, self.structure["compression_state"]

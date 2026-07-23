@@ -76,7 +76,7 @@ def is_in_reversal_window(timestamp_iso: str, windows: dict):
 
 
 def get_active_window(timestamp_iso, wick_minutes=90):
-
+    print("type of sweep time: ", type(timestamp_iso))
     ts = datetime.fromisoformat(timestamp_iso)
 
     if ts.tzinfo is None:

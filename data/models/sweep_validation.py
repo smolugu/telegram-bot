@@ -30,11 +30,7 @@ def determine_asset_sweep_model(structure):
         "bullish_rebalance_compression",
         "bearish_rebalance_compression",
 
-        "sandwich_neutral",
-
-        # weak compression
-        "staircase_late_overlap_bullish",
-        "staircase_late_overlap_bearish",
+        "sandwich_neutral_recompression",
 
         "mixed_early_decompression",
     }:
@@ -55,6 +51,13 @@ def determine_asset_sweep_model(structure):
         "bearish_early_decompression",
     }:
         return "migration"
+    
+    if structure_name in {
+        # weak compression + migration
+        "staircase_late_overlap_bullish",
+        "staircase_late_overlap_bearish",
+    }:
+        return "stalled_migration"
 
     #
     # Acceptance Decompression
@@ -177,16 +180,28 @@ def validate_sweeps(
         caution_highs = False
         sweep_rejected_lows = True
         caution_lows = False
-        is_compression, compression_range, compression_sweep_data = ny_market_context.get_compression_data()
-        
+        is_compression, compression_range, compression_sweep_data, compression_state = ny_market_context.get_compression_data()
+        # "compression_state": {
+        #         "first_sweep": None,      # "high" | "low"
+        #         "second_sweep": None,     # "high" | "low"
+        #         "compression_resolved": False,
+        #         "is_fresh_compression_resolution": False,
+        #         "compression_partially_resolved": False,
+        #     },
         # =================
         # sweep highs block
         # =================
-        if (sweep_highs or sweep_highs_key_level) and last_closed["open"] > compression_range["low"] and last_closed["open"] < compression_range["high"]:
+        # here, compression is resoled on one end or price is still in compression zone
+        # we are only considering price when still in compression zone
+        # actually it should be compression is not resolved on both sides or on one side
+        print("compression_state: ", compression_state, "| instrument: ", instrument)
+        if (sweep_highs or sweep_highs_key_level) and (compression_state["compression_partially_resolved"] or compression_state["is_fresh_compression_resolution"]):
+        # if (sweep_highs or sweep_highs_key_level) and last_closed["open"] > compression_range["low"] and last_closed["open"] < compression_range["high"]:
             # also captures staircase_overlap_bearish and staircase_overlap_bullish when candle is inside compression zones
             # below we have a separate block for sweep outside compression range and candle outside compression range
             # nq_swept_level = max(sweep_nq_highs["sweep_level"], sweep_nq_highs_key_level["sweep_level"]) if sweep_nq_highs and sweep_nq_highs_key_level else (sweep_nq_highs["sweep_level"] if sweep_nq_highs else sweep_nq_highs_key_level["sweep_level"])
             print("101:")
+        
             swept_level = (
                 max(sweep_highs["sweep_level"], sweep_highs_key_level["sweep_level"]) if sweep_highs is not None and sweep_highs_key_level is not None
                 else sweep_highs["sweep_level"] if sweep_highs is not None
@@ -239,7 +254,8 @@ def validate_sweeps(
         # =================
         # sweep lows block
         # =================
-        if (sweep_lows or sweep_lows_key_level) and last_closed["open"] > compression_range["low"] and last_closed["open"] < compression_range["high"]:
+        # if (sweep_lows or sweep_lows_key_level) and last_closed["open"] > compression_range["low"] and last_closed["open"] < compression_range["high"]:
+        if (sweep_lows or sweep_lows_key_level) and (compression_state["compression_partially_resolved"] or compression_state["is_fresh_compression_resolution"]):
             print("sweep_lows: ", sweep_lows)
             print("104:")
             if sweep_lows is not None:
@@ -297,9 +313,9 @@ def validate_sweeps(
                     sweep_rejected_lows = False
                     caution_lows = True
                     if sweep_lows is not None:
-                        sweep_highs["caution"] = True
-                    if sweep_highs_key_level is not None:
-                        sweep_highs_key_level["caution"] = True
+                        sweep_lows["caution"] = True
+                    if sweep_lows_key_level is not None:
+                        sweep_lows_key_level["caution"] = True
             if instrument == "NQ":
                 nq_validation["lows"]["is_valid"] = not sweep_rejected_lows
                 nq_validation["lows"]["caution"] = caution_lows
@@ -430,6 +446,54 @@ def validate_sweeps(
                         es_validation["lows"]["is_valid"] = is_valid_sweep_high
                         es_validation["lows"]["caution"] = False
 
+    def _validate_stalled_migration_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
+        print("migration sweep validation")
+        is_valid_sweep_low = False
+        is_valid_sweep_high = False
+        structure_name = ny_market_context.structure["name"]
+        if "bullish" in structure_name:
+            # sweep lows
+            if (sweep_lows or sweep_lows_key_level):
+                if last_closed["low"] < ny_market_context.structure["compression_low"] or last_closed["low"] < ny_market_context.structure["mitigation_level"]:
+                    is_valid_sweep_low = True
+                    if instrument == "NQ":
+                        nq_validation["lows"]["is_valid"] = is_valid_sweep_low
+                        nq_validation["lows"]["caution"] = False
+                    else:
+                        es_validation["lows"]["is_valid"] = is_valid_sweep_low
+                        es_validation["lows"]["caution"] = False
+            
+            if (sweep_highs or sweep_highs_key_level):
+                if last_closed["high"] > ny_market_context.ib_8["high"]:
+                    is_valid_sweep_high = True
+                    if instrument == "NQ":
+                        nq_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["highs"]["caution"] = False
+                    else:
+                        es_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        es_validation["highs"]["caution"] = False
+        elif "bearish" in structure_name:
+            # sweep highs
+            if (sweep_highs or sweep_highs_key_level):
+                if last_closed["high"] > ny_market_context.structure["compression_high"] or last_closed["high"] > ny_market_context.structure["mitigation_level"]:
+                    is_valid_sweep_high = True
+                    if instrument == "NQ":
+                        nq_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["highs"]["caution"] = False
+                    else:
+                        es_validation["highs"]["is_valid"] = is_valid_sweep_high
+                        es_validation["highs"]["caution"] = False
+            
+            if (sweep_lows or sweep_lows_key_level):
+                if last_closed["low"] < ny_market_context.ib_8["low"]:
+                    is_valid_sweep_low = True
+                    if instrument == "NQ":
+                        nq_validation["lows"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["lows"]["caution"] = False
+                    else:
+                        es_validation["lows"]["is_valid"] = is_valid_sweep_high
+                        es_validation["lows"]["caution"] = False
+
     # completed, review later
     # long from gap or IB8low or IB8 CE or mitigation level inside gap
     def _validate_acceptance_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
@@ -514,12 +578,23 @@ def validate_sweeps(
     def _validate_rebalance_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
         print("rebalance decompression sweep validation")
         print("direction is not decided, look at HTF during final filters")
-        if instrument == "NQ":
-            nq_validation["highs"]["is_valid"] = True
-            nq_validation["highs"]["caution"] = False
-        else:
-            es_validation["highs"]["is_valid"] = True
-            es_validation["highs"]["caution"] = False
+        # longs
+            # 
+        if (sweep_highs or sweep_highs_key_level):
+            if instrument == "NQ":
+                nq_validation["highs"]["is_valid"] = True
+                nq_validation["highs"]["caution"] = False
+            else:
+                es_validation["highs"]["is_valid"] = True
+                es_validation["highs"]["caution"] = False
+        if (sweep_lows or sweep_lows_key_level):
+            if instrument == "NQ":
+                nq_validation["lows"]["is_valid"] = True
+                nq_validation["lows"]["caution"] = False
+            else:
+                es_validation["lows"]["is_valid"] = True
+                es_validation["lows"]["caution"] = False
+
 
     # skipping for now
     def _validate_mixed_decompression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
@@ -681,6 +756,15 @@ def validate_sweeps(
                 )
             elif instrument == "ES":
                 _validate_migration_sweeps(
+                    instrument=instrument, ny_market_context=es_ny_market_context, last_closed=last_closed_es, prev_last_closed=prev_last_closed_es , sweep_highs=sweep_es_highs, sweep_highs_key_level=sweep_es_highs_key_level, sweep_lows=sweep_es_lows, sweep_lows_key_level=sweep_es_lows_key_level
+                )
+        elif sweep_model == "stalled_migration":
+            if instrument == "NQ":
+                _validate_stalled_migration_sweeps(
+                    instrument=instrument, ny_market_context=nq_ny_market_context, last_closed=last_closed_nq, prev_last_closed=prev_last_closed_nq , sweep_highs=sweep_nq_highs, sweep_highs_key_level=sweep_nq_highs_key_level, sweep_lows=sweep_nq_lows, sweep_lows_key_level=sweep_nq_lows_key_level
+                )
+            elif instrument == "ES":
+                _validate_stalled_migration_sweeps(
                     instrument=instrument, ny_market_context=es_ny_market_context, last_closed=last_closed_es, prev_last_closed=prev_last_closed_es , sweep_highs=sweep_es_highs, sweep_highs_key_level=sweep_es_highs_key_level, sweep_lows=sweep_es_lows, sweep_lows_key_level=sweep_es_lows_key_level
                 )
 

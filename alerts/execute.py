@@ -3,6 +3,11 @@ from data.sqlite.db import DB_FILE
 from data.sqlite.db_functions import insert_trade
 from alerts.alert_engine import send_telegram_alert_to_all  # adjust import if needed
 
+def send_newyork_summary(message):
+    if not message:
+        return
+    # send alert
+    send_telegram_alert_to_all(message)
 
 def execute_trade_and_log(candidate, message):
 

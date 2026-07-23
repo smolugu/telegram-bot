@@ -76,11 +76,11 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
             continue
 
         if side == "buy_side":
-            print("level name, price, swept, side: ", lvl)
+            # print("level name, price, swept, side: ", lvl)
             buy_levels.append(price)
 
         elif side == "sell_side":
-            print("level name, price, swept, side: ", lvl)
+            # print("level name, price, swept, side: ", lvl)
             sell_levels.append(price)
 
     # -------------------------
@@ -177,7 +177,9 @@ def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
 
 
     # TP3: ATR expansion
+
     tp3 = entry - 0.7 * daily_atr if direction == "bearish" else entry + 0.7 * daily_atr
+    print("daily atr xx: ", daily_atr, daily_atr * 0.7)
 
     if tp2 is not None:
         # If TP2 and TP3 are too close,

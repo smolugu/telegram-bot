@@ -33,7 +33,7 @@ def filter_htf_candles(htf_candles, current_ts):
         dt = datetime.fromisoformat(c["timestamp"])
     
 
-        if dt <= current_dt:
+        if dt < current_dt:
             filtered.append(c)
 
     return filtered
@@ -116,6 +116,8 @@ def fetch_symbol_data(symbol: str):
 
     # 1h
     df_1h = ticker.history(interval="60m", period="14d")
+    # print("df_1h: ", df_1h)
+    # print("df_1h: ", df_1h.head(75).to_string())
 
     # 1m → aggregate to 3m
     df_1m = ticker.history(interval="1m", period="7d")
@@ -134,6 +136,7 @@ def fetch_symbol_data(symbol: str):
     # print("raw 5m candles for date: ", date)
     # print(candles_1800.head(50).to_string())
     df_3m = resample_to_3m(df_1m)
+
     # date = "2026-05-18"
 
     # filtered = df_3m.loc[date]
@@ -144,6 +147,10 @@ def fetch_symbol_data(symbol: str):
     # print(candles_1800.head(50).to_string())
     
     df_30m = resample_to_30m(df_5m)
+    df_1h = resample_to_60m(df_1m)
+    # print("df_1h resample: ", df_1h.head(75).to_string())
+    df_4h = resample_to_4h(df_5m)
+    df_7h = resample_to_7h(df_5m)
     # df_30m = resample_to_30m(df_1m)
     df_15m = resample_to_15m(df_5m)
     # print("formatted candles: ", format_df(df_3m))
@@ -153,6 +160,8 @@ def fetch_symbol_data(symbol: str):
         "15m": format_df(df_15m),
         "30m": format_df(df_30m),
         "1h": format_df(df_1h),
+        "4h": format_df(df_4h),
+        "7h": format_df(df_7h),
         "3m": format_df(df_3m),
         "1d": format_df(df_1d),
         "protected_high": None,
@@ -228,6 +237,28 @@ def resample_to_3m(df):
 
     return df
 
+def resample_to_60m(df):
+
+    df = df.copy()
+    # Ensure datetime index
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+    df = df.resample("60min",
+        label="left",
+        closed="left"
+        # origin="start_day", offset="18h"
+        ).agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    df = df.dropna()
+
+    return df
+
 def resample_to_30m(df):
 
     df = df.copy()
@@ -240,6 +271,58 @@ def resample_to_30m(df):
 
     df = df.resample(
         "30min",
+        # label="left",
+        # closed="left",
+        # origin="start_day",
+        # offset="18h"
+    ).agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    return df.dropna()
+
+def resample_to_4h(df):
+
+    df = df.copy()
+
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+
+    # # Shift 5m candles to actual opening boundary
+    # df.index = df.index + pd.Timedelta(minutes=5)
+
+    df = df.resample(
+        "240min",
+        # label="left",
+        # closed="left",
+        # origin="start_day",
+        # offset="18h"
+    ).agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    })
+
+    return df.dropna()
+
+def resample_to_7h(df):
+
+    df = df.copy()
+
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+
+    # # Shift 5m candles to actual opening boundary
+    # df.index = df.index + pd.Timedelta(minutes=5)
+
+    df = df.resample(
+        "420min",
         # label="left",
         # closed="left",
         # origin="start_day",

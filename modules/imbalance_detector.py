@@ -94,6 +94,7 @@ def detect_3m_imbalance_inside_ob_candle(
 ):
 
     if not candidate.final_ob_confirmed:
+        print("return none as final ob not confirmed")
         return None
     if candidate.ob_data is not None:
         ob = candidate.ob_data
@@ -106,6 +107,7 @@ def detect_3m_imbalance_inside_ob_candle(
         ob_low = last_closed_candle["low"]
         confirmation_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
         ce_ob = (ob_high + ob_low) / 2
+    print("ob_low: ", ob_low)
 
     # we are detecting imbalances in the current candle which created the OB
     last_closed_candle_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
@@ -120,6 +122,7 @@ def detect_3m_imbalance_inside_ob_candle(
         sweep_time = datetime.fromisoformat(last_closed_candle["timestamp"])
     else:
         sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
+    print("sweep time: ", sweep_time)
     # ob_high = ob["ob_high"]
     # ob_low = ob["ob_low"]
     # ce_ob = (ob_high + ob_low) / 2
@@ -137,6 +140,7 @@ def detect_3m_imbalance_inside_ob_candle(
     # print("inside candles:", inside)
 
     if len(inside) < 2:
+        print("length of candles 2")
         return None
 
     direction = candidate.side
@@ -150,13 +154,11 @@ def detect_3m_imbalance_inside_ob_candle(
 
     # 2️⃣ Detect Imbalances (FVG + Volume Imbalance)
     for i in range(1, len(inside)):
-
         prev = inside[i - 1]
         curr = inside[i]
-
         prev_close = prev["close"]
         curr_open = curr["open"]
-
+        
         # ==========================================================
         # 🔴 BEARISH SETUP (buy_side sweep → looking for short)
         # ==========================================================
@@ -179,7 +181,7 @@ def detect_3m_imbalance_inside_ob_candle(
                 vi_low = curr_open
 
                 # if vi_high <= ob_high and vi_low >= ob_low:  # Vi should be inside OB, so vi_low >= ob_low is not required
-                if vi_high <= ob_high:
+                if vi_high <= ob_high or candidate.sweep_key_level:
 
                     # distance = abs(ob_high - vi_low)
                     distance = abs(sweep_extreme_price - vi_low)
@@ -207,7 +209,7 @@ def detect_3m_imbalance_inside_ob_candle(
                     fvg_low = c3["high"]
                     # print(f"Found bearish FVG candidate - FVG High: {fvg_high}, FVG Low: {fvg_low}")
                     # if fvg_high <= ob_high and fvg_low >= ob_low:
-                    if fvg_high <= ob_high:
+                    if fvg_high <= ob_high or candidate.sweep_key_level:
 
                         # distance = abs(ob_high - fvg_low)
                         distance = abs(sweep_extreme_price - fvg_low)
@@ -244,7 +246,7 @@ def detect_3m_imbalance_inside_ob_candle(
                 vi_low = prev_close
                 vi_high = curr_open
 
-                if vi_low >= ob_low:
+                if vi_low >= ob_low or candidate.sweep_key_level:
 
                     # distance = abs(ob_low - vi_high)
                     distance = abs(sweep_extreme_price - vi_high)
@@ -264,13 +266,12 @@ def detect_3m_imbalance_inside_ob_candle(
             if i >= 2:
                 c1 = inside[i - 2]
                 c3 = inside[i]
-
+                
                 if c1["high"] < c3["low"]:
-
+                
                     fvg_low = c1["high"]
                     fvg_high = c3["low"]
-
-                    if fvg_low >= ob_low:
+                    if fvg_low >= ob_low or candidate.sweep_key_level:
 
                         # distance = abs(ob_low - fvg_high)
                         distance = abs(sweep_extreme_price - fvg_high)

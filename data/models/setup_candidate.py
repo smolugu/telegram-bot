@@ -23,6 +23,7 @@ class SetupCandidate:
         self.sweep_and_ob_ce_entry = None
         self.sweep_and_ob_confirmation_timestamp = None
         self.swept_levels = None
+        self.sweep_key_level = False
         self.sweep_level = None
         self.sweep_type = None
         self.caution = False
@@ -82,6 +83,7 @@ class SetupCandidate:
         self.sweep_and_ob_confirmation_timestamp = sweep_data["sweep_and_ob_confirmation_timestamp"]
         self.confirmation_time = sweep_data["sweep_and_ob_confirmation_timestamp"]
         self.swept_levels = sweep_data["swept_levels"]
+        self.sweep_key_level = sweep_data["sweep_key_level"]
         self.sweep_type = sweep_data["sweep_type"]
         self.check_breakout_rejection = sweep_data["sweep_type"] == "breakout"
         self.instrument = sweep_data["instrument"]

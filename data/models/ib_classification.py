@@ -135,7 +135,7 @@ def classify_ib_structure(
             "bullish_rebalance_compression",
             "bearish_rebalance_compression",
 
-            "sandwich_neutral",
+            "sandwich_neutral_recompression",
             
         }:
             return "compression"
@@ -210,7 +210,7 @@ def classify_ib_structure(
             "bullish_rebalance_compression",
             "bearish_rebalance_compression",
 
-            "sandwich_neutral",
+            "sandwich_neutral_recompression",
             
         }:
             return "waiting"
@@ -225,7 +225,7 @@ def classify_ib_structure(
             "staircase_late_overlap_bullish",
             "staircase_late_overlap_bearish",
         }:
-            return "mid"
+            return "mid expansion"
         
         if structure_name in {
             "staircase_gap_bullish",
@@ -237,14 +237,14 @@ def classify_ib_structure(
             "staircase_late_overlap_bullish",
             "staircase_late_overlap_bearish",
         }:
-            return "mid"
+            return "mid expansion"
 
         if structure_name in {
 
             "bullish_early_decompression",
             "bearish_early_decompression",
         }:
-            return "mid"
+            return "mid expansion"
 
         if structure_name in {
             "bullish_macro_decompression",
@@ -254,21 +254,21 @@ def classify_ib_structure(
             "bullish_mixed_decompression",
             "bearish_mixed_decompression",
         }:
-            return "early"
+            return "early expansion"
 
         if structure_name in {
             "bullish_reintegration",
             "bearish_reintegration",
         }:
-            return "mid"
+            return "mid expansion"
 
         if structure_name in {
             "bullish_value_flip",
             "bearish_value_flip",
         }:
-            return "mid"
+            return "expansion mid"
         
-        return "mid"
+        return "mid expansion"
     
     def ib_range(ib):
         return ib["high"] - ib["low"]
@@ -343,6 +343,9 @@ def classify_ib_structure(
         "sandwich_bullish",
         "sandwich_bearish",
 
+        "sandwich_gap_bullish",
+        "sandwich_gap_bearish",
+
         "sandwich_overlap_bullish",
         "sandwich_overlap_bearish",
 
@@ -352,7 +355,7 @@ def classify_ib_structure(
         "bullish_rebalance_compression",
         "bearish_rebalance_compression",
 
-        "sandwich_neutral"
+        "sandwich_neutral_recompression"
     }
 
     # =====================================================
@@ -384,6 +387,11 @@ def classify_ib_structure(
         name = None
         group = "decompression"
         name = "bullish_decompression"
+        doji_text = "The market has transitioned into early expansion after a accepting higher prices but direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
+        expected_delivery = "Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
+        
+        if ib8["acceptance"] == "neutral":
+            expected_delivery = doji_text
         
         return {
             "execution_edge": 90,
@@ -452,8 +460,7 @@ def classify_ib_structure(
                 "market_state":
                     "Price migrated higher during London before returning into the London range. During the pre-market session both sides of London liquidity were swept, transitioning the market from compression into expansion.",
 
-                "expected_delivery":
-                    "Expect retracements into pre-market mitigation levels before delivery continues in the direction of 30m structure",
+                "expected_delivery": expected_delivery,
 
                 "trade_focus":
                     "Focus on 30m structure formed during the pre-market expansion and their mitigation levels."
@@ -471,6 +478,11 @@ def classify_ib_structure(
         name = None
         group = "decompression"
         name = "bearish_decompression"
+        doji_text = "The market has transitioned into early expansion after a accepting lower prices but direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
+        expected_delivery = "Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
+        
+        if ib8["acceptance"] == "neutral":
+            expected_delivery = doji_text
         return {
             "execution_edge": 90,
             "direction_score": 85,
@@ -532,8 +544,7 @@ def classify_ib_structure(
                 "market_state":
                     "Price migrated lower during London before returning into the London range. During the pre-market session both sides of London liquidity were swept, transitioning the market from compression into expansion.",
 
-                "expected_delivery":
-                    "Expect retracements into pre-market mitigation levels before delivery continues in the direction of 30m structure",
+                "expected_delivery": expected_delivery,
 
                 "trade_focus":
                     "Focus on 30m structure formed during the pre-market expansion and their mitigation levels."
@@ -597,8 +608,8 @@ def classify_ib_structure(
             "note_internal":
 
                 "8AM IB engulfed 1AM IB overlapping prior value. "
-                "Continuation vs reversal unresolved. ",
-                "Mixed decompression before NY open."
+                "Continuation vs reversal unresolved. "
+                "Mixed decompression before NY open.",
 
             "note":
                 "Early expansion before NY open with unresolved direction, continuation vs reversal. "
@@ -714,6 +725,10 @@ def classify_ib_structure(
         name = None
         group = "decompression"
         name = "bullish_macro_decompression"
+        doji_text = "The market has transitioned into expansion after a complete rebalance of the overnight range. Direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
+        expected_delivery = "The market has transitioned into early expansion after a complete rebalance of the overnight range. Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
+        if ib8["acceptance"] == "neutral":
+            expected_delivery = doji_text
         return {
             "execution_edge": 100,
             "direction_score": 55,
@@ -773,10 +788,7 @@ def classify_ib_structure(
             "context_summary": {
                 "market_state":
                     "Price migrated higher during London before the pre-market session expanded through both sides of the overnight range, rebalancing the earlier migration.",
-
-                "expected_delivery":
-                    "The market has transitioned into expansion after a complete rebalance of the overnight range. Expect retracements into mitigation levels before delivery continues in the direction of the 30m structure.",
-
+                "expected_delivery": expected_delivery,
                 "trade_focus":
                     "Focus on 30m structure formed during the pre-market expansion, overnight equilibrium and mitigation levels."
             }
@@ -822,6 +834,11 @@ def classify_ib_structure(
         name = None
         group = "decompression"
         name = "bearish_macro_decompression"
+        doji_text = "The market has transitioned into expansion after a complete rebalance of the overnight range. Direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
+        expected_delivery = "The market has transitioned into early expansion after a complete rebalance of the overnight range. Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
+        if ib8["acceptance"] == "neutral":
+            expected_delivery = doji_text
+        
         return {
             "execution_edge": 100,
             "direction_score": 55,
@@ -880,10 +897,8 @@ def classify_ib_structure(
             "context_summary": {
                 "market_state":
                     "Price migrated lower during London before the pre-market session expanded through both sides of the overnight range, rebalancing the earlier migration.",
-
-                "expected_delivery":
-                    "The market has transitioned into expansion after a complete rebalance of the overnight range. Expect retracements into mitigation levels before delivery continues in the direction of the 30m structure.",
-
+                "expected_delivery": expected_delivery,
+                    
                 "trade_focus":
                     "Focus on 30m structure formed during the pre-market expansion, overnight equilibrium and mitigation levels."
             }
@@ -1198,8 +1213,8 @@ def classify_ib_structure(
     # =====================================================
 
     if ib1_engulf_ib18:
-        compression_range = {"high": None, "low": None}
-        equilibrium_range = {"high": None, "low": None}
+        compression_range = {"high": None, "low": None, "ce": None}
+        equilibrium_range = {"high": None, "low": None, "ce": None}
         if ib8["high"] < ib1["high"] and ib8["low"] > ib1["low"]:
             compression_range = {
                 "high": ib1["high"],
@@ -1268,7 +1283,8 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             
-            "compression_range": compression_range,
+            # "compression_range": compression_range,
+            compression_range: {"high": None, "low": None, "ce": None},
             "range": compression_range,
             "equilibrium_range": equilibrium_range,
             "mitigation_level": equilibrium_range["ce"],
@@ -1514,9 +1530,13 @@ def classify_ib_structure(
     # here there could be no gaps or atmost one gap between ibs
 
     if (
-        ib8["low"] > ib1["high"]
+        (ib8["low"] > ib1["high"]
         and ib18["high"]  > ib1["low"] >= ib18["low"]
-        and ib1["high"] > ib18["high"]
+        and ib1["high"] > ib18["high"]) or (
+        ib8["low"] > ib8["high"]
+        and ib18["low"] > ib1["high"] <= ib18["high"]
+        and ib1["low"] < ib18["low"]
+        )
     ):
         name = None
         group = "acceptance"
@@ -1551,12 +1571,16 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             # compression is early in london, potential long in london
-            
             "compression_range": {
-                "high": ib1["high"],
-                "low": ib18["low"],
-                "ce": (ib1["high"] + ib18["low"]) / 2
+                "high": None,
+                "low": None,
+                "ce": None
             },
+            # "compression_range": {
+            #     "high": ib1["high"],
+            #     "low": ib18["low"],
+            #     "ce": (ib1["high"] + ib18["low"]) / 2
+            # },
             "range": {
                 "high": ib8["high"],
                 "low": ib1["low"],
@@ -1706,9 +1730,13 @@ def classify_ib_structure(
     # # here there could be no gaps or atmost one gap between ibs
 
     if (
-        ib1["low"] > ib8["high"]
+        (ib8["high"] < ib1["low"]
         and ib18["low"] < ib1["high"] < ib18["high"]
-        and ib1["low"] < ib18["low"]
+        and ib1["low"] < ib18["low"]) or (
+            ib8["high"] < ib18["low"]
+        and ib18["high"] > ib1["low"] > ib18["low"]
+        and ib1["high"] > ib18["high"]
+        )
     ):
         name = None
         group = "acceptance"
@@ -1742,12 +1770,16 @@ def classify_ib_structure(
             "is_reintegration": False,
             "is_rebalance": False,
             "is_value_flip": False,
-            
             "compression_range": {
-                "high": ib18["high"],
-                "low": ib1["low"],
-                "ce": (ib18["high"] + ib1["low"]) / 2
+                "high": None,
+                "low": None,
+                "ce": None
             },
+            # "compression_range": {
+            #     "high": ib18["high"],
+            #     "low": ib1["low"],
+            #     "ce": (ib18["high"] + ib1["low"]) / 2
+            # },
             "range": {
                 "high": ib1["high"],
                 "low": ib8["low"],
@@ -1825,6 +1857,7 @@ def classify_ib_structure(
             "category": "bearish_acceptance",
             "direction": "bearish",
             "is_staircase": False,
+            "migration_strength": "moderate",
             "is_compression": True,
             "is_strong_compression": False,
             "compression_strength": "moderate",
@@ -2202,7 +2235,7 @@ def classify_ib_structure(
     # =====================================================
 
     if (
-        ib1_above_ib18
+        (ib1_above_ib18 or ib18["low"] < ib1["low"] < ib18["high"])
         and ib8_inside_ib18
     ):
         name = None
@@ -2276,7 +2309,7 @@ def classify_ib_structure(
     # =====================================================
 
     if (
-        ib1_below_ib18
+        (ib1_below_ib18 or ib18["low"] < ib1["high"] < ib18["high"])
         and ib8_inside_ib18
     ):
         name = None
@@ -2871,9 +2904,9 @@ def classify_ib_structure(
             "is_decompression": False,
             
             "compression_range": {
-                "high": ib1["high"],
+                "high": ib8["high"],
                 "low": ib8["low"],
-                "ce": (ib1["high"] + ib8["low"]) / 2
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib1["high"],
@@ -3015,8 +3048,8 @@ def classify_ib_structure(
             
             "compression_range": {
                 "high": ib8["high"],
-                "low": ib1["low"],
-                "ce": (ib8["high"] + ib1["low"]) / 2
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib18["high"],
@@ -3156,9 +3189,9 @@ def classify_ib_structure(
             "is_decompression": False,
             
             "compression_range": {
-                "high": ib1["high"],
-                "low": ib18["low"],
-                "ce": (ib1["high"] + ib18["low"]) / 2
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib1["high"],
@@ -3228,9 +3261,9 @@ def classify_ib_structure(
             "is_decompression": False,
             
             "compression_range": {
-                "high": ib18["high"],
-                "low": ib1["low"],
-                "ce": (ib18["high"] + ib1["low"]) / 2
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib18["high"],
@@ -3410,7 +3443,7 @@ def classify_ib_structure(
         }
     
     # =====================================================
-    # SANDWICH NEUTRAL
+    # SANDWICH NEUTRAL - Recompression
     # IB1 Engulfs IB18 and IB8 inside IB1
     # tight and energetic compression with explosive move after sweep of compression extremes
     # =====================================================
@@ -3420,7 +3453,7 @@ def classify_ib_structure(
     ):
         name = None
         group = "compression"
-        name = "sandwich_neutral"
+        name = "sandwich_neutral_recompression"
         return {
             "execution_edge": 100,
             "direction_score": 20,
@@ -3453,9 +3486,9 @@ def classify_ib_structure(
             "is_decompression": False,
             
             "compression_range": {
-                "high": ib1["high"],
-                "low": ib1["low"],
-                "ce": (ib1["high"] + ib1["low"]) / 2
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib1["high"],
@@ -3577,14 +3610,36 @@ def classify_ib_structure(
         "category": "mixed",
         "direction": "neutral",
         "is_staircase": False,
-        
-            "compression_range": {"high": None, "low": None, "ce": None},
-        "range": {"high": None, "low": None, "ce": None},
-        "equilibrium_range": {"high": None, "low": None, "ce": None},
-        "mitigation_level": None,
+        "is_compression": True,
+        "is_strong_compression": True,
+        "migration_strength": None,
+        "is_acceptance": False,
+        "is_rebalance": False,
+        "is_compression_resolution": False,
+        "is_reintegration": False,
+        "is_value_flip": False,
+        "is_decompression": False,
+        "compression_strength": None,
+        "compression_range": {"high": max(ib1["high"], ib8["high"], ib18["high"]), "low": min(ib1["low"], ib8["low"], ib18["low"]), "ce": (max(ib1["high"], ib8["high"], ib18["high"]) + min(ib1["low"], ib8["low"], ib18["low"])) / 2},
+        "range": {"high": max(ib1["high"], ib8["high"], ib18["high"]), "low": min(ib1["low"], ib8["low"], ib18["low"]), "ce": (max(ib1["high"], ib8["high"], ib18["high"]) + min(ib1["low"], ib8["low"], ib18["low"])) / 2},
+        "equilibrium_range": {"high": max(ib1["high"], ib8["high"], ib18["high"]), "low": min(ib1["low"], ib8["low"], ib18["low"]), "ce": (max(ib1["high"], ib8["high"], ib18["high"]) + min(ib1["low"], ib8["low"], ib18["low"])) / 2},
+        "mitigation_level": (max(ib1["high"], ib8["high"], ib18["high"]) + min(ib1["low"], ib8["low"], ib18["low"])) / 2,
         "note":
             "Mixed overlap structure. "
-            "Directional conviction unclear."
+            "Directional conviction unclear.",
+        "note_internal": 
+            "Mixed overlap structure. "
+            "Directional conviction unclear.",
+        "context_summary": {
+            "market_state":
+                "",
+
+            "expected_delivery":
+                "",
+
+            "trade_focus":
+                ""
+        }
     }
 
 

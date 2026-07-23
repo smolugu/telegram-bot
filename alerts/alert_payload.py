@@ -3,6 +3,98 @@ from datetime import datetime, timedelta
 from data.models.profit_targets import get_tp_levels
 
 
+AUCTION_PRIORITY = {
+    "waiting": 0,
+    "compression": 0,
+    "mid expansion": 1,
+    "migration": 1,
+    "early expansion": 2,
+    "early_expansion": 2,
+}
+
+
+def build_summary_alert(
+    nq_market_context,
+    es_market_context,
+):
+
+    lines = []
+
+    lines.append("⚡️ Ping NY AM Summary\n")
+
+    #
+    # NQ
+    #
+    lines.append("🔹 NQ")
+    lines.append(f"Market: {nq_market_context.structure["context_summary"]['market_state']}")
+    lines.append(f"Expectation: {nq_market_context.structure["context_summary"]['expected_delivery']}")
+    lines.append("")
+
+    #
+    # ES
+    #
+    lines.append("🔹 ES")
+    lines.append(f"Market: {es_market_context.structure["context_summary"]["market_state"]}")
+    lines.append(f"Expectation: {es_market_context.structure["context_summary"]["expected_delivery"]}")
+    lines.append("")
+
+    #
+    # Preferred asset
+    #
+    nq_auction_phase = nq_market_context.structure["auction_phase"]
+    es_auction_phase = es_market_context.structure["auction_phase"]
+    nq_pqs = nq_market_context.structure["pqs"]
+    es_pqs = es_market_context.structure["pqs"]
+    nq_priority = AUCTION_PRIORITY.get(nq_auction_phase, 0)
+    es_priority = AUCTION_PRIORITY.get(es_auction_phase, 0)
+
+    if nq_priority > es_priority:
+        preferred_asset = "NQ"
+        reason = (
+            f"NQ is in an earlier auction stage "
+            f"({nq_auction_phase}) compared with ES ({es_auction_phase}), "
+            "providing greater delivery potential."
+        )
+
+    elif es_priority > nq_priority:
+        preferred_asset = "ES"
+        reason = (
+            f"ES is in an earlier auction stage "
+            f"({es_auction_phase}) compared with NQ ({nq_auction_phase}), "
+            "providing greater delivery potential."
+        )
+
+    else:
+
+        if nq_pqs > es_pqs:
+            preferred_asset = "NQ"
+            reason = (
+                f"Both markets are in the {nq_auction_phase} phase. "
+                f"NQ has the stronger overnight structure "
+                f"(PQS {nq_pqs} vs {es_pqs})."
+            )
+
+        elif es_pqs > nq_pqs:
+            preferred_asset = "ES"
+            reason = (
+                f"Both markets are in the {es_auction_phase} phase. "
+                f"ES has the stronger overnight structure "
+                f"(PQS {es_pqs} vs {nq_pqs})."
+            )
+
+        else:
+            preferred_asset = "Either"
+            reason = (
+                f"Both markets are in the {nq_auction_phase} phase "
+                "with similar structure quality."
+            )
+
+    lines.append("🎯 Preferred Asset")
+    lines.append(f"{preferred_asset}")
+    lines.append(reason)
+
+    return "\n".join(lines)
+
 def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current_time = None):
 
     if not candidate.fvg_confirmed and not candidate.sweep_and_ob_confirmed:
@@ -152,6 +244,8 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
             rr = rr_initial_target
             tp1 = initial_target
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
+    
+    # buy candidate
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
         if candidate.sweep_and_ob_ce_confirmed:
             entry = candidate.sweep_and_ob_ce_entry
@@ -280,71 +374,232 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
 
     alert_type = "t1"
     if candidate.final_target == "ATR":
+        print("alert_type: ", "t3")
         alert_type = "t3"
+        if final_target is not None:
+            tp3 = final_target
+        if side == "sell_side":
+            if tp1 < tp2 < tp3:
+                alert_type = "t3"
+            elif tp1 < tp3 < tp2:
+                alert_type = "t2"
+                tp2 = tp3
+            elif tp3 <= tp1:
+                alert_type = "t1"
+                tp2 = None
+                tp3 = None
+
+            elif tp3 <= tp2:
+                alert_type = "t2"
+                tp2 = tp3
+                tp3 = None
+
+            else:
+                alert_type = "t3"
+        
+        if side == "buy_side":
+            if tp1 > tp2 >= tp3:
+                alert_type = "t3"
+            elif tp1 > tp3 > tp2:
+                alert_type = "t2"
+                tp2 = tp3
+            elif tp3 >= tp1:
+                alert_type = "t1"
+                tp2 = None
+                tp3 = None
+
+            elif tp3 >= tp2:
+                alert_type = "t2"
+                tp2 = tp3
+                tp3 = None
+
+            else:
+                alert_type = "t3"
+
+
+        print("alert_type:", alert_type)
+        
     elif candidate.final_target in ["DO", "MITL", "LIQUIDITY", "RL", "RH"]:
         alert_type = "t2"
-        if final_target is not None and side == "buy_side" and final_target > tp2:
-            tp2 = final_target
-            if tp1 < tp2:
+        print("alert_type: ", "t2")
+        print("tp1 xx: ", tp1, tp2, final_target)
+        if final_target is not None and side == "buy_side":
+            if tp1 < tp2 and tp1 < final_target:
                 alert_type = "t1"
-        if final_target is not None and side == "sell_side" and final_target < tp2:
-            tp2 = final_target
-            if tp1 > tp2:
+                print("alert_type sub2: ", "t1")
+            elif tp1 > final_target > tp2:
+                tp2 = final_target
+                alert_type = "t2"
+            elif tp1 > tp2 > final_target:
+                # dont increse tp2 to final target
+                alert_type = "t2"
+            
+        if final_target is not None and side == "sell_side":
+            if tp1 > tp2 and tp1 > final_target:
                 alert_type = "t1"
+                print("alert_type sub2: ", "t1")
+            elif tp1 < final_target < tp2:
+                tp2 = final_target
+                alert_type = "t2"
+            elif tp1 < tp2 < final_target:
+                # dont increse tp2 to final target
+                alert_type = "t2"
+                
     else:
         alert_type = "t1"
+    
+    zone = "Sell Zone"
+    if side == "sell_side":
+        zone = "Buy Zone"
+    if side == "buy_side":
+        zone_start = round(entry, 2)
+        zone_end = round(stop, 2)
+    else:
+        zone_start = round(stop, 2)
+        zone_end = round(entry, 2)
 
     # rr = 1.5
     # final_target = "MINI", "DO", "ATR", "MITL"
     if alert_type == "t3":
+        rr_t3 = abs(entry - tp3) / risk
+        rr_t3 = round(rr_t3, 2)
         alert_message = f"""
         ⚡️Ping Time - {candidate.ping_type}
 
-        Instrument: {instrument}
-        Bias: {bias}
-        Time: {time_formatted}
-
-        Entry: {round(entry, 2)}
-        Stop Loss: {round(stop, 2)}
-        Take Profit 1 - {rr} RR: {round(tp1, 2)}
-        Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
-        Take Profit 3 - ATR: {round(tp3, 2)}
-
-        Risk (Take Profit 1): {round(risk, 2)}
-        Min RR: {rr}
+        {instrument} • {bias}
+        Time: {time_formatted} EST
+        
+        {zone}: {zone_start} - {zone_end}
+        Sample Entry: {round(entry, 2)}
+        Sample Stop: {round(stop, 2)}
+        TP1 (1R): {round(tp1, 2)}
+        TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
+        TP3 (ATR): {round(tp3, 2)}
+        
+        Risk: {round(abs(entry-stop), 0)} pts
+        Reward : Risk: {rr_t3} : 1
         """
+        
+        # alert_message = f"""
+        # ⚡️Ping Time - {candidate.ping_type}
+
+        # {instrument} • {bias}
+        # {time_formatted} EST
+        
+        # {zone}
+        # {round(entry, 2)} - {round(stop, 2)}
+        
+        # Sample Entry
+        # {round(entry, 2)}
+        
+        # Sample Stop
+        # {round(stop, 2)}
+        
+        # Take Profit 1
+        # {round(tp1, 2)}
+        
+        # Take Profit 2
+        # HTF Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+        
+        # Take Profit 3
+        # ATR: {round(tp3, 2)}
+
+        # Risk
+        # {round(abs(entry-stop), 0)} Pts
+        
+        # Reward : Risk
+        # {rr_t3} : 1
+        # """
     
     elif alert_type == "t2":
-    
+        rr_t2 = abs(entry - tp2) / risk
+        rr_t2 = round(rr_t2, 2)
+
         alert_message = f"""
         ⚡️Ping Time - {candidate.ping_type}
 
-        Instrument: {instrument}
-        Bias: {bias}
-        Time: {time_formatted}
+        {instrument} • {bias}
+        Time: {time_formatted} EST
 
-        Entry: {round(entry, 2)}
-        Stop Loss: {round(stop, 2)}
-        Take Profit 1 - {rr} RR: {round(tp1, 2)}
-        Take Profit 2 - Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+        {zone}: {zone_start} - {zone_end}
+        Sample Entry: {round(entry, 2)}
+        Sample Stop: {round(stop, 2)}
+        TP1 (1R): {round(tp1, 2)}
+        TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
         
-        Risk: {round(risk, 2)}
-        Min RR: {rr}
+        Risk: {round(abs(entry-stop), 0)} pts
+        Reward : Risk: {rr_t2} : 1
         """
+        # alert_message = f"""
+        # ⚡️Ping Time - {candidate.ping_type}
+
+        # {instrument} • {bias}
+        # {time_formatted} EST
+        
+        # {zone}
+        # {round(entry, 2)} - {round(stop, 2)}
+        
+        # Sample Entry
+        # {round(entry, 2)}
+        
+        # Sample Stop
+        # {round(stop, 2)}
+        
+        # Take Profit 1
+        # {round(tp1, 2)}
+        
+        # Take Profit 2
+        # HTF Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
+        
+        # Risk
+        # {round(abs(entry-stop), 0)} Pts
+        
+        # Reward : Risk
+        # {rr_t2} : 1
+        # """
+
     elif alert_type == "t1":
+        rr_t1 = abs(entry - tp1) / risk
+        rr_t1 = round(rr_t1, 2)
         alert_message = f"""
         ⚡️Ping Time - {candidate.ping_type}
 
-        Instrument: {instrument}
-        Bias: {bias}
-        Time: {time_formatted}
+        {instrument} • {bias}
+        Time: {time_formatted} EST
 
-        Entry: {round(entry, 2)}
-        Stop Loss: {round(stop, 2)}
-        Take Profit - {rr} RR: {round(tp1, 2)}
-        Risk: {round(risk, 2)}
-        Min RR: {rr}
+        {zone}: {zone_start} - {zone_end}
+        Sample Entry: {round(entry, 2)}
+        Sample Stop: {round(stop, 2)}
+        TP (1R): {round(tp1, 2)}
+        
+        Risk: {round(abs(entry-stop), 0)} pts
+        Reward : Risk: {rr_t1} : 1
         """
+        
+        # alert_message = f"""
+        # ⚡️Ping Time - {candidate.ping_type}
+
+        # {instrument} • {bias}
+        # {time_formatted} EST
+        
+        # {zone}
+        # {round(entry, 2)} - {round(stop, 2)}
+        
+        # Sample Entry
+        # {round(entry, 2)}
+        
+        # Sample Stop
+        # {round(stop, 2)}
+        
+        # Take Profit
+        # {round(tp1, 2)}
+        
+        # Risk
+        # {round(abs(entry-stop), 0)} Pts
+        
+        # Reward : Risk
+        # {rr_t1} : 1
+        # """
     return alert_message
 
 

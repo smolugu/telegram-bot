@@ -246,9 +246,12 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
     high = last_closed_candle["high"]
     low = last_closed_candle["low"]
 
-    range_size = high - low
+    range_size = abs(high - low)
     body_size = abs(close - open)
     body_ratio = body_size / range_size
+    strong_body = body_size/range_size > 0.5
+    strong_body_ce = body_size/range_size > 0.4
+
     upper_wick_ratio = (
             high - max(open, close)
         ) / range_size
@@ -276,20 +279,24 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         nq_sweep_and_ob_confirmation_timestamp = None
         points_tol = 3 if instrument == "NQ" else 1.5
         
-        nq_sweep_and_ob_confirmed = close > open - points_tol
+        nq_sweep_and_ob_confirmed = close > open - points_tol or sweep_type_low == "rejection"
         
         if nq_sweep_and_ob_confirmed:
-            nq_sweep_and_ob_entry = open
+            nq_sweep_and_ob_entry = open if close > open else close
             nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
-        if close > open and close - open > 60:
+            
+        # if close > open and close - open > 60:
+        if nq_sweep_and_ob_confirmed and strong_body_ce:
             nq_sweep_and_ob_ce_entry = (open + close) / 2
             nq_sweep_and_ob_ce_confirmed = True
-        ob_level = open if nq_sweep_and_ob_confirmed else None
+        # ob_level = open if nq_sweep_and_ob_confirmed else None
+        ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
+        
         is_level_rejection = (
-                    lower_wick_ratio > 0.45
-                    and body_ratio < 0.4
+                    lower_wick_ratio > 0.25
+                    and body_ratio < 0.2
                 )
-        rejection_ob_level = open if is_level_rejection else None
+        rejection_ob_level = ob_level if is_level_rejection else None
         
         sweep_lows_key_levels_info = {
             "instrument": instrument,
@@ -297,7 +304,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "timestamp": last_closed_candle["timestamp"],
             "sweep_candle_low": low,
             "sweep_candle_extreme": low,
-            "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
+            "sweep_candle": {"open": open, "close": close, "high": high, "low": low, "is_bearish": open > close, "is_bullish": open < close},
             "sweep_time": sweep_time_low,
             "sweep_level": max_sweep_level_low,
             "sweep_key_level": True,
@@ -324,31 +331,37 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
         nq_sweep_and_ob_ce_confirmed = False
         nq_sweep_and_ob_confirmation_timestamp = None
         points_tol = 3 if instrument == "NQ" else 1.5
-        nq_sweep_and_ob_confirmed = close < open + points_tol
-        body = abs(close - open)
-        range_ = high - low
-        strong_body = body/range_ > 0.5
+        
+        # body = abs(close - open)
+        # range_ = high - low
+        # strong_body = body/range_ > 0.5
         print("last closed candle sweep: ", last_closed_candle)
-        print("sweep ob strong_body: ", strong_body, body/range_)
+        print("sweep ob strong_body: ", strong_body, body_size/range_size)
+        
+        nq_sweep_and_ob_confirmed = close < open + points_tol or sweep_type_high == "rejection"
     
         if nq_sweep_and_ob_confirmed:
-            print("oooo")
-            nq_sweep_and_ob_entry = open
+            nq_sweep_and_ob_entry = open if close < open else close
             # confirmation timestamp is current timestamp
             nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
     
         # if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
-        if nq_sweep_and_ob_confirmed and strong_body:
+        if nq_sweep_and_ob_confirmed and strong_body_ce:
             print("pppp")
             nq_sweep_and_ob_ce_entry = (open + close) / 2
             nq_sweep_and_ob_ce_confirmed = True
-        
-        ob_level = open if nq_sweep_and_ob_confirmed else None
+        ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
+        # ob_level = open if nq_sweep_and_ob_confirmed else None
+        # is_level_rejection = (
+        #             upper_wick_ratio > 0.45
+        #             and body_ratio < 0.4
+        #         )
+        # rejection_ob_level = open if is_level_rejection else None
         is_level_rejection = (
-                    upper_wick_ratio > 0.45
-                    and body_ratio < 0.4
+                    upper_wick_ratio > 0.25
+                    and body_ratio < 0.2
                 )
-        rejection_ob_level = open if is_level_rejection else None
+        rejection_ob_level = ob_level if is_level_rejection else None
 
         sweep_highs_key_levels_info = {
             "instrument": instrument,
@@ -356,7 +369,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
             "timestamp": last_closed_candle["timestamp"],
             "sweep_candle_high": high,
             "sweep_candle_extreme": high,
-            "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
+            "sweep_candle": {"open": open, "close": close, "high": high, "low": low, "is_bearish": open > close, "is_bullish": open < close},
             "sweep_time": sweep_time_high,
             "sweep_level": max_sweep_level_high,
             "sweep_key_level": True,
@@ -380,19 +393,26 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, last_closed_c
 def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lows, candles_3m, last_closed_candle, key_levels, current_30m_start):
     sweep_highs_info = None
     sweep_lows_info = None
+
     open = last_closed_candle["open"]
     close = last_closed_candle["close"]
     high = last_closed_candle["high"]
     low = last_closed_candle["low"]
-    range_size = high - low
+    last_closed_is_bearish = last_closed_candle["open"] > last_closed_candle["close"]
+    last_closed_is_bullish = last_closed_candle["close"] > last_closed_candle["open"]
+    range_size = abs(high - low)
     body_size = abs(close - open)
     body_ratio = body_size / range_size
+    strong_body = body_size/range_size > 0.5
+    strong_body_ce = body_size/range_size > 0.4
+
     upper_wick_ratio = (
             high - max(open, close)
         ) / range_size
     lower_wick_ratio = (
         min(open, close) - low
     ) / range_size
+
     points_tol = 3 if instrument == "NQ" else 1.5
 
     for swing in valid_swing_highs:
@@ -418,43 +438,48 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             # print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
             wick_ratio = abs(close - high) / abs(high - low)
             print("wick ratio: ", wick_ratio)
-            
+
+            # set sweep obs based on keylevel sweep
+            # "sweep" = sweep of key level from detect_key_liquidity_sweep_highs function
             if sweep:
-                
-                print("2022")
-                print("last_closed_candle close: ", close)
-                print("last_closed_candle open: ", open)
-                # TODO: replace 3 points tolerance with body_ratio
-                # lower_wick_ratio > 0.45
-                #     and (
-                #         close > open
-                #         or body_ratio < 0.25
-                #     )
-                # upper_wick_ratio > 0.45
-                #     and (
-                #         close < open
-                #         or body_ratio < 0.25
-                #     )
-                nq_sweep_and_ob_confirmed = close < open + points_tol or wick_ratio > 0.6
+                nq_sweep_and_ob_confirmed = close < open + points_tol or sweep_type_kl == "rejection"
+    
+                if nq_sweep_and_ob_confirmed:
+                    print("sweep and ob confirmed")
+                    nq_sweep_and_ob_entry = open if close < open else close
+                    # confirmation timestamp is current timestamp
+                    nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+            
+                # if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
+                if nq_sweep_and_ob_confirmed and strong_body_ce and last_closed_is_bearish:
+                    print("nq sweep and ob confirmed with strong body")
+                    nq_sweep_and_ob_ce_entry = (open + close) / 2
+                    nq_sweep_and_ob_ce_confirmed = True
+                ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
+                is_level_rejection = (
+                            upper_wick_ratio > 0.25
+                            and body_ratio < 0.2
+                        )
+                rejection_ob_level = ob_level if is_level_rejection else None
+
             else:
-                print("2023")
                 nq_sweep_and_ob_confirmed = close < open or wick_ratio > 0.6
-            
-            if nq_sweep_and_ob_confirmed:
-                print("2024")
-                nq_sweep_and_ob_entry = open
-                # confirmation timestamp is current timestamp
-                nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
-            
-            if close < open and (open - close) > 60:
-                nq_sweep_and_ob_ce_entry = (open + close) / 2
-                nq_sweep_and_ob_ce_confirmed = True
-            ob_level = open if nq_sweep_and_ob_confirmed else None
-            is_level_rejection = (
-                        upper_wick_ratio > 0.45
-                        and body_ratio < 0.4
-                    )
-            rejection_ob_level = open if is_level_rejection else None
+                if nq_sweep_and_ob_confirmed:
+                    print("2024")
+                    nq_sweep_and_ob_entry = open
+                    # confirmation timestamp is current timestamp
+                    nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+                
+                if close < open and strong_body_ce:
+                    nq_sweep_and_ob_ce_entry = (open + close) / 2
+                    nq_sweep_and_ob_ce_confirmed = True
+                ob_level = open if nq_sweep_and_ob_confirmed else None
+                is_level_rejection = (
+                            upper_wick_ratio > 0.45
+                            and body_ratio < 0.4
+                        )
+                rejection_ob_level = open if is_level_rejection else None
+
             # ny_am bias = bullish
             # ny_lunch = bearish - reversal or retracement
             # ny_pm = 7h wick window - setup based on 30m sweep and ob or 3pm retest of 30m ob for continuation
@@ -464,7 +489,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "timestamp": last_closed_candle["timestamp"],
                 "sweep_candle_high": high,
                 "sweep_candle_extreme": high,
-                "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
+                "sweep_candle": {"open": open, "close": close, "high": high, "low": low, "is_bearish": open > close, "is_bullish": open < close},
                 "sweep_time": sweep_time,
                 "sweep_level": max(swing["high"], max_swl) if max_swl else swing["high"],
                 "sweep_key_level": sweep,
@@ -500,38 +525,58 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_ce_entry = None
             nq_sweep_and_ob_confirmation_timestamp = None
 
-            
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, low, "sell_side")
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels)
             # print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
             wick_ratio = abs(close - low) / abs(high - low)
             print("wick ration: ", wick_ratio)
+
             if sweep:
-                nq_sweep_and_ob_confirmed = close > open - points_tol or wick_ratio > 0.6
+                print("popo5")
+                nq_sweep_and_ob_confirmed = close > open - points_tol or sweep_type_kl == "rejection"
+                if nq_sweep_and_ob_confirmed:
+                    print("popo4")
+                    nq_sweep_and_ob_entry = open if close > open else close
+                    nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+                if nq_sweep_and_ob_confirmed and strong_body_ce and last_closed_is_bullish:
+                    print("popo3")
+                    nq_sweep_and_ob_ce_entry = (open + close) / 2
+                    nq_sweep_and_ob_ce_confirmed = True
+                ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
+                
+                is_level_rejection = (
+                            lower_wick_ratio > 0.25
+                            and body_ratio < 0.2
+                        )
+                rejection_ob_level = ob_level if is_level_rejection else None
+                
             else:
+                print("popo6")
                 nq_sweep_and_ob_confirmed = close > open or wick_ratio > 0.6
+                if nq_sweep_and_ob_confirmed:
+                    print("popo1")
+                    nq_sweep_and_ob_entry = open
+                    nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+                if close > open and strong_body_ce:
+                    print("popo2")
+                    nq_sweep_and_ob_ce_entry = (open + close) / 2
+                    nq_sweep_and_ob_ce_confirmed = True
             
-            if nq_sweep_and_ob_confirmed:
-                nq_sweep_and_ob_entry = open
-                nq_sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
-            if close > open and close - open > 60:
-                nq_sweep_and_ob_ce_entry = (open + close) / 2
-                nq_sweep_and_ob_ce_confirmed = True
-            
-            ob_level = open if nq_sweep_and_ob_confirmed else None
-            is_level_rejection = (
-                        lower_wick_ratio > 0.45
-                        and body_ratio < 0.4
-                    )
-            rejection_ob_level = open if is_level_rejection else None
+                ob_level = open if nq_sweep_and_ob_confirmed else None
+                is_level_rejection = (
+                            lower_wick_ratio > 0.45
+                            and body_ratio < 0.4
+                        )
+                rejection_ob_level = open if is_level_rejection else None
+
             sweep_lows_info = {
                 "instrument": instrument,
                 "side": "sell_side",
                 "timestamp": last_closed_candle["timestamp"],
                 "sweep_candle_low": low,
                 "sweep_candle_extreme": low,
-                "sweep_candle": {"open": open, "close": close, "high": high, "low": low},
+                "sweep_candle": {"open": open, "close": close, "high": high, "low": low, "is_bearish": open > close, "is_bullish": open < close},
                 "sweep_time": sweep_time,
                 "sweep_level": min(swing["low"], max_swl) if max_swl else swing["low"],
                 "sweep_key_level": sweep,

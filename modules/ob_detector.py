@@ -2,21 +2,27 @@ from datetime import datetime, timedelta
 
 
 def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_candle):
+    # We evaluate the last closed candle
+    last_closed = candles[-1]
+    disable_previous_ob = False
+    direction = candidate.side  # "buy_side" or "sell_side"
+    if direction == "sell_side" and candidate.ob_data is not None:
+        if last_closed["low"] < candidate.ob_data["ob_low"]:
+            disable_previous_ob = True
+    elif direction == "buy_side" and candidate.ob_data is not None:
+        if last_closed["high"] > candidate.ob_data["ob_high"]:
+            disable_previous_ob = True
 
-    # if not candidate.active:
-    #     return None
-    if candidate.ob_confirmed:
+    if candidate.ob_confirmed and not disable_previous_ob:
         print("30m OB1: ", candidate.instrument)
         return candidate.ob_data
-
-    direction = candidate.side  # "buy_side" or "sell_side"
 
     if len(candles) < 2:
         print("30m OB2: ", candidate.instrument)
         return None
 
-    # We evaluate the last closed candle
-    last_closed = candles[-1]
+    # # We evaluate the last closed candle
+    # last_closed = candles[-1]
     
     body = abs(last_closed["close"] - last_closed["open"])
     range_ = last_closed["high"] - last_closed["low"]
