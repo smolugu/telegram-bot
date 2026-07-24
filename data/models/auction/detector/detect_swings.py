@@ -1,70 +1,80 @@
 from typing import List
-import pandas as pd
 
-from data.models.auction.models.htf_swing import HTFSwing
-
-# from models.htf_swing import HTFSwing
+from data.models.auction.models.candle import Candle
+from data.models.auction.models.htf_swing import HTFSwing, SwingType
 
 
 def detect_swings(
-    df,
+    candles: List[Candle],
     timeframe: str,
     pivot: int = 2,
 ) -> List[HTFSwing]:
     """
-    Detect swing highs and lows.
+    Detect swing highs and swing lows.
 
-    Required columns:
-        High
-        Low
-
-    DataFrame index should contain timestamps.
+    BUY_SIDE  = Swing High
+    SELL_SIDE = Swing Low
     """
 
     swings: List[HTFSwing] = []
 
-    highs = df["High"].values
-    lows = df["Low"].values
+    if len(candles) < (pivot * 2 + 1):
+        return swings
 
-    for i in range(pivot, len(df) - pivot):
+    for i in range(pivot, len(candles) - pivot):
 
-        # -------------------------
+        current = candles[i]
+
+        # --------------------------------------------------
         # Swing High
-        # -------------------------
-        window_high = highs[i - pivot : i + pivot + 1]
+        # --------------------------------------------------
+        is_swing_high = True
 
-        if highs[i] == window_high.max():
+        for j in range(i - pivot, i + pivot + 1):
 
-            # Ignore duplicate highs
-            if list(window_high).count(highs[i]) == 1:
+            if j == i:
+                continue
 
-                swings.append(
-                    HTFSwing(
-                        timeframe=timeframe,
-                        swing_type="BUY_SIDE",
-                        price=float(highs[i]),
-                        index=i,
-                        timestamp=df.index[i],
-                    )
+            if candles[j].high >= current.high:
+                is_swing_high = False
+                break
+
+        if is_swing_high:
+
+            swings.append(
+                HTFSwing(
+                    timeframe=timeframe,
+                    swing_type=SwingType.BUY_SIDE,
+                    price=current.high,
+                    index=i,
+                    timestamp=current.time,
                 )
+            )
 
-        # -------------------------
+        # --------------------------------------------------
         # Swing Low
-        # -------------------------
-        window_low = lows[i - pivot : i + pivot + 1]
+        # --------------------------------------------------
+        is_swing_low = True
 
-        if lows[i] == window_low.min():
+        for j in range(i - pivot, i + pivot + 1):
 
-            if list(window_low).count(lows[i]) == 1:
+            if j == i:
+                continue
 
-                swings.append(
-                    HTFSwing(
-                        timeframe=timeframe,
-                        swing_type="SELL_SIDE",
-                        price=float(lows[i]),
-                        index=i,
-                        timestamp=df.index[i],
-                    )
+            if candles[j].low <= current.low:
+                is_swing_low = False
+                break
+
+        if is_swing_low:
+
+            swings.append(
+                HTFSwing(
+                    timeframe=timeframe,
+                    swing_type=SwingType.SELL_SIDE,
+                    price=current.low,
+                    index=i,
+                    timestamp=current.time,
                 )
+            )
 
     return swings

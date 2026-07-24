@@ -150,7 +150,9 @@ def fetch_symbol_data(symbol: str):
     df_1h = resample_to_60m(df_1m)
     # print("df_1h resample: ", df_1h.head(75).to_string())
     df_4h = resample_to_4h(df_5m)
+    print("df_4h resample: ", df_4h.head(5).to_string())
     df_7h = resample_to_7h(df_5m)
+    print("df_7h resample: ", df_7h.head(5).to_string())
     # df_30m = resample_to_30m(df_1m)
     df_15m = resample_to_15m(df_5m)
     # print("formatted candles: ", format_df(df_3m))
@@ -294,13 +296,17 @@ def resample_to_4h(df):
 
     # # Shift 5m candles to actual opening boundary
     # df.index = df.index + pd.Timedelta(minutes=5)
-
+    # "4h",
+    #         origin="start_day",
+    #         offset="6h",
+    #         label="left",
+    #         closed="left",
     df = df.resample(
         "240min",
-        # label="left",
-        # closed="left",
-        # origin="start_day",
-        # offset="18h"
+        label="left",
+        closed="left",
+        origin="start_day",
+        offset="18h"
     ).agg({
         "Open": "first",
         "High": "max",
@@ -311,31 +317,31 @@ def resample_to_4h(df):
 
     return df.dropna()
 
-def resample_to_7h(df):
+# def resample_to_7h(df):
 
-    df = df.copy()
+#     df = df.copy()
 
-    if not isinstance(df.index, pd.DatetimeIndex):
-        df.index = pd.to_datetime(df.index)
+#     if not isinstance(df.index, pd.DatetimeIndex):
+#         df.index = pd.to_datetime(df.index)
 
-    # # Shift 5m candles to actual opening boundary
-    # df.index = df.index + pd.Timedelta(minutes=5)
+#     # # Shift 5m candles to actual opening boundary
+#     # df.index = df.index + pd.Timedelta(minutes=5)
 
-    df = df.resample(
-        "420min",
-        # label="left",
-        # closed="left",
-        # origin="start_day",
-        # offset="18h"
-    ).agg({
-        "Open": "first",
-        "High": "max",
-        "Low": "min",
-        "Close": "last",
-        "Volume": "sum"
-    })
+#     df = df.resample(
+#         "420min",
+#         label="left",
+#         closed="left",
+#         origin="start_day",
+#         offset="18h"
+#     ).agg({
+#         "Open": "first",
+#         "High": "max",
+#         "Low": "min",
+#         "Close": "last",
+#         "Volume": "sum"
+#     })
 
-    return df.dropna()
+#     return df.dropna()
 
 def resample_to_1d(df):
 
@@ -399,6 +405,124 @@ def resample_to_15m(df):
 
     return df
 
+def _aggregate_candle(df_slice, start_time):
+    if df_slice.empty:
+        return None
+
+    return {
+        "Time": start_time,
+        "Open": df_slice["Open"].iloc[0],
+        "High": df_slice["High"].max(),
+        "Low": df_slice["Low"].min(),
+        "Close": df_slice["Close"].iloc[-1],
+        "Volume": df_slice["Volume"].sum(),
+    }
+
+
+def resample_to_7h(df):
+
+    df = df.copy()
+
+    # Ensure datetime index
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+
+    df = df.sort_index()
+
+    rows = []
+
+    # Calendar dates present in the data
+    dates = pd.Index(df.index.date).unique()
+
+    for date in dates:
+
+        #
+        # 18:00 -> 01:00 (crosses midnight)
+        #
+        start = pd.Timestamp(date, tz=df.index.tz) + pd.Timedelta(hours=18)
+        end = start + pd.Timedelta(hours=7)
+
+        session = df[(df.index >= start) & (df.index < end)]
+
+        if not session.empty:
+            rows.append({
+                "Time": start,
+                "Open": session["Open"].iloc[0],
+                "High": session["High"].max(),
+                "Low": session["Low"].min(),
+                "Close": session["Close"].iloc[-1],
+                "Volume": session["Volume"].sum(),
+            })
+
+        #
+        # Skip if there isn't a following day
+        #
+        next_day = pd.Timestamp(date, tz=df.index.tz) + pd.Timedelta(days=1)
+
+        #
+        # 01:00 -> 08:00
+        #
+        start = next_day + pd.Timedelta(hours=1)
+        end = next_day + pd.Timedelta(hours=8)
+
+        session = df[(df.index >= start) & (df.index < end)]
+
+        if not session.empty:
+            rows.append({
+                "Time": start,
+                "Open": session["Open"].iloc[0],
+                "High": session["High"].max(),
+                "Low": session["Low"].min(),
+                "Close": session["Close"].iloc[-1],
+                "Volume": session["Volume"].sum(),
+            })
+
+        #
+        # 08:00 -> 15:00
+        #
+        start = next_day + pd.Timedelta(hours=8)
+        end = next_day + pd.Timedelta(hours=15)
+
+        session = df[(df.index >= start) & (df.index < end)]
+
+        if not session.empty:
+            rows.append({
+                "Time": start,
+                "Open": session["Open"].iloc[0],
+                "High": session["High"].max(),
+                "Low": session["Low"].min(),
+                "Close": session["Close"].iloc[-1],
+                "Volume": session["Volume"].sum(),
+            })
+
+        #
+        # 15:00 -> 17:00
+        #
+        start = next_day + pd.Timedelta(hours=15)
+        end = next_day + pd.Timedelta(hours=17)
+
+        session = df[(df.index >= start) & (df.index < end)]
+
+        if not session.empty:
+            rows.append({
+                "Time": start,
+                "Open": session["Open"].iloc[0],
+                "High": session["High"].max(),
+                "Low": session["Low"].min(),
+                "Close": session["Close"].iloc[-1],
+                "Volume": session["Volume"].sum(),
+            })
+
+    result = pd.DataFrame(rows)
+
+    if result.empty:
+        return result
+
+    result.set_index("Time", inplace=True)
+
+    result = result.sort_index()
+
+    return result
 
 # ---------------------------
 # Format DataFrame
@@ -439,7 +563,59 @@ def format_df(df):
 
     return candles
 
+# def resample_to_7h(df):
 
+#     df = df.copy()
+
+#     # Ensure datetime index
+#     if not isinstance(df.index, pd.DatetimeIndex):
+#         df.index = pd.to_datetime(df.index)
+
+#     df = df.sort_index()
+
+#     rows = []
+
+#     session = None
+
+#     for timestamp, candle in df.iterrows():
+
+#         hhmm = timestamp.strftime("%H:%M")
+
+#         # Start of a new session
+#         if hhmm in ("18:00", "01:00", "08:00", "15:00"):
+
+#             # Save previous session
+#             if session is not None:
+#                 rows.append(session)
+
+#             session = {
+#                 "Time": timestamp,
+#                 "Open": candle["Open"],
+#                 "High": candle["High"],
+#                 "Low": candle["Low"],
+#                 "Close": candle["Close"],
+#                 "Volume": candle["Volume"],
+#             }
+
+#         elif session is not None:
+
+#             session["High"] = max(session["High"], candle["High"])
+#             session["Low"] = min(session["Low"], candle["Low"])
+#             session["Close"] = candle["Close"]
+#             session["Volume"] += candle["Volume"]
+
+#     # Save final session
+#     if session is not None:
+#         rows.append(session)
+
+#     result = pd.DataFrame(rows)
+
+#     if result.empty:
+#         return result
+
+#     result.set_index("Time", inplace=True)
+
+#     return result
 
 def fetch_symbol_data_safe(symbol):
     try:

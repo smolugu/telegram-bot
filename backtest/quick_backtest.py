@@ -14,6 +14,7 @@ from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, filter_daily_candles, filter_htf_candles, get_current_contract, get_pdh_pdl_fixed_date
 from data.models.reversal_setup import check_for_reversal_setup_confirmation
+from helpers.candle import candle_from_dict
 from helpers.date_time_helpers import to_ny_datetime
 from helpers.sessions import get_futures_session, in_session
 from data.models.setup_candidate import SetupCandidate
@@ -102,14 +103,12 @@ def run_quick_backtest(test_date: str):
     es_sell_candidate = SetupCandidate("buy_side", "ES")
     es_buy_candidate = SetupCandidate("sell_side", "ES")
     
-
     nq_seven_hour_builder = SevenHourBuilder("NQ")
     es_seven_hour_builder = SevenHourBuilder("ES")
     nq_ib_candidate = IBContinuationCandidate("NQ")
     es_ib_candidate = IBContinuationCandidate("ES")
     checkval = ""
 
-    
     current_window = None
     liquidity_nq = reset_liquidity()
     liquidity_es = reset_liquidity()
@@ -138,7 +137,6 @@ def run_quick_backtest(test_date: str):
 
     print("nq weekly summary: ", nq_weekly_context.summary())
     print("es weekly summary: ", es_weekly_context.summary())
-    
     
     nq_current_session_high = float("-inf")
     nq_current_session_low = float("inf")
@@ -192,12 +190,29 @@ def run_quick_backtest(test_date: str):
         current_day_start,
         "ES"
     )
-
+    for c in nq["4h"][:10]:
+        print(c["timestamp"])
+    converted_4h = [candle_from_dict(c) for c in nq["4h"]]
+    converted_7h = [candle_from_dict(c) for c in nq["7h"]]
+    converted_1d = [candle_from_dict(c) for c in nq["1d"]]
+    h4_swings = detect_swings(
+        candles = converted_4h,
+        timeframe = "H4",
+    )
+    print("h4_swings: ", h4_swings)
     h7_swings = detect_swings(
-        nq["7h"],
-        timeframe="H7",
+        candles = converted_7h,
+        timeframe = "H7",
     )
     print("h7_swings: ", h7_swings)
+
+    d_swings = detect_swings(
+        candles = converted_1d,
+        timeframe = "D1",
+    )
+    print("d_swings: ", d_swings)
+
+    
 
     #  looping through 30m candles from 18:00 futures start
     for candle_3m in nq_3m:

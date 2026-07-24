@@ -1,10 +1,24 @@
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Literal, Optional
 
-SwingType = Literal["BUY_SIDE", "SELL_SIDE"]
-SwingStatus = Literal["OPEN", "MITIGATED"]
+from data.models.auction.models.base_model import HTFLevelStatus
 
+# SwingType = Literal["BUY_SIDE", "SELL_SIDE"]
+# SwingStatus = Literal["OPEN", "MITIGATED"]
+
+class SwingType(str, Enum):
+    BUY_SIDE = "BUY_SIDE"
+    SELL_SIDE = "SELL_SIDE"
+
+    @property
+    def opposite(self):
+        return (
+            SwingType.SELL_SIDE
+            if self == SwingType.BUY_SIDE
+            else SwingType.BUY_SIDE
+        )
 
 @dataclass
 class HTFSwing:
@@ -19,7 +33,7 @@ class HTFSwing:
 
     timestamp: datetime
 
-    status: SwingStatus = "OPEN"
+    status: HTFLevelStatus = "OPEN"
 
     mitigated_index: Optional[int] = None
 
