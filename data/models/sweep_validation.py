@@ -49,6 +49,8 @@ def determine_asset_sweep_model(structure):
 
         "bullish_early_decompression",
         "bearish_early_decompression",
+        "bullish_early_compression",
+        "bearish_early_compression",
     }:
         return "migration"
     
@@ -101,6 +103,8 @@ def determine_asset_sweep_model(structure):
         "bullish_reintegration",
         "bearish_reintegration",
     }:
+        if structure["is_strong_compression"]:
+            return "compression"
         return "reintegration"
 
     #
@@ -171,8 +175,6 @@ def validate_sweeps(
     }
     nq_sweep_model = None
     es_sweep_model = None
-    # nq_validation = None
-    # es_validation = None
     # completed, review later
     
     def _validate_compression_sweeps(instrument, ny_market_context, last_closed, prev_last_closed, sweep_highs, sweep_highs_key_level, sweep_lows, sweep_lows_key_level):
@@ -244,6 +246,15 @@ def validate_sweeps(
                         sweep_highs["caution"] = True
                     if sweep_highs_key_level is not None:
                         sweep_highs_key_level["caution"] = True
+            if sweep_rejected_highs == True:
+                if (
+                    ny_market_context.ib_8["is_strong_body"] 
+                    and last_closed["high"] > ny_market_context.structure["equilibrium_ce"]
+                    and last_closed["close"] < ny_market_context.structure["equilibrium_ce"]
+                ):
+                    sweep_rejected_highs = False        
+            
+                
             if instrument == "NQ":
                 nq_validation["highs"]["is_valid"] = not sweep_rejected_highs
                 nq_validation["highs"]["caution"] = caution_highs
@@ -316,6 +327,14 @@ def validate_sweeps(
                         sweep_lows["caution"] = True
                     if sweep_lows_key_level is not None:
                         sweep_lows_key_level["caution"] = True
+                if sweep_rejected_lows == True:
+                    # strong IB8 + ce of gap rejection
+                    if (
+                        ny_market_context.ib_8["is_strong_body"] 
+                        and last_closed["low"] < ny_market_context.structure["equilibrium_ce"]
+                        and last_closed["close"] > ny_market_context.structure["equilibrium_ce"]
+                    ):
+                        sweep_rejected_lows = False        
             if instrument == "NQ":
                 nq_validation["lows"]["is_valid"] = not sweep_rejected_lows
                 nq_validation["lows"]["caution"] = caution_lows
@@ -335,6 +354,7 @@ def validate_sweeps(
             # sweep lows block - compression low, compression low - mitigaltion level zone, mitigation level
             
             if (sweep_lows or sweep_lows_key_level):
+                
                 if ny_market_context.structure["compression_low"] > last_closed["low"] > ny_market_context.structure["mitigation_level"]:
                     print("sweep at lows accepted as valid reintegration sweep")
                     is_valid_sweep_low = True
@@ -406,7 +426,11 @@ def validate_sweeps(
         if "bullish" in structure_name:
             # sweep lows
             if (sweep_lows or sweep_lows_key_level):
-                if last_closed["low"] < ny_market_context.ib_8["low"] or last_closed["low"] < ny_market_context.structure["mitigation_level"]:
+                if (
+                    last_closed["low"] < ny_market_context.ib_8["low"]
+                    or last_closed["low"] < ny_market_context.structure["mitigation_level"]
+                    or (last_closed["low"] < ny_market_context.ib_8["ce"] and ny_market_context.ib_8["is_strong_body"])
+                ):
                     is_valid_sweep_low = True
                     if instrument == "NQ":
                         nq_validation["lows"]["is_valid"] = is_valid_sweep_low
@@ -427,7 +451,10 @@ def validate_sweeps(
         elif "bearish" in structure_name:
             # sweep highs
             if (sweep_highs or sweep_highs_key_level):
-                if last_closed["high"] > ny_market_context.ib_8["high"] or last_closed["high"] > ny_market_context.structure["mitigation_level"]:
+                if (last_closed["high"] > ny_market_context.ib_8["high"]
+                    or last_closed["high"] > ny_market_context.structure["mitigation_level"]
+                    or (last_closed["high"] > ny_market_context.ib_8["ce"] and ny_market_context.ib_8["is_strong_body"])
+                ):
                     is_valid_sweep_high = True
                     if instrument == "NQ":
                         nq_validation["highs"]["is_valid"] = is_valid_sweep_high

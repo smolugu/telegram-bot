@@ -1,6 +1,6 @@
 from typing import List
 
-from data.models.auction.models.candle import Candle
+from data.datamodels.candle import Candle
 from data.models.auction.models.htf_swing import HTFSwing, SwingType
 
 

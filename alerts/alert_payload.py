@@ -16,11 +16,16 @@ AUCTION_PRIORITY = {
 def build_summary_alert(
     nq_market_context,
     es_market_context,
+    current_time
 ):
 
     lines = []
+    # dt = datetime.fromisoformat(current_time) + timedelta(minutes=30)
+    dt = datetime.fromisoformat(current_time)
+    time_formatted = dt.strftime("%b %d, %Y %I:%M %p")
 
-    lines.append("⚡️ Ping NY AM Summary\n")
+    lines.append("⚡️ Ping NY AM Summary")
+    lines.append(f"  {time_formatted} EST\n")
 
     #
     # NQ
@@ -385,9 +390,11 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
                 alert_type = "t2"
                 tp2 = tp3
             elif tp3 <= tp1:
-                alert_type = "t1"
-                tp2 = None
-                tp3 = None
+                # alert_type = "t1"
+                tp1 = tp3
+                # TODO: change increments based on VIX
+                tp2 = tp1 + 40.0
+                tp3 = tp2 + 40.0
 
             elif tp3 <= tp2:
                 alert_type = "t2"
@@ -404,9 +411,11 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
                 alert_type = "t2"
                 tp2 = tp3
             elif tp3 >= tp1:
-                alert_type = "t1"
-                tp2 = None
-                tp3 = None
+                # alert_type = "t1"
+                # TODO: change increments based on VIX
+                tp1 = tp3
+                tp2 = tp1 - 40.0
+                tp3 = tp2 - 40.0
 
             elif tp3 >= tp2:
                 alert_type = "t2"

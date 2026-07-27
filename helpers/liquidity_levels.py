@@ -34,6 +34,17 @@ def add_mitigation_level(liquidity_levels, mtl_level, session, side):
     elif session == "8AM" and liquidity_levels["mr8am_mtl_high"]["price"] is None and side == "buy_side":
         liquidity_levels["mr8am_mtl_high"]["price"] = mtl_level
 
+def add_ib_ce_level(liquidity_levels, mtl_level, session, side):
+    
+    if session == "1AM" and liquidity_levels["ib_ce_1am_low"]["price"] is None and side == "sell_side":
+        liquidity_levels["ib_ce_1am_low"]["price"] = mtl_level
+    elif session == "1AM" and liquidity_levels["ib_ce_1am_high"]["price"] is None and side == "buy_side":
+        liquidity_levels["ib_ce_1am_high"]["price"] = mtl_level
+    elif session == "8AM" and liquidity_levels["ib_ce_8am_low"]["price"] is None and side == "sell_side":
+        liquidity_levels["ib_ce_8am_low"]["price"] = mtl_level
+    elif session == "8AM" and liquidity_levels["ib_ce_8am_high"]["price"] is None and side == "buy_side":
+        liquidity_levels["ib_ce_8am_high"]["price"] = mtl_level
+
 
 def add_8am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_level):
     if bullish_ob_level is not None:
@@ -47,6 +58,22 @@ def add_1am_ob_mitigation_levels(liquidity_levels, bullish_ob_level, bearish_ob_
     if bearish_ob_level is not None:
         add_ob_mitigation_level(liquidity_levels, bearish_ob_level, "1AM", "buy_side")
 
+
+# add ib ce as mitigation key level
+def add_ib_ce_key_level(structure_data, liquidity_levels):
+    # strong 8am Ib and migration structure
+    market_phase = structure_data.structure["market_phase"]
+    structure_name = structure_data.structure["name"]
+    ib_ce_level = structure_data.ib_8["ce"]
+    is_strong_body = structure_data.structure["is_ib_strong_body"]
+    print("add ib ce: is strong body: ", is_strong_body)
+    if market_phase == "migration" and is_strong_body:
+        print("adding ib ce level")
+        if "bullish" in structure_name:
+            add_ib_ce_level(liquidity_levels, ib_ce_level, "8AM", "sell_side")
+        elif "bearish" in structure_name:
+            add_ib_ce_level(liquidity_levels, ib_ce_level, "8AM", "buy_side")
+        
 
 # def add_post_8am_mitigation_levels(structure_data, liquidity_levels, bullish_mtl_level, bearish_mtl_level):
 def add_post_8am_mitigation_levels(structure_data, liquidity_levels):
@@ -88,6 +115,12 @@ def reset_liquidity():
 
         "mr8am_mtl_high": {"name": "mr8am_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "mr8am_mtl_low": {"name": "mr8am_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
+        "ib_ce_8am_high": {"name": "ib_ce_8am_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "ib_ce_8am_low": {"name": "ib_ce_8am_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
+
+        "ib_ce_1am_high": {"name": "ib_ce_1am_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
+        "ib_ce_1am_low": {"name": "ib_ce_1am_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
 
         "ob8_mtl_high": {"name": "ob8_mtl_high", "price": None, "side": "buy_side", "swept": False, "timestamp": None},
         "ob8_mtl_low": {"name": "ob8_mtl_low", "price": None, "side": "sell_side", "swept": False, "timestamp": None},
@@ -152,6 +185,7 @@ def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, curre
     ib_levels = get_session_high_low(candles_30m, 8, 0, 9, 0, current_start)
     liquidity_levels["ib_high"]["price"] = ib_levels["high"]
     liquidity_levels["ib_low"]["price"] = ib_levels["low"]
+    
     liquidity_levels["ib_high"]["timestamp"] = ib_levels["high_ts"]
     liquidity_levels["ib_low"]["timestamp"] = ib_levels["low_ts"]
     return liquidity_levels

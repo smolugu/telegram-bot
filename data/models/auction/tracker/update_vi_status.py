@@ -1,6 +1,6 @@
 from data.models.auction.models.base_model import VIStatus
 
-from data.models.auction.models.candle import Candle
+from data.datamodels.candle import Candle
 from data.models.auction.models.htf_vi import HTFVolumeImbalance
 
 
@@ -10,7 +10,7 @@ def update_VI_status(
     candles: list[Candle],
 ) -> None:
     """
-    Updates the status of every HTF FVG.
+    Updates the status of every HTF VI.
     """
 
     if not vis:
@@ -26,34 +26,42 @@ def update_VI_status(
 
         for candle in candles:
 
-            # Ignore candles before the swing formed
+            # Ignore candles before the VI formed
             if candle.time <= vi.timestamp:
                 continue
 
             if vi.is_bullish: # bullish vi
                 if candle.low == vi.upper:
                     vi.status = VIStatus.TOUCHED
+                    vi.mitigated_time = candle.time
                     break
                 elif candle.low < vi.upper:
                     vi.status = VIStatus.PARTIAL
+                    vi.mitigated_time = candle.time
                     break
                 elif candle.low <= vi.lower:
                     vi.status = VIStatus.MITIGATED
+                    vi.mitigated_time = candle.time
                     break
                 elif candle.close <= vi.lower:
                     vi.status = VIStatus.RECLAIMED
+                    vi.mitigated_time = candle.time
                 
             else:   # bearish fvg
                 if candle.high == vi.lower:
                     vi.status = VIStatus.TOUCHED
+                    vi.mitigated_time = candle.time
                     break
                 elif candle.high > vi.lower:
                     vi.status = VIStatus.PARTIAL
+                    vi.mitigated_time = candle.time
                     break
                 elif candle.low >= vi.upper:
                     vi.status = VIStatus.MITIGATED
+                    vi.mitigated_time = candle.time
                     break
                 elif candle.close >= vi.upper:
                     vi.status = VIStatus.RECLAIMED
+                    vi.mitigated_time = candle.time
 
                 

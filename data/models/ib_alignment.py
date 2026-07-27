@@ -271,6 +271,7 @@ def analyze_cross_asset_alignment(
             "staircase_early_overlap_bullish",
             "staircase_late_overlap_bullish",
             "staircase_bullish",
+            "bullish_early_compression"
         }
 
         bullish_sandwich_structures = {
@@ -314,6 +315,7 @@ def analyze_cross_asset_alignment(
             "staircase_early_overlap_bearish",
             "staircase_late_overlap_bearish",
             "staircase_bearish",
+            "bearish_early_compression",
         }
 
         bearish_sandwich_structures = {

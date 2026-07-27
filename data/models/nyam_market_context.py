@@ -240,6 +240,7 @@ class NewYorkMarketContext:
         self.structure["is_neutral_direction_structure"] = ib_classification_data["is_neutral_direction_structure"]
         
         self.structure["category"] = ib_classification_data["category"]
+        self.structure["market_phase"] = ib_classification_data["market_phase"]
         self.structure["direction"] = ib_classification_data["direction"]
         self.structure["is_compression"] = ib_classification_data["is_compression"]
         self.structure["is_compression_resolution"] = ib_classification_data["is_compression_resolution"]

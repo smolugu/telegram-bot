@@ -1,4 +1,4 @@
-from data.models.auction.models.candle import Candle
+from data.datamodels.candle import Candle
 from data.models.auction.models.htf_vi import HTFVolumeImbalance
 
 

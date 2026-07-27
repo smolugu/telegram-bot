@@ -66,7 +66,25 @@ class SetupCandidate:
 
     # --------------------------------------------------
 
-
+    def get_sweep_info(self):
+        return {
+            "sweep_timestamp": self.sweep_timestamp,
+            "sweep_candle_extreme": self.sweep_candle_extreme,
+            "sweep_3m_timestamp": self.sweep_3m_timestamp,
+            "sweep_candle": self.sweep_candle,
+            "check_breakout_rejection": self.check_breakout_rejection,
+            "is_breakout_rejection": self.is_breakout_rejection,
+            "caution": self.caution,
+            "sweep_type": self.sweep_type,
+            "sweep_level": self.sweep_level,
+            "sweep_key_level": self.sweep_key_level,
+            "swept_levels": self.swept_levels,
+            "sweep_and_ob_confirmation_timestamp": self.sweep_and_ob_confirmation_timestamp,
+            "sweep_and_ob_ce_entry": self.sweep_and_ob_ce_entry,
+            "sweep_and_ob_entry": self.sweep_and_ob_entry,
+            "sweep_and_ob_ce_confirmed": self.sweep_and_ob_ce_confirmed,
+            "sweep_and_ob_confirmed": self.sweep_and_ob_confirmed,
+        }
     
     def register_sweep(self, sweep_data):
         # timestamp, sweep_candle_extreme, sweep_time, sweep_and_ob_confirmed = False, sweep_and_ob_entry = None, sweep_and_ob_ce_confirmed=False, sweep_and_ob_ce_entry=None, sweep_and_ob_confirmation_timestamp = None, swept_levels = None, instrument = None, sweep_type = None, sweep_candle = None, sweep_level = None, caution=False

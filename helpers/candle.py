@@ -1,5 +1,5 @@
 from datetime import datetime
-from data.models.auction.models.candle import Candle
+from data.datamodels.candle import Candle
 
 def candle_from_dict(c):
     return Candle(

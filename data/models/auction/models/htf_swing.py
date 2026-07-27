@@ -3,7 +3,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
-from data.models.auction.models.base_model import HTFLevelStatus
+from data.models.auction.models.base_model import HTFSwingStatus
+
+# from data.models.auction.models.base_model import HTFLevelStatus
 
 # SwingType = Literal["BUY_SIDE", "SELL_SIDE"]
 # SwingStatus = Literal["OPEN", "MITIGATED"]
@@ -33,7 +35,7 @@ class HTFSwing:
 
     timestamp: datetime
 
-    status: HTFLevelStatus = "OPEN"
+    status: HTFSwingStatus = "OPEN"
 
     mitigated_index: Optional[int] = None
 

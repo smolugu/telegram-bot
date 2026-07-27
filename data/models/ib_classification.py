@@ -156,6 +156,8 @@ def classify_ib_structure(
 
             "bullish_early_decompression",
             "bearish_early_decompression",
+            "bullish_early_compression",
+            "bearish_early_compression",
         }:
             return "migration"
 
@@ -243,6 +245,8 @@ def classify_ib_structure(
 
             "bullish_early_decompression",
             "bearish_early_decompression",
+            "bullish_early_compression",
+            "bearish_early_compression",
         }:
             return "mid expansion"
 
@@ -2393,6 +2397,42 @@ def classify_ib_structure(
         name = None
         group = "reintegration"
         name = "bullish_reintegration"
+        compression_range = {}
+        range = {}
+        equilibrium_range = {}
+        if ib1_above_ib18:
+            compression_range = {
+                "high": ib18["high"],
+                "low": ib8["low"],
+                "ce": (ib18["high"] + ib8["low"]) / 2
+            }
+            range = {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            }
+            equilibrium_range = {
+                "high": ib8["high"],
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
+            }
+        else:
+            compression_range = {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            }
+            range = {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            }
+            equilibrium_range = {
+                "high": ib1["low"],
+                "low": ib8["high"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
+            }
+
         return {
             "execution_edge": 95,
             "direction_score": 75,
@@ -2412,10 +2452,10 @@ def classify_ib_structure(
             "category": "reintegration",
             "direction": "bullish",
             "is_staircase": False,
-            "migration_strength": "strong",
+            "migration_strength": "strong" if ib1_above_ib18 else "weak",
             "is_compression": True,
-            "is_strong_compression": False,
-            "compression_strength": "weak",
+            "is_strong_compression": False if ib1_above_ib18 else True,
+            "compression_strength": "weak" if ib1_above_ib18 else "strong",
             "is_acceptance": False,
             "is_compression_resolution": False,
             "is_reintegration": True,
@@ -2423,23 +2463,11 @@ def classify_ib_structure(
             "is_decompression": False,
             "is_value_flip": False,
             
-            "compression_range": {
-                "high": ib18["high"],
-                "low": ib8["low"],
-                "ce": (ib18["high"] + ib8["low"]) / 2
-            },
+            "compression_range": compression_range,
             # range is migration range
-            "range": {
-                "high": ib1["high"],
-                "low": ib8["low"],
-                "ce": (ib1["high"] + ib8["low"]) / 2
-            },
+            "range": range,
             # equilibrium range is the mitigation range. 
-            "equilibrium_range": {
-                "high": ib8["high"],
-                "low": ib18["low"],
-                "ce": (ib8["high"] + ib18["low"]) / 2
-            },
+            "equilibrium_range": equilibrium_range,
             "mitigation_level": (ib1["high"] + ib8["low"]) / 2,
             
             "note_internal":
@@ -2473,6 +2501,42 @@ def classify_ib_structure(
         name = None
         group = "reintegration"
         name = "bearish_reintegration"
+        compression_range = {}
+        range = {}
+        equilibrium_range = {}
+        if ib1_below_ib18:
+            compression_range = {
+                "high": ib8["high"],
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
+            }
+            range = {
+                "high": ib8["high"],
+                "low": ib18["low"],
+                "ce": (ib8["high"] + ib18["low"]) / 2
+            }
+            equilibrium_range = {
+                "high": ib18["high"],
+                "low": ib8["low"],
+                "ce": (ib18["high"] + ib8["low"]) / 2
+            }
+        else:
+            compression_range = {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"] + ib1["low"]) / 2
+            }
+            range = {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"] + ib1["low"]) / 2
+            }
+            equilibrium_range = {
+                "high": ib1["high"],
+                "low": ib8["low"],
+                "ce": (ib1["high"] + ib8["low"]) / 2
+            }
+
         return {
             "execution_edge": 95,
             "direction_score": 75,
@@ -2492,10 +2556,10 @@ def classify_ib_structure(
             "category": "reintegration",
             "direction": "bearish",
             "is_staircase": False,
-            "migration_strength": "strong",
+            "migration_strength": "strong" if ib1_below_ib18 else "weak",
             "is_compression": True,
-            "is_strong_compression": False,
-            "compression_strength": "weak",
+            "is_strong_compression": False if ib1_below_ib18 else True,
+            "compression_strength": "weak" if ib1_below_ib18 else "strong",
             "is_acceptance": False,
             "is_compression_resolution": False,
             "is_reintegration": True,
@@ -2505,21 +2569,9 @@ def classify_ib_structure(
             
             # range is compression range is there is one, otherwise displacement or migration range
             
-            "compression_range": {
-                "high": ib8["high"],
-                "low": ib18["low"],
-                "ce": (ib8["high"] + ib18["low"]) / 2
-            },
-            "range": {
-                "high": ib8["high"],
-                "low": ib18["low"],
-                "ce": (ib8["high"] + ib18["low"]) / 2
-            },
-            "equilibrium_range": {
-                "high": ib18["high"],
-                "low": ib8["low"],
-                "ce": (ib18["high"] + ib8["low"]) / 2
-            },
+            "compression_range": compression_range,
+            "range": range,
+            "equilibrium_range": equilibrium_range,
             "mitigation_level": (ib18["high"] + ib8["low"]) / 2,
             "note_internal":
                 "Bearish expansion weakened into reintegration.",
@@ -2692,7 +2744,164 @@ def classify_ib_structure(
                     "Focus on overnight gaps, pre-market lows, bullish mitigation levels and continuation setups above the daily open."
             }
         }
-    
+    # =====================================================
+    # COMPRESSION SETS
+    # =====================================================
+    # EARLY COMPRESSION SET 1
+    # Compression in london and migrating into ny am
+    # =====================================================
+    # =====================================================
+    # BULLISH EARLY COMPRESSION
+    # Compression early in london and expansion higher
+    # =====================================================
+    if (
+        ib1_inside_ib18
+        and ib8_above_ib1
+    ):
+        name = None
+        group = "compression"
+        name = "bullish_early_compression"
+        return {
+            "execution_edge": 92,
+            "direction_score": 85,
+            "migration_score": 85,
+            "pqs": 89,
+            "reaction_levels": {"London Range Eq", "Pre-market Lows", "Pre-market 30m Bullish OB"},
+            "structure_name": name,
+            "structure_phase": get_structure_phase(name),
+            "auction_phase": get_auction_phase(name),
+            "structure_group": group,
+            "execution_state": {
+                "rocket": "waiting",      # waiting | ready | completed
+                "flush": "waiting",       # waiting | ready | completed
+            },
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
+            "market_phase": "migration",
+            "category": "migration",
+            "direction": "bullish",
+            "is_staircase": False,
+            "migration_strength": "strong",
+            "is_compression": False,
+            "is_strong_compression": False,
+            "compression_strength": None,
+            "is_acceptance": True,
+            "is_decompression": False,
+            "is_compression_resolution": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib18["low"],
+                "ce": (ib18["low"]+ ib18["high"])/2,
+            },
+            "range": {
+                "high": ib8["high"], 
+                "low": ib18["low"], 
+                "ce": (ib8["high"]+ ib18["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib8["high"], 
+                "low": ib18["low"],
+                "ce": (ib8["high"]+ ib18["low"]) / 2
+            },
+            "mitigation_level": (ib8["low"]+ ib18["high"])/2,
+
+            "note_internal":
+                "1AM IB inside 18 IB and 8AM continued higher. "
+                "Early bullish volatility expansion accepted.",
+
+            "note":
+                "Bullish early expansion during London session. "
+                "Higher pricing accepted before NY open. Expect price to make shallow retracement towards london equilibrium or sweep of lows before continuation higher.",
+            "context_summary": {
+                "market_state":
+                    "The market transitioned into expansion during London and continued accepting higher prices into the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market imbalances or mitigation levels before bullish delivery resumes toward higher objectives.",
+
+                "trade_focus":
+                    "Focus on pre-market imbalances, bullish mitigation levels and 30m bullish structure formed during the ongoing expansion."
+            }
+        }
+    # =====================================================
+    # BEARISH EARLY COMPRESSION
+    # Compression early in london and expansion lower
+    # =====================================================
+    if (
+        ib1_inside_ib18
+        and ib8_below_ib1
+    ):
+        name = None
+        group = "compression"
+        name = "bearish_early_compression"
+        return {
+            "execution_edge": 92,
+            "direction_score": 85,
+            "migration_score": 85,
+            "pqs": 89,
+            "reaction_levels": {"London Range Eq", "Pre-market Highs", "Pre-market 30m Bearish OB"},
+            "structure_name": name,
+            "structure_phase": get_structure_phase(name),
+            "auction_phase": get_auction_phase(name),
+            "structure_group": group,
+            "execution_state": {
+                "rocket": "waiting",      # waiting | ready | completed
+                "flush": "waiting",       # waiting | ready | completed
+            },
+            "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
+            "market_phase": "migration",
+            "category": "migration",
+            "direction": "bearish",
+            "is_staircase": False,
+            "migration_strength": "strong",
+            "is_compression": False,
+            "is_strong_compression": False,
+            "compression_strength": None,
+            "is_acceptance": True,
+            "is_decompression": False,
+            "is_compression_resolution": True,
+            "is_reintegration": False,
+            "is_rebalance": False,
+            "is_value_flip": False,
+            
+            "compression_range": {
+                "high": ib18["high"],
+                "low": ib18["low"],
+                "ce": (ib18["low"]+ ib18["high"])/2,
+            },
+            "range": {
+                "high": ib18["high"], 
+                "low": ib8["low"], 
+                "ce": (ib18["high"]+ ib8["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib18["high"], 
+                "low": ib8["low"],
+                "ce": (ib18["high"]+ ib8["low"]) / 2
+            },
+            "mitigation_level": (ib18["low"]+ ib8["high"])/2,
+
+            "note_internal":
+                "1AM IB inside 18 IB and 8AM continued lower. "
+                "Early bearish volatility expansion accepted.",
+
+            "note":
+                "Bearish early expansion during London session. "
+                "Lower pricing accepted before NY open. Expect price to make shallow retracement towards london equilibrium or sweep of highs before continuation lower.",
+            "context_summary": {
+                "market_state":
+                    "The market transitioned into expansion during London and continued accepting lower prices into the pre-market session.",
+
+                "expected_delivery":
+                    "Expect retracements into pre-market imbalances or mitigation levels before bearish delivery resumes toward lower objectives.",
+
+                "trade_focus":
+                    "Focus on pre-market imbalances, bearish mitigation levels and 30m bearish structure formed during the ongoing expansion."
+            }
+        }
     # =====================================================
     # SANDWICH COMPRESSION SETS
     # =====================================================
@@ -3199,11 +3408,11 @@ def classify_ib_structure(
                 "ce": (ib1["high"] + ib18["low"]) / 2
             },
             "equilibrium_range": {
-                "high": ib8["high"],
-                "low": ib8["low"],
-                "ce": (ib8["high"] + ib8["low"]) / 2
+                "high": ib1["low"],
+                "low": ib18["high"],
+                "ce": (ib18["high"] + ib1["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
+            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
             "note_internal":
                 "Balanced bullish sandwich compression.",
             "note": 
@@ -3271,11 +3480,11 @@ def classify_ib_structure(
                 "ce": (ib18["high"] + ib1["low"]) / 2
             },
             "equilibrium_range": {
-                "high": ib8["high"],
-                "low": ib8["low"],
-                "ce": (ib8["high"] + ib8["low"]) / 2
+                "high": ib18["low"],
+                "low": ib1["high"],
+                "ce": (ib1["high"] + ib18["low"]) / 2
             },
-            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
+            "mitigation_level": (ib18["low"] + ib1["high"]) / 2,
             "note_internal":
                 "Balanced bearish sandwich compression.",
             "note": 
@@ -3573,6 +3782,8 @@ def classify_ib_structure(
             "mitigation_level": (ib1["high"] + ib1["low"]) / 2,
             "notes_internal": "IB1 inside IB18 with midpoints within 15% of IB18 range.",
             "note":
+                "Tight consolidation inside larger asia range.",
+            "note_internal":
                 "Tight consolidation inside larger asia range.",
             "context_summary": {
                 "market_state":

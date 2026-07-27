@@ -546,9 +546,9 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
                 
                 is_level_rejection = (
-                            lower_wick_ratio > 0.25
-                            and body_ratio < 0.2
-                        )
+                    lower_wick_ratio > 0.25
+                    and body_ratio < 0.2
+                )
                 rejection_ob_level = ob_level if is_level_rejection else None
                 
             else:
@@ -565,9 +565,9 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             
                 ob_level = open if nq_sweep_and_ob_confirmed else None
                 is_level_rejection = (
-                            lower_wick_ratio > 0.45
-                            and body_ratio < 0.4
-                        )
+                    lower_wick_ratio > 0.45
+                    and body_ratio < 0.4
+                )
                 rejection_ob_level = open if is_level_rejection else None
 
             sweep_lows_info = {
@@ -597,6 +597,185 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             break
 
     return sweep_highs_info, sweep_lows_info
+
+def update_sweep_info(candidate, candles_3m, last_closed_candle):
+    # 1. breakout rejection check
+    # 2. sweep extreme check
+    # 3. sweep time on 3m tf
+    instrument = candidate.instrument
+    open = last_closed_candle["open"]
+    low = last_closed_candle["low"]
+    high = last_closed_candle["high"]
+    close = last_closed_candle["close"]
+    last_closed_is_bearish = last_closed_candle["open"] > last_closed_candle["close"]
+    last_closed_is_bullish = last_closed_candle["close"] > last_closed_candle["open"]
+    range_size = abs(high - low)
+    body_size = abs(close - open)
+    body_ratio = body_size / range_size
+    strong_body = body_size/range_size > 0.5
+    strong_body_ce = body_size/range_size > 0.4
+
+    upper_wick_ratio = (
+            high - max(open, close)
+        ) / range_size
+    lower_wick_ratio = (
+        min(open, close) - low
+    ) / range_size
+    wick_ratio = abs(close - low) / abs(high - low)
+
+    points_tol = 3 if instrument == "NQ" else 1.5
+    if candidate.side == "buy_side":
+        print("checking breakout rejection for nq sell candidate")
+        if last_closed_candle["close"] < candidate.sweep_level:
+            candidate.is_breakout_rejection = True
+            candidate.sweep_type = "rejection"
+            print("breakout sweep ob confirmed for nq sell candidate")
+            # other updates
+            # sweep extreme and 3m sweep time
+            if candidate.sweep_candle_extreme < last_closed_candle["high"]:
+                candidate.sweep_candle_extreme = last_closed_candle["high"]
+
+                # sweep time update
+                sweep_candle_start = last_closed_candle["timestamp"]
+                sweep_candle_end = (
+                    datetime.fromisoformat(sweep_candle_start)
+                    + timedelta(minutes=30)
+                ).isoformat()
+                inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+                high = last_closed_candle["high"]
+                sweep_time = find_sweep_time_3m(inside_3m_candles, high, "buy_side")
+                candidate.sweep_time = sweep_time
+            # update sweep on and ce of ob
+            sweep = candidate.sweep_key_level
+            sweep_and_ob_confirmed = False
+            sweep_and_ob_ce_confirmed = False
+            sweep_and_ob_entry = None
+            sweep_and_ob_ce_entry = None
+            sweep_and_ob_confirmation_timestamp = None
+            
+            if sweep:
+                sweep_and_ob_confirmed = True
+                if sweep_and_ob_confirmed:
+                    print("sweep and ob confirmed")
+                    sweep_and_ob_entry = open if close < open else close
+                    # confirmation timestamp is current timestamp
+                    sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+            
+                # if last_closed_candle["close"] < last_closed_candle["open"] and (last_closed_candle["open"] - last_closed_candle["close"]) > 60:
+                if sweep_and_ob_confirmed and strong_body_ce and last_closed_is_bearish:
+                    print("sweep and ob confirmed with strong body")
+                    sweep_and_ob_ce_entry = (open + close) / 2
+                    sweep_and_ob_ce_confirmed = True
+                ob_level = sweep_and_ob_entry if sweep_and_ob_confirmed else None
+                is_level_rejection = (
+                    upper_wick_ratio > 0.25
+                    and body_ratio < 0.2
+                )
+                rejection_ob_level = ob_level if is_level_rejection else None
+
+            else:
+                sweep_and_ob_confirmed = close < open or wick_ratio > 0.6
+                if sweep_and_ob_confirmed:
+                    sweep_and_ob_entry = open
+                    # confirmation timestamp is current timestamp
+                    sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+                
+                if close < open and strong_body_ce:
+                    sweep_and_ob_ce_entry = (open + close) / 2
+                    sweep_and_ob_ce_confirmed = True
+                ob_level = open if sweep_and_ob_confirmed else None
+                is_level_rejection = (
+                    upper_wick_ratio > 0.45
+                    and body_ratio < 0.4
+                )
+                rejection_ob_level = open if is_level_rejection else None
+            candidate.rejection_ob_level = rejection_ob_level
+            candidate.ob_level = ob_level
+            candidate.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
+            candidate.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
+            candidate.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
+            candidate.sweep_and_ob_entry = sweep_and_ob_entry
+            candidate.sweep_and_ob_confirmed = sweep_and_ob_confirmed
+            candidate.ob_level = ob_level
+            candidate.confirmation_time = sweep_and_ob_confirmation_timestamp
+
+        candidate.check_breakout_rejection = False
+
+    else:
+        print(f"""checking breakout rejection for {candidate.instrument} buy candidate""")
+        if last_closed_candle["close"] > candidate.sweep_level:
+            candidate.is_breakout_rejection = True
+            candidate.sweep_type = "rejection"
+            print(f"""breakout sweep ob confirmed for {candidate.instrument} sell candidate""")
+            # other updates
+            # sweep extreme and 3m sweep time
+            if candidate.sweep_candle_extreme > last_closed_candle["low"]:
+                candidate.sweep_candle_extreme = last_closed_candle["low"]
+
+                # sweep time update
+                sweep_candle_start = last_closed_candle["timestamp"]
+                sweep_candle_end = (
+                    datetime.fromisoformat(sweep_candle_start)
+                    + timedelta(minutes=30)
+                ).isoformat()
+                inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
+                low = last_closed_candle["low"]
+                sweep_time = find_sweep_time_3m(inside_3m_candles, low, "sell_side")
+                candidate.sweep_time = sweep_time
+            # update sweep on and ce of ob
+            sweep = candidate.sweep_key_level
+            sweep_and_ob_confirmed = False
+            sweep_and_ob_ce_confirmed = False
+            sweep_and_ob_entry = None
+            sweep_and_ob_ce_entry = None
+            sweep_and_ob_confirmation_timestamp = None
+            if sweep:
+                # swept key level
+                sweep_and_ob_confirmed = True
+                if sweep_and_ob_confirmed:
+                    sweep_and_ob_entry = open if close > open else close
+                    sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+                if sweep_and_ob_confirmed and strong_body_ce and last_closed_is_bullish:
+                    sweep_and_ob_ce_entry = (open + close) / 2
+                    sweep_and_ob_ce_confirmed = True
+                ob_level = sweep_and_ob_entry if sweep_and_ob_confirmed else None
+                
+                is_level_rejection = (
+                    lower_wick_ratio > 0.25
+                    and body_ratio < 0.2
+                )
+                rejection_ob_level = ob_level if is_level_rejection else None
+                
+            else:
+                print("popo6")
+                sweep_and_ob_confirmed = close > open or wick_ratio > 0.6
+                if sweep_and_ob_confirmed:
+                    print("popo1")
+                    sweep_and_ob_entry = open
+                    sweep_and_ob_confirmation_timestamp = last_closed_candle["timestamp"]
+                if close > open and strong_body_ce:
+                    print("popo2")
+                    sweep_and_ob_ce_entry = (open + close) / 2
+                    sweep_and_ob_ce_confirmed = True
+            
+                ob_level = open if sweep_and_ob_confirmed else None
+                is_level_rejection = (
+                    lower_wick_ratio > 0.45
+                    and body_ratio < 0.4
+                )
+                rejection_ob_level = open if is_level_rejection else None
+            candidate.rejection_ob_level = rejection_ob_level
+            candidate.ob_level = ob_level
+            candidate.sweep_and_ob_ce_confirmed = sweep_and_ob_ce_confirmed
+            candidate.sweep_and_ob_ce_entry = sweep_and_ob_ce_entry
+            candidate.sweep_and_ob_confirmation_timestamp = sweep_and_ob_confirmation_timestamp
+            candidate.sweep_and_ob_entry = sweep_and_ob_entry
+            candidate.sweep_and_ob_confirmed = sweep_and_ob_confirmed
+            candidate.ob_level = ob_level
+            candidate.confirmation_time = sweep_and_ob_confirmation_timestamp
+                
+        candidate.check_breakout_rejection = False
+
 
 def detect_dual_sweep(
     nq_30m,

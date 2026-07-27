@@ -1,4 +1,5 @@
-from data.models.auction.models.candle import Candle
+
+from data.datamodels.candle import Candle
 from data.models.auction.models.htf_cisd import HTFCISD
 
 def detect_cisd(
@@ -17,13 +18,16 @@ def detect_cisd(
         # Close above the high of the last bearish candle.
         if (
             last_bearish is not None
-            and curr.close > last_bearish.high
+            and curr.close > last_bearish.open
         ):
             cisds.append(
                 HTFCISD(
                     timeframe=timeframe,
                     timestamp=curr.time,
-                    price=last_bearish.high,
+                    upper_body=last_bearish.open,
+                    lower_body=min(last_bearish.close, curr.open),
+                    upper_wick=last_bearish.high,
+                    lower_wick=last_bearish.low,
                     bullish=True,
                 )
             )
@@ -33,13 +37,16 @@ def detect_cisd(
         # Close below the low of the last bullish candle.
         elif (
             last_bullish is not None
-            and curr.close < last_bullish.low
+            and curr.close < last_bullish.open
         ):
             cisds.append(
                 HTFCISD(
                     timeframe=timeframe,
                     timestamp=curr.time,
-                    price=last_bullish.low,
+                    upper_body=max(last_bullish.close,curr.open),
+                    lower_body=last_bullish.open,
+                    upper_wick=last_bullish.high,
+                    lower_wick=last_bullish.low,
                     bullish=False,
                 )
             )

@@ -9,6 +9,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 
 from backtest.quick_test import run_quick_test
+from data.api.massive_rest import MassiveClient
+from data.providers.futures_provider import FuturesProvider
 from data.sqlite.db import init_db
 from data.market_data import fetch_market_data
 
@@ -28,6 +30,9 @@ from backtest.quick_backtest import run_quick_backtest
 
 load_dotenv()
 token = os.getenv("BOT_TOKEN")
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+client = MassiveClient(POLYGON_API_KEY)
+provider = FuturesProvider(client)
 WICK_WINDOW_MINUTES = 60
 CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
@@ -88,10 +93,61 @@ def main():
     init_db()  # initialize database if needed
     
     if MODE == "BACKTEST":
-        run_quick_backtest("2026-07-22")
+        # bars = provider.get_daily_bars(
+        #     symbol="NQU26",
+        #     from_date="2026-07-01",
+        #     to_date="2026-07-25",
+        # )
+        # # provider.get_contracts()
+
+        # print(f"Downloaded {len(bars)} bars")
+        bars = provider.get_futures_bars(
+            ticker="NQU6",
+            resolution="1hour",
+            window_start="2026-07-15",
+        )
+
+        for bar in bars:
+            print(bar)
+        # import requests
+
+        # url = "https://api.massive.com/futures/v1/aggs/NQU6"
+
+        # params = {
+        #     "resolution": "1min",
+        #     "window_start": "2026-07-15",
+        #     "limit": 5,
+        #     "apiKey": POLYGON_API_KEY,
+        # }
+
+        # r = requests.get(url, params=params)
+        # print("***")
+        # print(r.status_code)
+        # print(r.text)
+        # print(type(client.client))
+        # print(dir(client.client))
+        # import inspect
+
+        # print(inspect.signature(client.client.list_futures_aggregates))
+        # import requests
+
+        # url = "https://api.massive.com/futures/v1/aggs/NQU26"
+
+        # params = {
+        #     "resolution": "1min",
+        #     "window_start": "2025-12-15",
+        #     "limit": 5,
+        #     "apiKey": POLYGON_API_KEY,
+        # }
+
+        # r = requests.get(url, params=params)
+        # print("****")
+        # print(r.status_code)
+        # print(r.text)
+        # run_quick_backtest("2026-07-24")
         # run_quick_test("2026-04-21")
         return
-    token = os.getenv("BOT_TOKEN")
+    # token = os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(token).build()
 
     register_handlers(application)

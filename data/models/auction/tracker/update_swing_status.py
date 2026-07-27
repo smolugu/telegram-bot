@@ -1,9 +1,9 @@
-from data.models.auction.models.base_model import HTFLevelStatus
-from data.models.auction.models.candle import Candle
+from data.models.auction.models.base_model import HTFSwingStatus
+from data.datamodels.candle import Candle
 from data.models.auction.models.htf_swing import HTFSwing, SwingType
 
 
-def update_swing_status(
+def update_SWING_status(
     swings: list[HTFSwing],
     candles: list[Candle],
 ) -> None:
@@ -27,7 +27,7 @@ def update_swing_status(
 
     for swing in swings:
 
-        if swing.status != HTFLevelStatus.OPEN:
+        if swing.status != HTFSwingStatus.OPEN:
             continue
 
         for candle in candles:
@@ -39,17 +39,21 @@ def update_swing_status(
             if swing.swing_type == SwingType.BUY_SIDE:
 
                 if candle.high > swing.price:
-                    swing.status = HTFLevelStatus.SWEPT
+                    swing.status = HTFSwingStatus.SWEPT
+                    swing.mitigated_time = candle.time
                     break
                 elif candle.high == swing.price:
-                    swing.status = HTFLevelStatus.TOUCHED
+                    swing.status = HTFSwingStatus.TOUCHED
+                    swing.mitigated_time = candle.time
                     break
 
             else:   # LOW
 
                 if candle.low < swing.price:
-                    swing.status = HTFLevelStatus.SWEPT
+                    swing.status = HTFSwingStatus.SWEPT
+                    swing.mitigated_time = candle.time
                     break
                 elif candle.low == swing.price:
-                    swing.status = HTFLevelStatus.TOUCHED
+                    swing.status = HTFSwingStatus.TOUCHED
+                    swing.mitigated_time = candle.time
                     break

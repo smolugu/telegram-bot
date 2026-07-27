@@ -22,7 +22,7 @@ from data.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
 
-from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ob_mitigation_levels, add_post_8am_mitigation_levels, get_liquidity_values, reset_liquidity, update_compression_range_levels
+from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ob_mitigation_levels, add_ib_ce_key_level, add_post_8am_mitigation_levels, get_liquidity_values, reset_liquidity, update_compression_range_levels
 from helpers.swing_points import filter_valid_swing_highs, filter_valid_swing_lows, get_valid_swings
 from helpers.time_windows import get_active_window, is_blocked_time
 from modules.nyam_context import get_morning_context
@@ -32,7 +32,7 @@ from helpers.zones import get_7h_open_from_timestamp
 from datetime import datetime, time, timedelta, timezone
 from modules.ob_detector import detect_30m_order_block
 from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, detect_smt_key_levels, summary_smt
-from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows
+from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows, update_sweep_info
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
 from alerts.alert_payload import build_summary_alert, build_trade_alert
@@ -230,7 +230,7 @@ def run_quick_backtest(test_date: str):
             # if i == 1:
             #     print("current start cc: ", current_30m_start)
 
-            continue
+            # continue
             if i == 1:
                 print("resetting liquidity at : ", i, ts)
                 liquidity_nq = reset_liquidity()
@@ -246,8 +246,6 @@ def run_quick_backtest(test_date: str):
                 print("new atrs at 16:", nq_daily_atr, es_daily_atr)
                 nq_market_context.set_daily_atr(nq_daily_atr)
                 es_market_context.set_daily_atr(es_daily_atr)
-
-                # update_weekly_1h_structure(current_30m_start)
 
             if i == 2:
                 update_weekly_1h_structure_abs(nq_weekly_state = nq_weekly_state, es_weekly_state= es_weekly_state, current_30m_start=current_30m_start)
@@ -299,7 +297,17 @@ def run_quick_backtest(test_date: str):
                 dt = datetime.fromisoformat(last_closed_nq["timestamp"])
                 dt_current = datetime.fromisoformat(current_30m_start)
                 is_post_1AM_IB = in_session(current_30m_start, 2, 0, 8, 0)
-                is_post_8AM_IB = in_session(current_30m_start, 9, 0, 15, 0 )
+                is_post_8AM_IB = in_session(current_30m_start, 9, 0, 15, 0)
+
+                # section to update context after the end of prev candle to current last closed candles
+                if dt.hour == 9 and dt.minute == 00:
+                    # add 8am IB CE as key level for migration structures
+                    add_ib_ce_key_level(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
+                    add_ib_ce_key_level(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
+                    # add mitigation level from ny am structure
+                    add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
+                    add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
+                    
                 
                 # update currest_session for i=0, 1, 2 
                 if (i == 3):
@@ -354,59 +362,29 @@ def run_quick_backtest(test_date: str):
                 # at the start of each new candle check if there is a sweep candidate with type = breakout and if the current candle closes above the sweep_candle open, then confirm the breakout sweep and update the type to rejection
                 # changing breakout to rejection if the next candle closes above or below the sweep level
                 if nq_buy_candidate.active and nq_buy_candidate.check_breakout_rejection:
-                    print("checking breakout rejection for nq buy candidate")
-                    # TODO: check breakout rejection only at key levels?
-                    if last_closed_nq["close"] > nq_buy_candidate.sweep_level:
-                        nq_buy_candidate.is_breakout_rejection = True
-                        nq_buy_candidate.sweep_type = "rejection"
-                        print("breakout sweep ob confirmed for nq buy candidate")
-                    nq_buy_candidate.check_breakout_rejection = False
+                    update_sweep_info(nq_buy_candidate, nq["3m"], last_closed_nq)
                 if nq_sell_candidate.active and nq_sell_candidate.check_breakout_rejection:
-                    print("checking breakout rejection for nq sell candidate")
-                    if last_closed_nq["close"] < nq_sell_candidate.sweep_level:
-                        nq_sell_candidate.is_breakout_rejection = True
-                        nq_sell_candidate.sweep_type = "rejection"
-                        print("breakout sweep ob confirmed for nq sell candidate")
-                    nq_sell_candidate.check_breakout_rejection = False
-                        
+                    update_sweep_info(nq_sell_candidate, nq["3m"], last_closed_nq)
                 if es_buy_candidate.active and es_buy_candidate.check_breakout_rejection:
-                    print("checking breakout rejection for es buy candidate")
-                    if last_closed_es["close"] > es_buy_candidate.sweep_level:
-                        es_buy_candidate.is_breakout_rejection = True
-                        es_buy_candidate.sweep_type = "rejection"
-                        print("breakout sweep ob confirmed for es buy candidate")
-                    es_buy_candidate.check_breakout_rejection = False
-                        
+                    update_sweep_info(es_buy_candidate, es["3m"], last_closed_es)
                 if es_sell_candidate.active and es_sell_candidate.check_breakout_rejection:
-                    print("checking breakout rejection for es sell candidate")
-                    if last_closed_es["close"] < es_sell_candidate.sweep_level:
-                        es_sell_candidate.is_breakout_rejection = True
-                        es_sell_candidate.sweep_type = "rejection"
-                        print("breakout sweep ob confirmed for es sell candidate")
-                    es_sell_candidate.check_breakout_rejection = False
+                    update_sweep_info(es_sell_candidate, es["3m"], last_closed_es)
                         
                 # invalidate failed candidates
-                if nq_buy_candidate.active and nq_buy_candidate.sweep_candle_extreme > last_closed_nq["low"]:
+                # invalidate of ob is confirmed
+                if nq_buy_candidate.active and nq_buy_candidate.final_ob_confirmed and nq_buy_candidate.sweep_candle_extreme > last_closed_nq["low"]:
                     nq_buy_candidate.reset()
-                if nq_sell_candidate.active and nq_sell_candidate.sweep_candle_extreme < last_closed_nq["high"]:
-                    nq_sell_candidate.reset()
-                if es_buy_candidate.active and es_buy_candidate.sweep_candle_extreme > last_closed_es["low"]:
                     es_buy_candidate.reset()
-                if es_sell_candidate.active and es_sell_candidate.sweep_candle_extreme < last_closed_es["high"]:
+                if nq_sell_candidate.active and nq_sell_candidate.final_ob_confirmed and nq_sell_candidate.sweep_candle_extreme < last_closed_nq["high"]:
+                    nq_sell_candidate.reset()
+                    nq_sell_candidate.reset()
+                if es_buy_candidate.active and es_buy_candidate.final_ob_confirmed and es_buy_candidate.sweep_candle_extreme > last_closed_es["low"]:
+                    es_buy_candidate.reset()
+                    nq_buy_candidate.reset()
+                if es_sell_candidate.active and es_sell_candidate.final_ob_confirmed and es_sell_candidate.sweep_candle_extreme < last_closed_es["high"]:
                     es_sell_candidate.reset()
-                #  track current current day high and low (HOD, LOD)
-                # Removed: current day session tracked and updated in market context
-                # if last_closed_nq["high"] > nq_current_session_high:
-                #     nq_current_session_high = last_closed_nq["high"]
-                # if last_closed_nq["low"] < nq_current_session_low:
-                #     nq_current_session_low = last_closed_nq["low"]
-
-                # if last_closed_es["high"] > es_current_session_high:
-                #     es_current_session_high = last_closed_es["high"]
-                # if last_closed_es["low"] < es_current_session_low:
-                #     es_current_session_low = last_closed_es["low"]
-                # print("nq HOD:", nq_current_session_high, "nq LOD: ", nq_current_session_low)
-                # print("es HOD:", es_current_session_high, "es LOD: ", es_current_session_low)
+                    nq_sell_candidate.reset()
+                
                 # update 7hr candle through seven hour builder
                 # he 18:00 7hr candle is not complete with the first 3 30m candles
                 nq_seven_hour_builder.update(last_closed_nq)
@@ -478,6 +456,8 @@ def run_quick_backtest(test_date: str):
                 
                 # at 8am store ob_level formed before 8am
                 # calling this block at dt.hour == 8 intead of 7 beacause ob detection is below towards the end
+                if dt.hour == 8 and dt.minute == 30:
+                    print("8:30 candle")
                 if dt.hour == 8 and dt.minute == 00:
                     # add bearish and bullish ob levels to liquidity levels
                     bullish_nq_ob_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else None
@@ -497,7 +477,7 @@ def run_quick_backtest(test_date: str):
                     nq_sell_candidate.reset()
                     es_sell_candidate.reset()
                 # update new york context with IBs
-                if dt.hour == 9 and dt.minute == 00:
+                if dt_current.hour == 9 and dt_current.minute == 00:
                     print("nq ibs: ")
                     print("ib18: ",  nq_seven_hour_builder.candles["6PM"].values())
                     nq_ny_market_context.set_8am_ib(nq_seven_hour_builder.candles, nq_london_market_context.ib_18, nq_london_market_context.ib_1)
@@ -508,7 +488,8 @@ def run_quick_backtest(test_date: str):
                     print("xxib8am: ",  nq_seven_hour_builder.candles["8AM"].values())
                     print("xxib8am: ",  es_seven_hour_builder.candles["8AM"].values())
                     print("es liquidity levels: ", liquidity_es)
-                    summary_message = build_summary_alert(nq_ny_market_context, es_ny_market_context)
+                    # send nyam summary at 9am est
+                    summary_message = build_summary_alert(nq_ny_market_context, es_ny_market_context, current_30m_start)
                     send_newyork_summary(summary_message)
                     # ob levels as mitigation level for migration structures
                     # dont mix ob levels and structure migration mtl levels
@@ -518,15 +499,21 @@ def run_quick_backtest(test_date: str):
                     # es_ny_market_context.structure["bearish_ob_level"] = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else None
                     # es_ny_market_context.structure["bullish_ob_level"] = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else None
                     
-                    add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
-                    add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
+                    # # add 8am IB CE as key level for migration structures
+                    # add_ib_ce_key_level(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
+                    # add_ib_ce_key_level(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
+                    # add mitigation level from structure as key level
+                    # add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
+                    # add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
                     # update ob_levels if new are formed after 8am IB
                     bullish_nq_ob_level = nq_buy_candidate.ob_level if nq_buy_candidate.final_ob_confirmed else None
                     bullish_es_ob_level = es_buy_candidate.ob_level if es_buy_candidate.final_ob_confirmed else None
                     bearish_nq_ob_level = nq_sell_candidate.ob_level if nq_sell_candidate.final_ob_confirmed else None
                     bearish_es_ob_level = es_sell_candidate.ob_level if es_sell_candidate.final_ob_confirmed else None
+                    # add ob mitigation levels formed before or after 8am
                     add_8am_ob_mitigation_levels(liquidity_levels=liquidity_nq, bullish_ob_level=bullish_nq_ob_level, bearish_ob_level=bearish_nq_ob_level)
                     add_8am_ob_mitigation_levels(liquidity_levels=liquidity_es, bullish_ob_level= bullish_es_ob_level, bearish_ob_level=bearish_es_ob_level)
+                    # add 
                     # reset or disable or allow pre 8am Ib candidates
                     # reset active candidates.
                     # TODO: reset based on structures
@@ -685,8 +672,8 @@ def run_quick_backtest(test_date: str):
                     # we have compression range, update liquidity key levels if not already there
                     update_compression_range_levels(liquidity_nq, compression_range_nq, "1AM")
                     update_compression_range_levels(liquidity_es, compression_range_es, "1AM")
-                    print("nq_liquidity_rr: ", liquidity_nq)
-                    print("es_liquidity_rr: ", liquidity_es)
+                    # print("nq_liquidity_rr: ", liquidity_nq)
+                    # print("es_liquidity_rr: ", liquidity_es)
                     # print("li_re: ", li_re)
                     # liquidity_nq = li_re
                     # print("nq_liquidity: ", liquidity_nq)
@@ -739,7 +726,6 @@ def run_quick_backtest(test_date: str):
                 # es_compression_or_recompression = compression_flags_es["nested_1_in_18"] or compression_flags_es["engulfing_1_over_18"]
                 # compression or re-compression at 1am IB, trade only extremes
                 if is_post_8AM_IB:
-
                     sweep_validation_result = validate_sweeps(
                         sweep_nq_highs=sweep_nq_highs,
                         sweep_nq_highs_key_level=sweep_nq_highs_key_level,
@@ -755,6 +741,7 @@ def run_quick_backtest(test_date: str):
                         nq_ny_market_context = nq_ny_market_context,
                         es_ny_market_context = es_ny_market_context,
                     )
+                    
                     print("sweep_validation_result: ", sweep_validation_result)
                     # update sweep candidates with sweep validation data
                     if sweep_validation_result["NQ"]["sweep_model"] is not None:
@@ -763,13 +750,11 @@ def run_quick_backtest(test_date: str):
                             sweep_nq_highs["caution"] = sweep_validation_result["NQ"]["validation"]["highs"]["caution"]
                             sweep_nq_highs["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
                         if sweep_nq_highs_key_level is not None:
-                            print("sweep_valid result: ", sweep_validation_result)
                             sweep_nq_highs_key_level["is_valid"] = sweep_validation_result["NQ"]["validation"]["highs"]["is_valid"]
                             sweep_nq_highs_key_level["caution"] = sweep_validation_result["NQ"]["validation"]["highs"]["caution"]
                             sweep_nq_highs_key_level["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
                         
                         if sweep_nq_lows is not None:
-                            print("100000")
                             sweep_nq_lows["is_valid"] = sweep_validation_result["NQ"]["validation"]["lows"]["is_valid"]
                             sweep_nq_lows["caution"] = sweep_validation_result["NQ"]["validation"]["lows"]["caution"]
                             sweep_nq_lows["sweep_model"] = sweep_validation_result["NQ"]["sweep_model"]
@@ -792,7 +777,6 @@ def run_quick_backtest(test_date: str):
                             sweep_es_lows["caution"] = sweep_validation_result["ES"]["validation"]["lows"]["caution"]
                             sweep_es_lows["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
                         if sweep_es_lows_key_level is not None:
-                            print("swp: ", sweep_validation_result)
                             sweep_es_lows_key_level["is_valid"] = sweep_validation_result["ES"]["validation"]["lows"]["is_valid"]
                             sweep_es_lows_key_level["caution"] = sweep_validation_result["ES"]["validation"]["lows"]["caution"]
                             sweep_es_lows_key_level["sweep_model"] = sweep_validation_result["ES"]["sweep_model"]
@@ -1088,6 +1072,7 @@ def run_quick_backtest(test_date: str):
 
                 # if sweep_nq and sweep_nq["sweep_key_level"]:
                 # if sweep_nq_highs or sweep_nq_key_level_highs
+                
                 if sweep_nq_highs or sweep_nq_highs_key_level:
                     if sweep_nq_highs_key_level:
                         print("SWEEP DETECTED NQ Highs at Key Level:", sweep_nq_highs_key_level)
@@ -1378,11 +1363,6 @@ def run_quick_backtest(test_date: str):
 
                 # filter alerts based on Market Context
                 # send alert if FVG confirmed and alert not sent for that candidate
-
-                # section to update context after processing current candle
-                # if dt.hour == 8 and dt.minute == 30:
-                #     add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
-                #     add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
 
                 # group contexts
                 es_context = {
