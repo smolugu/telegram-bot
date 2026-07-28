@@ -2213,7 +2213,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     and candidate.ob_level < newyork_context.ib_8["ce"]
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Mini Flush"
+                    candidate.ping_type = "Flush"
                     candidate.initial_target_price = newyork_context.ib_18["low"]
                     candidate.final_target = "LIQUIDITY"
                     newyork_context.execution_state["flush_triggered"] = True
@@ -2286,7 +2286,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     and candidate.ob_level > newyork_context.ib_8["ce"]
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Mini Rocket"
+                    candidate.ping_type = "Rocket"
                     candidate.initial_target_price = newyork_context.ib_18["high"]
                     candidate.final_target = "LIQUIDITY"
                     newyork_context.execution_state["rocket_triggered"] = True

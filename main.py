@@ -101,14 +101,70 @@ def main():
         # # provider.get_contracts()
 
         # print(f"Downloaded {len(bars)} bars")
-        bars = provider.get_futures_bars(
-            ticker="NQU6",
-            resolution="1hour",
-            window_start="2026-07-15",
-        )
+        # bars = provider.get_futures_bars(
+        #     ticker="NQU6",
+        #     resolution="1hour",
+        #     window_start="2026-07-15",
+        # )
 
-        for bar in bars:
-            print(bar)
+        # for bar in bars:
+        #     print(bar)
+        contract_nq = provider.get_front_month_contract("NQ")
+        contract_es = provider.get_front_month_contract("ES")
+        print("contract_nq: ", contract_nq)
+        print("contract_es: ", contract_es)
+        # import inspect
+        # print("futures contract sig: ")
+        # print(inspect.signature(client.client.list_futures_contracts))
+        # contracts = client.client.list_futures_contracts(
+        #     product_code="NQ",
+        #     active=True,
+        #     limit=10,
+        # )
+        # print("first contracts: ")
+
+        # first = next(contracts)
+        # print(first)
+        # contracts = client.client.list_futures_contracts(
+        #     product_code="NQ",
+        #     active=True,
+        #     sort="-last_trade_date",
+        #     limit=10,
+        # )
+
+        # for c in contracts:
+        #     print(c.ticker, c.last_trade_date)
+        # from datetime import date
+
+        # today = date.today().isoformat()
+
+        # contracts = client.client.list_futures_contracts(
+        #     product_code="NQ",
+        #     last_trade_date_gte=today,
+        #     limit=5,
+        # )
+
+        # for i in range(5):
+        #     c = next(contracts)
+        #     print(c.ticker, c.last_trade_date)
+        # response = client.client.list_futures_contracts(
+        #     product_code="NQ",
+        #     last_trade_date_gte=today,
+        #     limit=5,
+        #     raw=True,
+        # )
+
+        # print(response.status)
+        # print(response.data.decode())
+        # today = datetime.now().strftime("%Y-%m-%d")
+
+        # response = client.client.list_futures_contracts(
+        #     product_code="NQ",
+        #     date=today,
+        #     raw=True,
+        # )
+
+        # print(response.data.decode())
         # import requests
 
         # url = "https://api.massive.com/futures/v1/aggs/NQU6"
@@ -144,7 +200,7 @@ def main():
         # print("****")
         # print(r.status_code)
         # print(r.text)
-        run_quick_backtest("2026-07-27")
+        # run_quick_backtest("2026-07-27")
         # run_quick_test("2026-04-21")
         return
     # token = os.getenv("BOT_TOKEN")

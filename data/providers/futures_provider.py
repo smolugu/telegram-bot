@@ -12,26 +12,26 @@ class FuturesProvider:
     # get_quotes()
     # get_trades()
     
-    def get_front_month_contract(self, product: str) -> str:
-        contracts = list(
-            self.client.list_futures_contracts(
-                product_code=product,
-                limit=100,
-            )
+    def get_front_month_contract(self, product_code: str) -> str:
+        today = date.today().isoformat()
+
+        response = self.client.list_futures_contracts(
+            product_code=product_code,
+            date=today,
+            raw=True,
         )
 
-        today = date.today()
+        data = response.json()   # or json.loads(response.data)
 
-        active = [
-            c for c in contracts
-            if c.active and c.last_trade_date >= today
+        singles = [
+            c for c in data["results"]
+            if c["type"] == "single"
+            and c.get("days_to_maturity") is not None
         ]
 
-        if not active:
-            raise ValueError(f"No active contract found for {product}")
+        front = min(singles, key=lambda c: c["days_to_maturity"])
 
-        front = min(active, key=lambda c: c.last_trade_date)
-        return front.ticker
+        return front["ticker"]
 
     def get_futures_bars(
         self,

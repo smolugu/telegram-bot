@@ -558,8 +558,11 @@ def classify_ib_structure(
     # BULLISH MIXED DECOMPRESSION
     # =====================================================
 
-    if ib8_engulf_ib1 and ib18["low"] < ib1["low"] < ib18["high"] and ib18["high"] < ib1["high"]:
-
+    if (
+        ib8_engulf_ib1 
+        and ib18["low"] < ib1["low"] < ib18["high"] 
+        and ib18["high"] < ib1["high"]
+    ):
         name = None
         group = "decompression"
         name = "bullish_mixed_decompression"
@@ -607,7 +610,7 @@ def classify_ib_structure(
                 "low": ib1["low"],
                 "ce": (ib1["high"] + ib1["low"]) / 2
             },
-            "mitigation_level": (ib8["high"] + ib18["low"]) / 2,
+            "mitigation_level": (ib1["high"] + ib1["low"]) / 2,
 
             "note_internal":
 
@@ -683,7 +686,7 @@ def classify_ib_structure(
                 "low": ib1["low"],
                 "ce": (ib1["high"] + ib1["low"]) / 2
             },
-            "mitigation_level": None,
+            "mitigation_level": (ib1["high"] + ib1["low"]) / 2,
 
             "note_internal":
 
@@ -775,9 +778,9 @@ def classify_ib_structure(
                 "ce": (ib1["high"] + ib8["low"]) / 2
             },
             "equilibrium_range": {
-                "high": ib1["low"],
+                "high": ib18["low"],
                 "low": ib18["high"],
-                "ce": (ib1["low"] + ib18["high"]) / 2
+                "ce": (ib18["low"] + ib18["high"]) / 2
             },
             # mid point between ib1 and ib18
             "mitigation_level": (ib1["low"] + ib18["high"]) / 2,
@@ -884,9 +887,9 @@ def classify_ib_structure(
                 "ce": (ib8["high"] + ib1["low"]) / 2
             },
             "equilibrium_range": {
-                "high": ib8["low"],
-                "low": ib1["high"],
-                "ce": (ib8["low"] + ib1["high"]) / 2
+                "high": ib18["low"],
+                "low": ib18["high"],
+                "ce": (ib18["low"] + ib18["high"]) / 2
             },
             # mid point between ib1 and ib18
             "mitigation_level": (ib8["low"] + ib1["high"]) / 2,
@@ -1117,8 +1120,16 @@ def classify_ib_structure(
                 "low": None,
                 "ce": None
             },
-            "range": {"high": ib8["high"], "low": ib1["low"], "ce": (ib8["high"]+ ib1["low"]) / 2},
-            "equilibrium_range": {"high": ib8["high"], "low": ib1["low"], "ce": (ib8["high"]+ ib1["low"]) / 2},
+            "range": {
+                "high": ib8["high"],
+                "low": ib1["low"],
+                "ce": (ib8["high"]+ ib1["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib8["high"], 
+                "low": ib1["low"], 
+                "ce": (ib8["high"]+ ib1["low"]) / 2
+            },
             "mitigation_level": (ib8["low"]+ ib1["high"])/2,
 
             "note_internal":
@@ -1186,8 +1197,16 @@ def classify_ib_structure(
                 "low": None,
                 "ce": None
             },
-            "range": {"high": ib1["high"], "low": ib8["low"], "ce": (ib1["high"]+ ib8["low"]) / 2},
-            "equilibrium_range": {"high": ib1["high"], "low": ib8["low"], "ce": (ib1["high"]+ ib8["low"]) / 2},
+            "range": {
+                "high": ib1["high"], 
+                "low": ib8["low"],
+                "ce": (ib1["high"]+ ib8["low"]) / 2
+            },
+            "equilibrium_range": {
+                "high": ib1["high"], 
+                "low": ib8["low"], 
+                "ce": (ib1["high"]+ ib8["low"]) / 2
+            },
             "mitigation_level": (ib1["high"]+ ib8["low"])/2,
 
             "note_internal":
@@ -1352,9 +1371,9 @@ def classify_ib_structure(
             "is_value_flip": False,
             
             "compression_range": {
-                "high": None,
-                "low": None,
-                "ce": None
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib18["high"],
@@ -1366,7 +1385,7 @@ def classify_ib_structure(
                 "low": ib8["low"],
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": equilibrium_range["ce"],
+            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
             "note_internal":
                 "Nested compression. "
                 "IB1 inside IB18 and IB8 inside IB1.",
@@ -1532,12 +1551,15 @@ def classify_ib_structure(
     # Early overlap means migration strengthened later — late overlap means migration weakened later
     # =====================================================
     # here there could be no gaps or atmost one gap between ibs
+    # the below two possibilities are IB1 overlapping with top if ib18 and bottom of ib18
 
     if (
-        (ib8["low"] > ib1["high"]
+        (
+            ib8["low"] > ib1["high"]
         and ib18["high"]  > ib1["low"] >= ib18["low"]
-        and ib1["high"] > ib18["high"]) or (
-        ib8["low"] > ib8["high"]
+        and ib1["high"] > ib18["high"]
+        ) or (
+        ib8["low"] > ib1["high"]
         and ib18["low"] > ib1["high"] <= ib18["high"]
         and ib1["low"] < ib18["low"]
         )
@@ -1575,16 +1597,12 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             # compression is early in london, potential long in london
+            # early compression zone is also used as a target in MMXM model
             "compression_range": {
-                "high": None,
-                "low": None,
-                "ce": None
+                "high": max(ib1["high"], ib18["high"]),
+                "low": min(ib1["low"], ib18["low"]),
+                "ce": (max(ib1["high"], ib18["high"])+min(ib1["low"], ib18["low"])) / 2
             },
-            # "compression_range": {
-            #     "high": ib1["high"],
-            #     "low": ib18["low"],
-            #     "ce": (ib1["high"] + ib18["low"]) / 2
-            # },
             "range": {
                 "high": ib8["high"],
                 "low": ib1["low"],
@@ -1734,12 +1752,16 @@ def classify_ib_structure(
     # # here there could be no gaps or atmost one gap between ibs
 
     if (
-        (ib8["high"] < ib1["low"]
-        and ib18["low"] < ib1["high"] < ib18["high"]
-        and ib1["low"] < ib18["low"]) or (
+        (
+            ib8["high"] < ib1["low"]
+            and ib18["low"] < ib1["high"] < ib18["high"]
+            and ib1["low"] < ib18["low"]
+        ) 
+        or 
+        (
             ib8["high"] < ib18["low"]
-        and ib18["high"] > ib1["low"] > ib18["low"]
-        and ib1["high"] > ib18["high"]
+            and ib18["high"] > ib1["low"] > ib18["low"]
+            and ib1["high"] > ib18["high"]  
         )
     ):
         name = None
@@ -1775,9 +1797,9 @@ def classify_ib_structure(
             "is_rebalance": False,
             "is_value_flip": False,
             "compression_range": {
-                "high": None,
-                "low": None,
-                "ce": None
+                "high": max(ib18["high"], ib1["high"]),
+                "low": min(ib18["low"], ib1["low"]),
+                "ce": (max(ib18["high"], ib1["high"]) + min(ib18["low"], ib1["low"])) / 2 
             },
             # "compression_range": {
             #     "high": ib18["high"],
