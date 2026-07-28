@@ -8,7 +8,7 @@ class Candle:
     high: float
     low: float
     close: float
-    volume: int
+    # volume: int
 
 
 #     @dataclass(slots=True)

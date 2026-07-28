@@ -144,7 +144,7 @@ def main():
         # print("****")
         # print(r.status_code)
         # print(r.text)
-        # run_quick_backtest("2026-07-24")
+        run_quick_backtest("2026-07-27")
         # run_quick_test("2026-04-21")
         return
     # token = os.getenv("BOT_TOKEN")

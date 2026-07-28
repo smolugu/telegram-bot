@@ -2090,8 +2090,9 @@ def classify_ib_structure(
     # Ongoing directional probing is weaker than late staircase overlap bullish structure
 
     if (
-        ib1_above_ib18
-        and ib8_inside_ib1
+        ib1_above_ib18 
+        and ib8_inside_ib1 
+        and ib8["low"] > ib18["high"]
     ):
         name = None
         group = "compression"
@@ -3073,11 +3074,12 @@ def classify_ib_structure(
     # overlap with ib18, deeper rebalance, posibily inducement
     # Partial overlap means equilibrium has already started accepting the higher value region
     # =====================================================
-    
+    # TODO update condition for partial overlap bullish structures
     if (
-        ib1_above_ib18
+        ib1_above_ib18 and ib1["low"] > ib18["high"]
         and  ib1["low"] < ib8["high"] < ib1["high"]
-        and ib8["low"] > ib18["high"]
+        and ib1["low"] > ib8["low"] > ib18["high"]
+        
     ):  
         name = None
         group = "compression"
@@ -3507,8 +3509,10 @@ def classify_ib_structure(
 
     if (
         ib1["high"] >  ib18["high"] and ib18["low"] < ib1["low"] < ib18["high"]
-        and ib1["low"] < ib8["high"] < ib1["high"]
-        and ib18["high"] > ib8["low"] > ib18["low"]
+        # and ib1["low"] < ib8["high"] < ib1["high"]
+        # and ib18["high"] > ib8["low"] > ib18["low"]
+        and ib8["high"] < ib1["high"]
+        and ib8["low"] > ib18["low"]
     ):
         name = None
         group = "compression"
@@ -3544,9 +3548,9 @@ def classify_ib_structure(
             "is_decompression": False,
             
             "compression_range": {
-                "high": ib1["high"],
-                "low": ib18["low"],
-                "ce": (ib1["high"] + ib18["low"]) / 2
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib1["high"],
@@ -3583,8 +3587,10 @@ def classify_ib_structure(
 
     if (
         ib18["high"] > ib1["high"] and ib1["low"] < ib18["low"] < ib1["high"]
-        and ib18["low"] < ib8["high"] < ib18["high"]
-        and ib1["high"] > ib8["low"] > ib1["low"]
+        # and ib18["low"] < ib8["high"] < ib18["high"]
+        # and ib1["high"] > ib8["low"] > ib1["low"]
+        and ib8["high"] < ib18["high"]
+        and ib8["low"] > ib1["low"]
     ):
         name = None
         group = "compression"
@@ -3620,9 +3626,9 @@ def classify_ib_structure(
             "is_decompression": False,
             
             "compression_range": {
-                "high": ib18["high"],
-                "low": ib1["low"],
-                "ce": (ib18["high"] + ib1["low"]) / 2
+                "high": ib8["high"],
+                "low": ib8["low"],
+                "ce": (ib8["high"] + ib8["low"]) / 2
             },
             "range": {
                 "high": ib18["high"],
@@ -3634,7 +3640,7 @@ def classify_ib_structure(
                 "low": ib8["low"],
                 "ce": (ib8["high"] + ib8["low"]) / 2
             },
-            "mitigation_level": (ib18["high"] + ib1["low"]) / 2,
+            "mitigation_level": (ib8["high"] + ib8["low"]) / 2,
             "note_internal":
                 "The market remained centered with acceptance of neither bullish nor bearish sentiment.",
             "note": 
@@ -3819,7 +3825,9 @@ def classify_ib_structure(
             },
         "is_neutral_direction_structure": name in NEUTRAL_DIRECTION_STRUCTURES,
         "category": "mixed",
+        "market_phase": "compression",
         "direction": "neutral",
+
         "is_staircase": False,
         "is_compression": True,
         "is_strong_compression": True,

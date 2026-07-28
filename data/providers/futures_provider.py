@@ -1,3 +1,6 @@
+from datetime import date
+
+
 class FuturesProvider:
 
     def __init__(self, massiveClient):
@@ -8,6 +11,28 @@ class FuturesProvider:
     # get_bars()
     # get_quotes()
     # get_trades()
+    
+    def get_front_month_contract(self, product: str) -> str:
+        contracts = list(
+            self.client.list_futures_contracts(
+                product_code=product,
+                limit=100,
+            )
+        )
+
+        today = date.today()
+
+        active = [
+            c for c in contracts
+            if c.active and c.last_trade_date >= today
+        ]
+
+        if not active:
+            raise ValueError(f"No active contract found for {product}")
+
+        front = min(active, key=lambda c: c.last_trade_date)
+        return front.ticker
+
     def get_futures_bars(
         self,
         ticker: str,
