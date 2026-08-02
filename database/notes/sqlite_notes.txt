@@ -1,0 +1,53 @@
+# Architecture
+# ======================          
+#     Massive REST API
+#           │
+#           ▼
+#  Historical Loader
+#           │
+#           ▼
+# Candle Repository
+#           │
+#           ▼
+#      SQLite DB
+# ======================
+
+
+# Option 1 (Recommended) - DB Browser for SQLite
+# This is the easiest way to inspect your database visually.
+
+# Open DB Browser for SQLite
+# Click Open Database
+# Select: ping/data/ping.db
+
+
+# Option 1 - SQLite Command Line
+# Open the database
+# sqlite3 data/ping.db
+
+# Show all tables
+# .tables
+
+# Show the schema
+# .schema candles
+
+# Describe the table
+# PRAGMA table_info(candles);
+
+# Exit
+# .quit
+
+
+# Option 2 - Python - inspect db from Python.
+# from sqlalchemy import create_engine, inspect
+
+# engine = create_engine("sqlite:///data/ping.db")
+
+# inspector = inspect(engine)
+
+# print(inspector.get_table_names())
+
+
+# Option 4 - VS Code Extension
+# SQLite Viewer
+# or SQLite (by alexcvzz)

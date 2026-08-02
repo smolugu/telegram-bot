@@ -1,25 +1,33 @@
 import sqlite3
 import time
 import os
+from zoneinfo import ZoneInfo
 import pytz
 import asyncio
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+from database.session import SessionLocal
+from market_data.htf.htf_candle_builder import HTFCandleBuilder
+from market_data.repository.sqlite_candle_repository import SQLiteCandleRepository
+
 
 from backtest.quick_test import run_quick_test
-from data.api.massive_rest import MassiveClient
-from data.providers.futures_provider import FuturesProvider
+from config.settings import BOT_TOKEN, POLYGON_API_KEY
+from market_data.api.massive_rest import MassiveREST
+from market_data.providers.massive_futures_provider import FuturesProvider, MassiveFuturesProvider
 from data.sqlite.db import init_db
 from data.market_data import fetch_market_data
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from engine.trading_engine import trading_engine_loop
 from bot.handlers import register_handlers
 from dotenv import load_dotenv
 
+from market_data.repository.sqlite_contract_repository import SQLiteContractRepository
+from market_data.services.history_loader import HistoryLoader
 from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_current_7h_open
 from alerts.alert_engine import handle_stage
@@ -29,10 +37,9 @@ from backtest.quick_backtest import run_quick_backtest
 
 
 load_dotenv()
-token = os.getenv("BOT_TOKEN")
-POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
-client = MassiveClient(POLYGON_API_KEY)
-provider = FuturesProvider(client)
+
+# client = MassiveREST(POLYGON_API_KEY)
+# provider = FuturesProvider(client)
 WICK_WINDOW_MINUTES = 60
 CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
@@ -93,76 +100,74 @@ def main():
     init_db()  # initialize database if needed
     
     if MODE == "BACKTEST":
-        # bars = provider.get_daily_bars(
-        #     symbol="NQU26",
-        #     from_date="2026-07-01",
-        #     to_date="2026-07-25",
+
+        with SessionLocal() as session:
+            repo = SQLiteCandleRepository(session)
+
+            latest = repo.latest_timestamp("NQ", 1)
+
+            print("latest: ", latest)
+        rest = MassiveREST(POLYGON_API_KEY)
+
+        provider = MassiveFuturesProvider(rest)
+        session = SessionLocal()
+        contract_repo = SQLiteContractRepository(session)
+        candle_repo = SQLiteCandleRepository(session)
+        loader = HistoryLoader(
+            provider=provider,
+            contract_repo=contract_repo,
+            candle_repo=candle_repo,
+        )
+        # sync contracts
+        for instrument in ["NQ", "ES"]:
+            loader.sync_contracts(instrument)
+        contract_info_nq = contract_repo.get_front_month("NQ")
+        contract_info_es = contract_repo.get_front_month("ES")
+        
+        print("contract_info_nq: ", contract_info_nq)
+        print("contract_info_es: ", contract_info_es)
+        print("=========")
+        for instrument in ["NQ", "ES"]:
+            loader.sync_history(instrument)
+
+        candles_1m = candle_repo.get_all(
+            instrument="NQ",
+            timeframe=1,
+        )
+        print("1m candles lenght: from get_all: ")
+        print(len(candles_1m))
+        print(candles_1m[0])
+        print(candles_1m[-1])
+
+        # candle_builder = HTFCandleBuilder()
+
+        # candles_30m = candle_builder.build(
+        #     candles_1m,
+        #     timeframe=30,
         # )
-        # # provider.get_contracts()
+        candles_30m = candle_repo.get_history(
+            contract=contract_info_nq.contract,
+            timeframe=30,
+        )
+        print("-----------")
+        print(candles_1m[0].timestamp)
+        
+        print("-----------")
+        print("candle length from get all:")
+        print(len(candles_30m))
+        print(candles_30m[0])
+        print(candles_30m[-1])
+        first = candles_30m[0].timestamp_ny
+        last = candles_30m[-1].timestamp_ny
+        print(candles_30m[0].timestamp_ny.hour)
+        print(candles_30m[-1].timestamp_ny.hour)
+        print("first:", first.strftime("%Y-%m-%d %H:%M:%S %Z"))
+        print("last :", last.strftime("%Y-%m-%d %H:%M:%S %Z"))
 
-        # print(f"Downloaded {len(bars)} bars")
-        # bars = provider.get_futures_bars(
-        #     ticker="NQU6",
-        #     resolution="1hour",
-        #     window_start="2026-07-15",
-        # )
+        for candle in candles_30m[:10]:
+            print(candle)
 
-        # for bar in bars:
-        #     print(bar)
-        contract_nq = provider.get_front_month_contract("NQ")
-        contract_es = provider.get_front_month_contract("ES")
-        print("contract_nq: ", contract_nq)
-        print("contract_es: ", contract_es)
-        # import inspect
-        # print("futures contract sig: ")
-        # print(inspect.signature(client.client.list_futures_contracts))
-        # contracts = client.client.list_futures_contracts(
-        #     product_code="NQ",
-        #     active=True,
-        #     limit=10,
-        # )
-        # print("first contracts: ")
-
-        # first = next(contracts)
-        # print(first)
-        # contracts = client.client.list_futures_contracts(
-        #     product_code="NQ",
-        #     active=True,
-        #     sort="-last_trade_date",
-        #     limit=10,
-        # )
-
-        # for c in contracts:
-        #     print(c.ticker, c.last_trade_date)
-        # from datetime import date
-
-        # today = date.today().isoformat()
-
-        # contracts = client.client.list_futures_contracts(
-        #     product_code="NQ",
-        #     last_trade_date_gte=today,
-        #     limit=5,
-        # )
-
-        # for i in range(5):
-        #     c = next(contracts)
-        #     print(c.ticker, c.last_trade_date)
-        # response = client.client.list_futures_contracts(
-        #     product_code="NQ",
-        #     last_trade_date_gte=today,
-        #     limit=5,
-        #     raw=True,
-        # )
-
-        # print(response.status)
-        # print(response.data.decode())
-        # today = datetime.now().strftime("%Y-%m-%d")
-
-        # response = client.client.list_futures_contracts(
-        #     product_code="NQ",
-        #     date=today,
-        #     raw=True,
-        # )
+        
 
         # print(response.data.decode())
         # import requests
@@ -200,11 +205,11 @@ def main():
         # print("****")
         # print(r.status_code)
         # print(r.text)
-        # run_quick_backtest("2026-07-27")
+        # run_quick_backtest("2026-07-31")
         # run_quick_test("2026-04-21")
         return
     # token = os.getenv("BOT_TOKEN")
-    application = ApplicationBuilder().token(token).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     register_handlers(application)
 

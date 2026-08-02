@@ -1,12 +1,12 @@
 from alerts.execute import execute_trade_and_log
-from data.models.candle_7h import SevenHourBuilder
-from data.models.market_context import MarketContext
+from framework.models.candle_7h import SevenHourBuilder
+from framework.models.market_context import MarketContext
 from data.sqlite.db import DB_FILE
 
 from data.market_data import fetch_symbol_data_safe, filter_hourly_candles, get_current_contract, get_pdh_pdl_fixed_date
 from helpers.sessions import get_futures_session
-from data.models.setup_candidate import SetupCandidate
-from data.models.ib_continuation_candidate import IBContinuationCandidate
+from framework.models.setup_candidate import SetupCandidate
+from framework.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
 

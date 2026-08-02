@@ -1,0 +1,390 @@
+# Alembic Notes
+
+This document contains the common Alembic commands and workflow used in the Ping project.
+
+---
+
+# One-Time Setup
+
+## Install Alembic
+
+```bash
+pip install alembic
+```
+
+## Initialize Alembic
+
+```bash
+alembic init migrations
+```
+
+This creates:
+
+```
+migrations/
+alembic.ini
+```
+
+---
+
+# Alembic Configuration
+
+## 1. Configure env.py
+
+Edit:
+
+```
+migrations/env.py
+```
+
+Import the SQLAlchemy Base and all ORM models.
+
+```python
+from database.base import Base
+import database.models
+
+target_metadata = Base.metadata
+```
+
+The `database.models` package should import every ORM model.
+
+Example:
+
+```python
+from .candle import CandleORM
+from .contract import ContractORM
+```
+
+---
+
+## 2. Configure Database URL
+
+Edit:
+
+```
+alembic.ini
+```
+
+```ini
+sqlalchemy.url = sqlite:///data/ping.db
+```
+
+Later this can be loaded from `.env`.
+
+---
+
+# Creating a New Table
+
+## Step 1
+
+Create the ORM model.
+
+Example:
+
+```
+database/models/contract.py
+```
+
+## Step 2
+
+Import the model in
+
+```
+database/models/__init__.py
+```
+
+Example:
+
+```python
+from .contract import ContractORM
+```
+
+## Step 3
+
+Generate a migration.
+
+```bash
+alembic revision --autogenerate -m "create contracts table"
+```
+
+## Step 4
+
+Review the generated migration.
+
+Verify that it contains something similar to:
+
+```python
+op.create_table(...)
+```
+
+## Step 5
+
+Apply the migration.
+
+```bash
+alembic upgrade head
+```
+
+---
+
+# Updating an Existing Table
+
+Example: Add a new column.
+
+Update the ORM model.
+
+```python
+days_to_maturity: Mapped[int | None] = mapped_column(Integer)
+```
+
+Generate a migration.
+
+```bash
+alembic revision --autogenerate -m "add days_to_maturity to contracts"
+```
+
+Review the migration.
+
+Apply it.
+
+```bash
+alembic upgrade head
+```
+
+---
+
+# Creating a Manual Migration
+
+If Alembic cannot detect the change automatically:
+
+```bash
+alembic revision -m "add days_to_maturity"
+```
+
+Edit the generated migration manually.
+
+Example:
+
+```python
+def upgrade():
+    op.add_column(
+        "contracts",
+        sa.Column(
+            "days_to_maturity",
+            sa.Integer(),
+            nullable=True,
+        ),
+    )
+
+
+def downgrade():
+    op.drop_column(
+        "contracts",
+        "days_to_maturity",
+    )
+```
+
+Then apply it.
+
+```bash
+alembic upgrade head
+```
+
+---
+
+# Show Current Migration
+
+```bash
+alembic current
+```
+
+Example output:
+
+```
+7bc0d4d8d17c (head)
+```
+
+---
+
+# Show Migration History
+
+```bash
+alembic history
+```
+
+---
+
+# Upgrade Database
+
+Upgrade to latest migration.
+
+```bash
+alembic upgrade head
+```
+
+Upgrade to a specific migration.
+
+```bash
+alembic upgrade <revision_id>
+```
+
+---
+
+# Downgrade Database
+
+Rollback one migration.
+
+```bash
+alembic downgrade -1
+```
+
+Rollback to a specific migration.
+
+```bash
+alembic downgrade <revision_id>
+```
+
+Rollback all migrations.
+
+```bash
+alembic downgrade base
+```
+
+---
+
+# Rebuild Database (Development Only)
+
+Delete the SQLite database.
+
+```bash
+rm data/ping.db
+```
+
+Recreate it from all migrations.
+
+```bash
+alembic upgrade head
+```
+
+Do **not** do this once the database contains historical market data.
+
+---
+
+# Common Workflows
+
+## Create a New Table
+
+```
+Create ORM Model
+        ↓
+Import model in database/models/__init__.py
+        ↓
+alembic revision --autogenerate
+        ↓
+Review migration
+        ↓
+alembic upgrade head
+```
+
+---
+
+## Modify an Existing Table
+
+```
+Update ORM Model
+        ↓
+alembic revision --autogenerate
+        ↓
+Review migration
+        ↓
+alembic upgrade head
+```
+
+---
+
+## Rename a Column
+
+Alembic usually treats a rename as:
+
+- Drop old column
+- Create new column
+
+Instead, create a manual migration.
+
+```python
+op.alter_column(
+    "contracts",
+    "old_name",
+    new_column_name="new_name",
+)
+```
+
+---
+
+## Delete a Column
+
+1. Remove the column from the ORM model.
+2. Generate a migration.
+
+```bash
+alembic revision --autogenerate -m "remove unused column"
+```
+
+3. Verify the migration contains:
+
+```python
+op.drop_column(...)
+```
+
+4. Apply it.
+
+```bash
+alembic upgrade head
+```
+
+---
+
+# SQLite Commands
+
+Open database.
+
+```bash
+sqlite3 data/ping.db
+```
+
+List tables.
+
+```sql
+.tables
+```
+
+Show table schema.
+
+```sql
+.schema contracts
+```
+
+Describe table columns.
+
+```sql
+PRAGMA table_info(contracts);
+```
+
+Exit SQLite.
+
+```sql
+.quit
+```
+
+---
+
+# Best Practices
+
+- Always update the SQLAlchemy ORM model first.
+- Generate migrations from ORM changes.
+- Review every generated migration before applying it.
+- Never manually edit the SQLite schema when using Alembic.
+- Never modify an old migration that has already been applied.
+- Create a new migration for every schema change.
+- Keep `database/models` as the single source of truth for the database schema.
+- Commit both the ORM model changes and the generated migration file to source control together.

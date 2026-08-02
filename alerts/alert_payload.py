@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from data.models.profit_targets import get_tp_levels
+from framework.models.profit_targets import get_tp_levels
 
 
 AUCTION_PRIORITY = {

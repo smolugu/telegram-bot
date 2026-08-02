@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from config import ADMIN_CHAT_IDS
+
+from config.settings import ADMIN_CHAT_IDS
 
 
 async def is_admin(update: Update) -> bool:
