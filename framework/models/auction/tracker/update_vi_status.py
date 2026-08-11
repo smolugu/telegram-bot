@@ -1,11 +1,11 @@
-from framework.models.auction.models.base_model import VIStatus
+from framework.models.auction.models.base_model import HTFViStatus
 
 from data.models.candle import Candle
 from framework.models.auction.models.htf_vi import HTFVolumeImbalance
 
 
 
-def update_VI_status(
+def update_vi_status(
     vis: list[HTFVolumeImbalance],
     candles: list[Candle],
 ) -> None:
@@ -21,7 +21,7 @@ def update_VI_status(
 
     for vi in vis:
 
-        if vi.status == VIStatus.RECLAIMED:
+        if vi.status == HTFViStatus.RECLAIMED:
             continue
 
         for candle in candles:
@@ -31,37 +31,43 @@ def update_VI_status(
                 continue
 
             if vi.is_bullish: # bullish vi
+                # set is_swept flag
+                if candle.low < vi.higher and not vi.is_swept:
+                    vi.is_swept = True
                 if candle.low == vi.upper:
-                    vi.status = VIStatus.TOUCHED
+                    vi.status = HTFViStatus.TOUCHED
                     vi.mitigated_time = candle.timestamp
                     break
                 elif candle.low < vi.upper:
-                    vi.status = VIStatus.PARTIAL
+                    vi.status = HTFViStatus.PARTIAL
                     vi.mitigated_time = candle.timestamp
                     break
                 elif candle.low <= vi.lower:
-                    vi.status = VIStatus.MITIGATED
+                    vi.status = HTFViStatus.MITIGATED
                     vi.mitigated_time = candle.timestamp
                     break
                 elif candle.close <= vi.lower:
-                    vi.status = VIStatus.RECLAIMED
+                    vi.status = HTFViStatus.RECLAIMED
                     vi.mitigated_time = candle.timestamp
                 
             else:   # bearish fvg
+                # set is_swept flag
+                if candle.high > vi.lower and not vi.is_swept:
+                    vi.is_swept = True
                 if candle.high == vi.lower:
-                    vi.status = VIStatus.TOUCHED
+                    vi.status = HTFViStatus.TOUCHED
                     vi.mitigated_time = candle.timestamp
                     break
                 elif candle.high > vi.lower:
-                    vi.status = VIStatus.PARTIAL
+                    vi.status = HTFViStatus.PARTIAL
                     vi.mitigated_time = candle.timestamp
                     break
                 elif candle.low >= vi.upper:
-                    vi.status = VIStatus.MITIGATED
+                    vi.status = HTFViStatus.MITIGATED
                     vi.mitigated_time = candle.timestamp
                     break
                 elif candle.close >= vi.upper:
-                    vi.status = VIStatus.RECLAIMED
+                    vi.status = HTFViStatus.RECLAIMED
                     vi.mitigated_time = candle.timestamp
 
                 

@@ -1,5 +1,7 @@
 from alerts.execute import execute_trade_and_log, send_newyork_summary
 from framework.models.auction.detector.detect_swings import detect_swings
+from framework.models.auction.engine.auction_engine import initialize_auction_engine, refresh_auction_engine
+from framework.models.auction.models.auction_engine import AuctionEngine
 from framework.models.candle_7h import SevenHourBuilder
 from framework.models.compression import detect_compression
 from framework.models.delivery_context import initialize_delivery_state
@@ -22,7 +24,7 @@ from framework.models.ib_continuation_candidate import IBContinuationCandidate
 from data.sqlite.db_functions import insert_trade, monitor_open_trades
 from helpers.atr import calculate_daily_atr
 
-from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ob_mitigation_levels, add_ib_ce_key_level, add_post_8am_mitigation_levels, get_liquidity_values, reset_liquidity, update_compression_range_levels
+from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ob_mitigation_levels, add_ib_ce_key_level, add_post_8am_mitigation_levels, get_liquidity_values, refresh_liquidity, reset_liquidity, update_compression_range_levels
 from helpers.swing_points import filter_valid_swing_highs, filter_valid_swing_lows, get_valid_swings
 from helpers.time_windows import get_active_window, is_blocked_time
 from modules.nyam_context import get_morning_context
@@ -43,6 +45,16 @@ from alerts.alert_payload import build_summary_alert, build_trade_alert
 def run_quick_backtest(test_date: str):
 
     print(f"Backtesting {test_date}")
+
+    test_dtx = datetime.strptime(test_date, "%Y-%m-%d")
+    previous_day = test_dtx - timedelta(days=1)
+
+    print(previous_day)
+    print(previous_day.strftime("%Y-%m-%d"))
+    prev_test_date = previous_day.strftime("%Y-%m-%d")
+    prev_day_nq_contract = get_current_contract("NQ", prev_test_date)
+    prev_day_es_contract = get_current_contract("ES", prev_test_date)
+
     nq_contract = get_current_contract("NQ", test_date)
     es_contract = get_current_contract("ES", test_date)
     print("nq contract: ", nq_contract)
@@ -55,6 +67,7 @@ def run_quick_backtest(test_date: str):
     #         print(c["timestamp"])
     
     test_dt = datetime.fromisoformat(test_date).replace(tzinfo=timezone.utc)
+    
     # start_dt = test_dt - timedelta(days=2)
     # end_dt = test_dt + timedelta(days=1)
     nq_pdh, nq_pdl = get_pdh_pdl_fixed_date(test_date, nq_contract)
@@ -74,6 +87,7 @@ def run_quick_backtest(test_date: str):
     # print("nq_30m candles for date: ", nq_30m)
     
     nq_3m = get_futures_session(nq["3m"], test_date)
+    nq_1m = get_futures_session(nq["1m"], test_date)
     # print("first 10 candles: ",nq_3m)
     # print("nq_30_candles: ", nq_30m)
     # print("nq_3_candles: ", nq_3m)
@@ -85,6 +99,7 @@ def run_quick_backtest(test_date: str):
     # es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
     es_30m = get_futures_session(es["30m"], test_date)
     es_3m = get_futures_session(es["3m"], test_date)
+    es_1m = get_futures_session(es["1m"], test_date)
     # es_30m = [c for c in es["30m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_3m  = [c for c in es["3m"] if start_dt <= datetime.fromisoformat(c["timestamp"]).astimezone(timezone.utc) < end_dt]
     # es_30m = es["30m"]
@@ -112,6 +127,76 @@ def run_quick_backtest(test_date: str):
     current_window = None
     liquidity_nq = reset_liquidity()
     liquidity_es = reset_liquidity()
+    prev_liquidity_nq = reset_liquidity()
+    prev_liquidity_es = reset_liquidity()
+    if prev_day_nq_contract == nq_contract:
+        # get prev_day_pdh and pdl
+        prev_day_test_dt = datetime.fromisoformat(prev_test_date).replace(tzinfo=timezone.utc)
+            
+        # start_dt = test_dt - timedelta(days=2)
+        # end_dt = test_dt + timedelta(days=1)
+        prev_nq_pdh, prev_nq_pdl = get_pdh_pdl_fixed_date(prev_test_date, nq_contract)
+        print("NQ prev PDh, prev PDl:", prev_nq_pdh, prev_nq_pdl)
+        prev_es_pdh, prev_es_pdl = get_pdh_pdl_fixed_date(prev_test_date, es_contract)
+        print("ES prev PDh, prev PDl:", prev_es_pdh, prev_es_pdl)
+        prev_nq_30m = get_futures_session(nq["30m"], prev_test_date)
+        # print("nq_30m candles for date: ", nq_30m)
+        
+        prev_nq_3m = get_futures_session(nq["3m"], prev_test_date)
+        prev_nq_1m = get_futures_session(nq["1m"], prev_test_date)
+        
+        prev_es_30m = get_futures_session(es["30m"], prev_test_date)
+        prev_es_3m = get_futures_session(es["3m"], prev_test_date)
+        prev_es_1m = get_futures_session(es["1m"], prev_test_date)
+        
+
+
+        if not nq or not es:
+            print("No data available.")
+            return
+        prev_nq_30m_closes = {
+            prev_nq_30m[i]["timestamp"]: i
+            for i in range(len(prev_nq_30m))
+        }
+        for candle_3m in prev_nq_3m:
+                
+            ts = candle_3m["timestamp"]
+            if ts in prev_nq_30m_closes:
+                i = prev_nq_30m_closes[ts]
+                print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
+                prev_current_30m_start = prev_nq_30m[i]["timestamp"]
+                prev_last_closed_nq = prev_nq_30m[i - 1]
+                prev_last_closed_es = prev_es_30m[i - 1]
+                if i == 1:
+                    print("resetting liquidity at : ", i, ts)
+                    # TODO: IMP update only swept liquidity, for example keep NYPM unswept levels for next session or day
+                    prev_liquidity_nq = reset_liquidity()
+                    prev_liquidity_es = reset_liquidity()
+                prev_historical_nq = prev_nq_30m[:i]
+                prev_historical_es = prev_es_30m[:i]
+                prev_last_closed_nq = prev_nq_30m[i - 1]
+                prev_last_closed_es = prev_es_30m[i - 1]
+                #  gather session liquidity
+                prev_liquidity_nq = get_liquidity_values(symbol= prev_day_nq_contract, candles_30m = prev_historical_nq, test_date=prev_test_date, liquidity_levels=prev_liquidity_nq, current_start = prev_current_30m_start, pdh = prev_nq_pdh, pdl = prev_nq_pdl)
+                prev_liquidity_es = get_liquidity_values(symbol= prev_day_es_contract, candles_30m = prev_historical_es, test_date=prev_test_date, liquidity_levels=prev_liquidity_es, current_start = prev_current_30m_start, pdh = prev_es_pdh, pdl = prev_es_pdl)
+                for key, level in prev_liquidity_nq.items():
+                    if level["side"] == "buy_side" and level["price"] is not None:
+                        if prev_last_closed_nq["high"] > level["price"]:
+                            level["swept"] = True
+                    if level["side"] == "sell_side" and level["price"] is not None:
+                        if prev_last_closed_nq["low"] < level["price"]:
+                            level["swept"] = True
+                for key, level in prev_liquidity_es.items():
+                    if level["side"] == "buy_side" and level["price"] is not None:
+                        if prev_last_closed_es["high"] > level["price"]:
+                            level["swept"] = True
+                    if level["side"] == "sell_side" and level["price"] is not None:
+                        if prev_last_closed_es["low"] < level["price"]:
+                            level["swept"] = True
+                print("prev_liq_nq: ", prev_liquidity_nq)
+                print("prev_liq_es: ", prev_liquidity_es)
+
+
     
     nq_market_context = MarketContext("NQ")
     es_market_context = MarketContext("ES")
@@ -192,27 +277,60 @@ def run_quick_backtest(test_date: str):
     )
     for c in nq["4h"][:10]:
         print(c["timestamp"])
-    converted_4h = [candle_from_dict(c) for c in nq["4h"]]
-    converted_7h = [candle_from_dict(c) for c in nq["7h"]]
-    converted_1d = [candle_from_dict(c) for c in nq["1d"]]
-    h4_swings = detect_swings(
-        candles = converted_4h,
+    converted_4h_nq = [candle_from_dict(c) for c in nq["4h"]]
+    converted_7h_nq = [candle_from_dict(c) for c in nq["7h"]]
+    converted_1d_nq = [candle_from_dict(c) for c in nq["1d"]]
+    converted_4h_es = [candle_from_dict(c) for c in es["4h"]]
+    converted_7h_es = [candle_from_dict(c) for c in es["7h"]]
+    converted_1d_es = [candle_from_dict(c) for c in es["1d"]]
+    h4_swings_nq = detect_swings(
+        candles = converted_4h_nq,
         timeframe = "H4",
     )
-    print("h4_swings: ", h4_swings)
-    h7_swings = detect_swings(
-        candles = converted_7h,
+    print("h4_swings_nq: ", h4_swings_nq)
+    h7_swings_nq = detect_swings(
+        candles = converted_7h_nq,
         timeframe = "H7",
     )
-    print("h7_swings: ", h7_swings)
+    print("h7_swings_nq: ", h7_swings_nq)
 
-    d_swings = detect_swings(
-        candles = converted_1d,
+    d_swings_nq = detect_swings(
+        candles = converted_1d_nq,
         timeframe = "D1",
     )
-    print("d_swings: ", d_swings)
+    print("d_swings_nq: ", d_swings_nq)
+    h4_swings_es = detect_swings(
+        candles = converted_4h_es,
+        timeframe = "H4",
+    )
+    # print("h4_swings_es: ", h4_swings_es)
+    h7_swings_es = detect_swings(
+        candles = converted_7h_es,
+        timeframe = "H7",
+    )
+    # print("h7_swings_es: ", h7_swings_es)
 
-    
+    d_swings_es = detect_swings(
+        candles = converted_1d_es,
+        timeframe = "D1",
+    )
+    # print("d_swings_es: ", d_swings_es)
+
+    # initialize auction engine
+    nq_candles_for_auction = {
+        "4h": converted_4h_nq,
+        "7h": converted_7h_nq,
+        "1d": converted_1d_nq
+    }
+    es_candles_for_auction = {
+        "4h": converted_4h_es,
+        "7h": converted_7h_es,
+        "1d": converted_1d_es
+    }
+    nq_auction_engine = AuctionEngine()
+    es_auction_engine = AuctionEngine()
+    nq_auction_engine = initialize_auction_engine(nq_auction_engine, nq_candles_for_auction)
+    es_auction_engine = initialize_auction_engine(es_auction_engine, es_candles_for_auction)
 
     #  looping through 30m candles from 18:00 futures start
     for candle_3m in nq_3m:
@@ -223,7 +341,12 @@ def run_quick_backtest(test_date: str):
             print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
             current_30m_start = nq_30m[i]["timestamp"]
             last_closed_nq = nq_30m[i - 1]
+            last_closed_es = es_30m[i - 1]
+
             dt = datetime.fromisoformat(last_closed_nq["timestamp"])
+            inside_1m_candles_nq = [c for c in nq_1m if c["timestamp"] >= last_closed_nq["timestamp"] and c["timestamp"] < last_closed_nq["timestamp"]]
+            inside_1m_candles_es = [c for c in es_1m if c["timestamp"] >= last_closed_es["timestamp"] and c["timestamp"] < last_closed_es["timestamp"]]
+            
             # if dt.minute == 0:
             # if i <= 3:
                 # nq_weekly_state, es_weekly_state = update_weekly_1h_structure_abs(nq_weekly_state, es_weekly_state, current_30m_start)
@@ -233,8 +356,24 @@ def run_quick_backtest(test_date: str):
             # continue
             if i == 1:
                 print("resetting liquidity at : ", i, ts)
+                # TODO: IMP update only swept liquidity, for example keep NYPM unswept levels for next session or day
                 liquidity_nq = reset_liquidity()
                 liquidity_es = reset_liquidity()
+                liquidity_nq = refresh_liquidity(liquidity_nq, prev_liquidity_nq)
+                liquidity_es = refresh_liquidity(liquidity_es, prev_liquidity_es) 
+                print("refreshed liquidity nq: ", liquidity_nq)
+                print("refreshed liquidity es: ", liquidity_es)
+                # update auction engine
+                nq_auction_engine = refresh_auction_engine(
+                    nq_auction_engine,
+                    last_closed_nq,
+                )
+                es_auction_engine = refresh_auction_engine(
+                    es_auction_engine,
+                    last_closed_es,
+                )
+                
+
                 # print("resetting market context at : ", dt.hour)
                 print("daily atrs before reset: ", nq_market_context.daily_atr, es_market_context.daily_atr)
                 nq_market_context.reset()
@@ -249,7 +388,7 @@ def run_quick_backtest(test_date: str):
 
             if i == 2:
                 update_weekly_1h_structure_abs(nq_weekly_state = nq_weekly_state, es_weekly_state= es_weekly_state, current_30m_start=current_30m_start)
-            
+        
             if i >= 3:
                 
                 print("\n---------------------------")
@@ -270,6 +409,7 @@ def run_quick_backtest(test_date: str):
                 current_30m_start = nq_30m[i]["timestamp"]
                 window_name = get_active_window(current_30m_start)
                 
+                # TODO: revisit and check again. candidates reset
                 if window_name != current_window:
                     print("🔄 New window detected:", window_name)
                     # reset only candidates whose alert is sent when a new window starts
@@ -307,6 +447,9 @@ def run_quick_backtest(test_date: str):
                     # add mitigation level from ny am structure
                     add_post_8am_mitigation_levels(structure_data=nq_ny_market_context, liquidity_levels=liquidity_nq)
                     add_post_8am_mitigation_levels(structure_data=es_ny_market_context, liquidity_levels=liquidity_es)
+                    # add compression levels from nyam structure to liquidity objects
+                    update_compression_range_levels(liquidity_nq, compression_range_nq, "8AM")
+                    update_compression_range_levels(liquidity_es, compression_range_es, "8AM")
                     
                 
                 # update currest_session for i=0, 1, 2 
@@ -590,12 +733,12 @@ def run_quick_backtest(test_date: str):
                 nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq, i)
                 es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es, i)
                 # sweep detection 30m Swing points
-                sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
-                sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
+                sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, inside_candles_1m = inside_1m_candles_nq, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
+                sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, inside_candles_1m = inside_1m_candles_es, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
                 
                 # sweep detection at key levels
-                sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = liquidity_nq, candles_3m = nq_3m, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
-                sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = liquidity_es, candles_3m = es_3m, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
+                sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = liquidity_nq, candles_3m = nq_3m, inside_candles_1m = inside_1m_candles_nq, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
+                sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = liquidity_es, candles_3m = es_3m, inside_candles_1m = inside_1m_candles_es, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
                 print("sweep_nq_highs: ", sweep_nq_highs)
                 print("sweep_nq_lows: ", sweep_nq_lows)
                 print("sweep_es_highs: ", sweep_es_highs)
@@ -679,25 +822,42 @@ def run_quick_backtest(test_date: str):
                     # print("nq_liquidity: ", liquidity_nq)
                     
                 if is_post_8AM_IB:
-                    is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq = nq_ny_market_context.get_compression_data()
-                    is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es = es_ny_market_context.get_compression_data()
-                    update_compression_range_levels(liquidity_nq, compression_range_nq, "8AM")
-                    update_compression_range_levels(liquidity_es, compression_range_es, "8AM")
-                    # update compression state values. remaining updates to structure at end of 30m done above
-                    nq_ny_market_context.update_compression_state(liquidity_nq)
-                    es_ny_market_context.update_compression_state(liquidity_es)
+                    # print nq and es market structure at each 30m candle close
                     print("nq market structure ny at each 30m candle: ", nq_ny_market_context.structure["name"])
                     print("es market structure ny at each 30m candle: ", es_ny_market_context.structure["name"])
+                    # update compression levels based on 8am IB to liquidity levels
+                    # moved to beginning of for loop as the compression range levels are updated after the
+                    # formation of 8am IB and ready for sweep test. sweep test code is above
+                    # update_compression_range_levels(liquidity_nq, compression_range_nq, "8AM")
+                    # update_compression_range_levels(liquidity_es, compression_range_es, "8AM")
+                    # pre compression state updates
+                    # fetch compression data
+                    is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq = nq_ny_market_context.get_compression_data()
+                    is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es = es_ny_market_context.get_compression_data()
+                    print("compression data nq pre update: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
+                    print("compression data es pre update: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
+                    # update compression state
+                    nq_ny_market_context.update_compression_state(liquidity_nq)
+                    es_ny_market_context.update_compression_state(liquidity_es)
+                    # fetch compression data
+                    is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq = nq_ny_market_context.get_compression_data()
+                    is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es = es_ny_market_context.get_compression_data()
+                    
+                    print("compression data after updates:")
+                    print("compression data nq: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
+                    print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
+                    
+                    # update compression state values. remaining updates to structure at end of 30m done above
+                    print("compression state nq before: ", )
+                
                     print("nq_liquidity_rr: ", liquidity_nq)
                     print("es_liquidity_rr: ", liquidity_es)
-            
                     
                 is_post_1am_8am_ibs = is_post_8AM_IB or is_post_1AM_IB
 
                 print("is post 8am: ", is_post_8AM_IB)
                 print("is post 1am: ", is_post_1AM_IB)
-                print("compression data nq: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq)
-                print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es)
+                
 
                 # flow for types of compression on both nq and es
                 # 1. if both nq and es strong compression => require inducement
@@ -1259,9 +1419,7 @@ def run_quick_backtest(test_date: str):
                 
                 es_1d_filtered = filter_daily_candles(es["1d"], current_30m_start)
                 # print("es_1h_filtered: ", es_1h_filtered)
-
                 d1_bullish_smt, d1_bearish_smt = detect_daily_smt_precise(nq_1d_filtered, es_1d_filtered, {"session_high": nq_market_context.session_high, "session_low": nq_market_context.session_low}, {"session_high": es_market_context.session_high, "session_low": es_market_context.session_low})
-
 
                 # smt summary
                 summary_bullish_smt, summary_bearish_smt = summary_smt(h7_bullish_smt_liquidity, h7_bearish_smt_liquidity, h4_bullish_smt_liquidity, h4_bearish_smt_liquidity, h1_bullish_smt_liquidity, h1_bearish_smt_liquidity, h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt)
@@ -1408,24 +1566,9 @@ def run_quick_backtest(test_date: str):
                         
                         # check smt and other confirmations
                         # if no smt, both es and nq should have OB with displacement
-
-                        # check if existing candidate in opp direction
-                        # if there is, then both es and nq should be active with OBs formed with smt
-                        
-                        if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
-                            if nq_sell_candidate.final_ob_confirmed and es_sell_candidate.final_ob_confirmed:
-                                if summary_bearish_smt["bearish_smt_1h"] is not None or summary_bearish_smt["bearish_smt_30m_swing"] is not None or summary_bearish_smt["bearish_smt_key_level"]:
-                                    send = True
-                                    print("allowing counter trend trade as both candidates have OB confirmed with smt confirmation")
-                                else:
-                                    send = False
-                                    print("not allowing counter trade as no SMT confirmation even though both candidates have OBs confirmed")   
-                            else:
-                                send = False
-                                print("not allowing counter trend trade as one of the candidates do not have OB confirmed")
-                        # dont allow counter trades
-                        if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
-                            send = False
+                        # counter trend check later. candidate move might be finished. below condition disallows reversal
+                        # if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
+                        #     send = False
                     print("send === ", send, "trade confirmation time: ", nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
                     if send:
                         print("Market Context: ", nq_market_context.values())
@@ -1466,22 +1609,9 @@ def run_quick_backtest(test_date: str):
                         #     send = False
                         # send = True
                         print("send == ", send, "trade confirmation time: ", nq_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq["timestamp"])
-                        # check if existing candidate in opp direction
-                        # if there is, then both es and nq should be active with OBs formed with smt
-                        if nq_sell_candidate.alert_sent or es_sell_candidate.alert_sent:
-                            if nq_buy_candidate.final_ob_confirmed and es_buy_candidate.final_ob_confirmed:
-                                if summary_bullish_smt["bullish_smt_1h"] is not None or summary_bullish_smt["bullish_smt_30m_swing"] is not None or summary_bullish_smt["bullish_smt_key_level"]:
-                                    send = True
-                                    print("allowing counter trend trade as both candidates have OB confirmed with smt confirmation")
-                                else:
-                                    send = False
-                                    print("not allowing counter trade as no SMT confirmation even though both candidates have OBs confirmed")
-                            else:
-                                send = False
-                                print("not allowing counter trend trade as one of the candidates do not have OB confirmed")
-                        # dont allow counter trades
-                        if nq_sell_candidate.alert_sent or es_sell_candidate.alert_sent:
-                            send = False
+                        # counter trend check later. candidate move might be finished. below condition disallows reversal
+                        # if nq_sell_candidate.alert_sent or es_sell_candidate.alert_sent:
+                        #     send = False
                     if send:
                         print("Market Context: ", nq_market_context.values())
                         # send alert for NQ buy candidate
@@ -1534,22 +1664,9 @@ def run_quick_backtest(test_date: str):
                             send = False
                         # send = True
                         print("ES send == ", send, "trade confirmation time: ", es_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
-                        # check if existing candidate in opp direction
-                        # if there is, then both es and nq should be active with OBs formed with smt
-                        if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
-                            if nq_sell_candidate.final_ob_confirmed and es_sell_candidate.final_ob_confirmed:
-                                if summary_bearish_smt["bearish_smt_1h"] is not None or summary_bearish_smt["bearish_smt_30m_swing"] is not None or summary_bearish_smt["bearish_smt_key_level"]:
-                                    send = True
-                                    print("allowing counter trend trade as both candidates have OB confirmed with smt confirmation")
-                                else:
-                                    send = False
-                                    print("not allowing counter trade as no SMT confirmation even though both candidates have OBs confirmed")
-                            else:
-                                send = False
-                                print("not allowing counter trend trade as one of the candidates do not have OB confirmed")
-                        # dont allow counter trades
-                        if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
-                            send = False
+                        # counter trend check later. candidate move might be finished. below condition disallows reversal
+                        #  if nq_buy_candidate.alert_sent or es_buy_candidate.alert_sent:
+                        #     send = False
                     print("send 2: ", send)
                     if send:
                         print("ES Market Context: ", es_market_context.values())
@@ -1584,22 +1701,9 @@ def run_quick_backtest(test_date: str):
                         #     send = False
                         # send = True
                         print("send == ", send, "trade confirmation time: ", es_buy_candidate.confirmation_time, "last_closed_candle: ", last_closed_es["timestamp"])
-                        # check if existing candidate in opp direction
-                        # if there is, then both es and nq should be active with OBs formed with smt
-                        if es_sell_candidate.alert_sent or nq_sell_candidate.alert_sent:
-                            if es_buy_candidate.final_ob_confirmed and nq_buy_candidate.final_ob_confirmed:
-                                if summary_bullish_smt["bullish_smt_1h"] is not None or summary_bullish_smt["bullish_smt_30m_swing"] is not None or summary_bullish_smt["bullish_smt_key_level"]:
-                                    send = True
-                                    print("allowing counter trend trade as both candidates have OB confirmed with smt confirmation")
-                                else:
-                                    send = False
-                                    print("not allowing counter trade as no SMT confirmation even though both candidates have OB confirmeds")
-                            else:
-                                send = False
-                                print("not allowing counter trend trade as one of the candidates do not have OB confirmed")
-                        # dont allow counter trades
-                        if es_sell_candidate.alert_sent or nq_sell_candidate.alert_sent:
-                            send = False
+                        # counter trend check later. candidate move might be finished. below condition disallows reversal
+                        # if es_sell_candidate.alert_sent or nq_sell_candidate.alert_sent:
+                        #     send = False
                             
                     print("send 4: ", send)
                     if send:

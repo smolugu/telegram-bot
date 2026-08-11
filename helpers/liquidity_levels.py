@@ -98,6 +98,20 @@ def add_post_8am_mitigation_levels(structure_data, liquidity_levels):
         add_mitigation_level(liquidity_levels, mitigation_level, "8AM", "sell_side")
     
 
+def refresh_liquidity(liquidity_levels, prev_levels):
+    carry_forward = {
+        "asia_high", "asia_low",
+        "london_high", "london_low",
+        "ny_am_high", "ny_am_low",
+        "ny_lunch_high", "ny_lunch_low",
+        "ny_pm_high", "ny_pm_low",
+    }
+    for key, level in prev_levels.items():
+        if key in carry_forward and not level["swept"]:
+            liquidity_levels[key] = level
+    return liquidity_levels
+
+
 def reset_liquidity():
 
     return {
@@ -152,33 +166,48 @@ def get_liquidity_values(symbol, candles_30m, test_date, liquidity_levels, curre
     liquidity_levels["pdh"]["price"] = pdh
     liquidity_levels["pdl"]["price"] = pdl
     asia_levels = get_session_high_low(candles_30m, 20, 0, 0, 0, current_start, "Asia")
-    liquidity_levels["asia_high"]["price"] = asia_levels["high"]
-    liquidity_levels["asia_low"]["price"] = asia_levels["low"]
-    liquidity_levels["asia_low"]["timestamp"] = asia_levels["low_ts"]
-    liquidity_levels["asia_high"]["timestamp"] = asia_levels["high_ts"]
-
+    if asia_levels["high"] is not None:
+        liquidity_levels["asia_high"]["price"] = asia_levels["high"]
+        liquidity_levels["asia_high"]["swept"] = False
+        liquidity_levels["asia_low"]["price"] = asia_levels["low"]
+        liquidity_levels["asia_low"]["swept"] = False
+        liquidity_levels["asia_low"]["timestamp"] = asia_levels["low_ts"]
+        liquidity_levels["asia_high"]["timestamp"] = asia_levels["high_ts"]
+    
     london_levels = get_session_high_low(candles_30m, 2, 0, 5, 0, current_start)
-    liquidity_levels["london_high"]["price"] = london_levels["high"]
-    liquidity_levels["london_low"]["price"] = london_levels["low"]
-    liquidity_levels["london_high"]["timestamp"] = london_levels["high_ts"]
-    liquidity_levels["london_low"]["timestamp"] = london_levels["low_ts"]
+    if london_levels["high"] is not None:
+        liquidity_levels["london_high"]["price"] = london_levels["high"]
+        liquidity_levels["london_low"]["price"] = london_levels["low"]
+        liquidity_levels["london_low"]["swept"] = False
+        liquidity_levels["london_high"]["swept"] = False
+        liquidity_levels["london_high"]["timestamp"] = london_levels["high_ts"]
+        liquidity_levels["london_low"]["timestamp"] = london_levels["low_ts"]
 
     ny_am_levels = get_session_high_low(candles_30m, 9, 30, 11, 0, current_start)
-    liquidity_levels["ny_am_high"]["price"] = ny_am_levels["high"]
-    liquidity_levels["ny_am_low"]["price"] = ny_am_levels["low"]
-    liquidity_levels["ny_am_high"]["timestamp"] = ny_am_levels["high_ts"]
-    liquidity_levels["ny_am_low"]["timestamp"] = ny_am_levels["low_ts"]
+    if ny_am_levels["high"] is not None:
+        liquidity_levels["ny_am_high"]["price"] = ny_am_levels["high"]
+        liquidity_levels["ny_am_low"]["price"] = ny_am_levels["low"]
+        liquidity_levels["ny_am_low"]["swept"] = False
+        liquidity_levels["ny_am_high"]["swept"] = False
+        liquidity_levels["ny_am_high"]["timestamp"] = ny_am_levels["high_ts"]
+        liquidity_levels["ny_am_low"]["timestamp"] = ny_am_levels["low_ts"]
 
     ny_lunch_levels = get_session_high_low(candles_30m, 12, 0, 13, 0, current_start)
-    liquidity_levels["ny_lunch_high"]["price"] = ny_lunch_levels["high"]
-    liquidity_levels["ny_lunch_low"]["price"] = ny_lunch_levels["low"]
-    liquidity_levels["ny_lunch_high"]["timestamp"] = ny_lunch_levels["high_ts"]
-    liquidity_levels["ny_lunch_low"]["timestamp"] = ny_lunch_levels["low_ts"]
+    if ny_lunch_levels["high"] is not None:
+        liquidity_levels["ny_lunch_high"]["price"] = ny_lunch_levels["high"]
+        liquidity_levels["ny_lunch_low"]["price"] = ny_lunch_levels["low"]
+        liquidity_levels["ny_lunch_low"]["swept"] = False
+        liquidity_levels["ny_lunch_high"]["swept"] = False
+        liquidity_levels["ny_lunch_high"]["timestamp"] = ny_lunch_levels["high_ts"]
+        liquidity_levels["ny_lunch_low"]["timestamp"] = ny_lunch_levels["low_ts"]
     ny_pm_levels = get_session_high_low(candles_30m, 13, 30, 16, 0, current_start)
-    liquidity_levels["ny_pm_high"]["price"] = ny_pm_levels["high"]
-    liquidity_levels["ny_pm_low"]["price"] = ny_pm_levels["low"]
-    liquidity_levels["ny_pm_high"]["timestamp"] = ny_pm_levels["high_ts"]
-    liquidity_levels["ny_pm_low"]["timestamp"] = ny_pm_levels["low_ts"]
+    if ny_pm_levels["high"] is not None:
+        liquidity_levels["ny_pm_high"]["price"] = ny_pm_levels["high"]
+        liquidity_levels["ny_pm_low"]["price"] = ny_pm_levels["low"]
+        liquidity_levels["ny_pm_high"]["swept"] = False
+        liquidity_levels["ny_pm_low"]["swept"] = False
+        liquidity_levels["ny_pm_high"]["timestamp"] = ny_pm_levels["high_ts"]
+        liquidity_levels["ny_pm_low"]["timestamp"] = ny_pm_levels["low_ts"]
     # or_high, or_low = session_high_low(candles_30m, 9.5, 10.5, candles_30m[-1]["timestamp"])
     # liquidity_levels["or_high"]["price"] = or_high
     # liquidity_levels["or_low"]["price"] = or_low

@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
-from framework.models.auction.models.base_model import HTFSwingStatus
+from framework.models.auction.models.base_model import HTFSwingStatus, LevelType, LiquidityType
 
 # from data.models.auction.models.base_model import HTFLevelStatus
 
@@ -34,9 +34,10 @@ class HTFSwing:
     index: int
 
     timestamp: datetime
-
+    is_swept: bool
     status: HTFSwingStatus = "OPEN"
-
+    liquidity_type = LiquidityType.EXTERNAL
+    level_type = LevelType.SWING
     mitigated_index: Optional[int] = None
 
     mitigated_time: Optional[datetime] = None

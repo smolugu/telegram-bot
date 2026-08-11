@@ -165,6 +165,7 @@ def fetch_symbol_data(symbol: str):
         "4h": format_df(df_4h),
         "7h": format_df(df_7h),
         "3m": format_df(df_3m),
+        "1m": format_df(df_1m),
         "1d": format_df(df_1d),
         "protected_high": None,
         "protected_low": None

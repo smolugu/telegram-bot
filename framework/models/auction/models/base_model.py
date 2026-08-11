@@ -2,6 +2,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+class LiquidityType(Enum):
+    EXTERNAL = "EXTERNAL"
+    INTERNAL = "INTERNAL"
+
+class LevelType(Enum):
+    FVG = "FVG"
+    VI = "VI"
+    CISD = "CISD"
+    SWING = "SWING"
 
 class HTFSwingStatus(str, Enum):
     OPEN = "OPEN"
@@ -10,21 +19,21 @@ class HTFSwingStatus(str, Enum):
     SWEPT = "SWEPT"
     CLOSED = "CLOSED"
 
-class FVGStatus(str, Enum):
+class HTFFvgStatus(str, Enum):
     OPEN = "OPEN"              # Newly created
     TOUCHED = "TOUCHED"        # Price enters the gap
     PARTIAL = "PARTIAL"        # Gap partially filled
     MITIGATED = "MITIGATED"    # Entire gap filled
     RECLAIMED = "RECLAIMED"          # Invalidated (optional)
 
-class VIStatus(str, Enum):
+class HTFViStatus(str, Enum):
     OPEN = "OPEN"              # Newly created
     TOUCHED = "TOUCHED"        # Price enters the gap
     PARTIAL = "PARTIAL"        # Gap partially filled
     MITIGATED = "MITIGATED"    # Entire gap filled
     RECLAIMED = "RECLAIMED"          # Invalidated (optional)
 
-class CISDStatus(str, Enum):
+class HTFCisdStatus(str, Enum):
     OPEN = "OPEN"              # Newly created
     # PARTIAL = "PARTIAL"        # CISD partially tapped
     MITIGATED = "MITIGATED"    # Entire CISD tapped

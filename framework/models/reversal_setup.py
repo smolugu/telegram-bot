@@ -488,6 +488,8 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         is_ny_am_killzone = False
     print("----------------------------------------")
     print(f"Candidate: {candidate.instrument} {candidate.side}, {candidate.id}")
+    print(f"{candidate.instrument} Structure: ", newyork_context.structure["name"])
+    print(f"{co_asset_candidate.instrument} Structure: ", co_asset["newyork_context"].structure["name"])
     print("FVg confirmed: ", candidate.fvg_data)
     print("OB Confirmed:", candidate.ob_confirmed, "| sweep at:", candidate.sweep_timestamp, "| sweep level:", candidate.sweep_level,
                     "| OB data:", candidate.ob_data, "| Final OB confirmed:", candidate.final_ob_confirmed)
@@ -3458,6 +3460,10 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # high sweep
                     # ↓
                     # bearish expansion
+                print("look for longs: ", look_for_longs)
+                print("allow conflict longs: ", allow_conflict_longs)
+                print("look for shorts: ", look_for_shorts)
+                print("allow conflict shorts: ", allow_conflict_shorts)
 
                 if look_for_longs and allow_conflict_longs:
 
@@ -3465,6 +3471,13 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # sweep of compression lows
                     # failed downside acceptance
                     # scenario 1: second sweep lows and rocket
+                    print("is_smt: ", is_smt)
+                    print("is_rejection: ", is_rejection)
+                    print("compression resolved: ", newyork_context.structure["compression_state"]["compression_resolved"])
+                    print("second sweep is low: ", newyork_context.structure["compression_state"]["second_sweep"] == "low")
+                    print("rocket triggered: ", rocket_triggered)
+                    print("is_atr_filter: ", is_atr_filter)
+                    
                     if (
                         is_smt
                         and is_rejection
@@ -3509,6 +3522,13 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # Flush:
                     # sweep of compression highs
                     # rejection from migration imbalance
+                    print("is_smt: ", is_smt)
+                    print("is_rejection: ", is_rejection)
+                    print("compression resolved: ", newyork_context.structure["compression_state"]["compression_resolved"])
+                    print("second sweep is high: ", newyork_context.structure["compression_state"]["second_sweep"] == "high")
+                    print("ob < mitl level: ", candidate.ob_level < newyork_context.structure["mitigation_level"])
+                    print("rocket triggered: ", rocket_triggered)
+                    print("is_atr_filter: ", is_atr_filter)
 
                     if (
                         is_smt

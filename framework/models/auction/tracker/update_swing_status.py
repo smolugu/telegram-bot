@@ -3,7 +3,7 @@ from data.models.candle import Candle
 from framework.models.auction.models.htf_swing import HTFSwing, SwingType
 
 
-def update_SWING_status(
+def update_swing_status(
     swings: list[HTFSwing],
     candles: list[Candle],
 ) -> None:
@@ -37,7 +37,9 @@ def update_SWING_status(
                 continue
 
             if swing.swing_type == SwingType.BUY_SIDE:
-
+                # set is_swept flag
+                if candle.high > swing.price and not swing.is_swept:
+                    swing.is_swept = True
                 if candle.high > swing.price:
                     swing.status = HTFSwingStatus.SWEPT
                     swing.mitigated_time = candle.timestamp
@@ -48,6 +50,9 @@ def update_SWING_status(
                     break
 
             else:   # LOW
+                # set is_swept flag
+                if candle.low < swing.price and not swing.is_swept:
+                    swing.is_swept = True
 
                 if candle.low < swing.price:
                     swing.status = HTFSwingStatus.SWEPT

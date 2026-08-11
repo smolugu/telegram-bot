@@ -386,7 +386,9 @@ def classify_ib_structure(
     if (
         ib8_engulf_ib1
         and ib1_above_ib18
-        and ib8["low"] > ib18["high"]
+        and (
+            ib8["low"] > ib18["high"] or ib18["high"] > ib8["low"] > ib18["low"]
+        )
     ):
         name = None
         group = "decompression"
@@ -477,7 +479,10 @@ def classify_ib_structure(
     if (
         ib8_engulf_ib1
         and ib1_below_ib18
-        and ib8["high"] < ib18["low"]
+        and (
+            ib8["high"] < ib18["low"] 
+            or ib18["low"] < ib8["high"] < ib18["high"]
+            )
     ):
         name = None
         group = "decompression"

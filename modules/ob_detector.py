@@ -72,7 +72,7 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                     }
                     if candidate.sweep_type == "rejection":
                         return ob_found
-                    elif candidate.sweep_type == "breakout" and last_closed["close"] < candidate.sweep_candle["open"]:
+                    elif candidate.sweep_type == "breakout" and (last_closed["close"] < candidate.sweep_candle["open"] or last_closed["close"] < candidate.sweep_level):
                         print("breakout sweep ob confirmed")
                         return ob_found
                     elif co_asset.sweep_type == "rejection":
@@ -130,14 +130,14 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                     print("sweep_type: ", candidate.sweep_type, candidate.instrument)
                     if candidate.sweep_type == "rejection":
                         return ob_found
-                    elif candidate.sweep_type == "breakout" and last_closed["close"] > candidate.sweep_candle["open"]:
+                    elif candidate.sweep_type == "breakout" and (last_closed["close"] > candidate.sweep_candle["open"] or last_closed["close"] > candidate.sweep_level):
                         return ob_found
                     elif co_asset.sweep_type == "rejection":
                         return ob_found
                     elif co_asset.sweep_type == "breakout" and co_asset_last_closed_candle["close"] > co_asset.sweep_candle["open"]:
                         return ob_found
                     else:
-                        print("sweep NOOO: ", candidate.instrument)
+                        print("ob detection not captured: ", candidate.instrument)
                         return None
                     
                 

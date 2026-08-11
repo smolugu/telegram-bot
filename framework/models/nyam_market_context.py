@@ -571,7 +571,9 @@ class NewYorkMarketContext:
         # -------------------------
         # SELL-SIDE SWEEP
         # -------------------------
-        if low < self.structure["range_low"]:
+        tradable_range_low = self.structure["range_low"] if self.structure["compression_low"] is None else self.structure["compression_low"]
+        tradable_range_high = self.structure["range_high"] if self.structure["compression_high"] is None else self.structure["compression_high"]
+        if low < tradable_range_low:
             self.sweep["side"] = "sell_side"
             self.range_low_swept = True
             self.sweep["time"] = candle["timestamp"]
@@ -604,7 +606,7 @@ class NewYorkMarketContext:
         # -------------------------
         # BUY-SIDE SWEEP
         # -------------------------
-        elif high > self.structure["range_high"]:
+        elif high > tradable_range_high:
             self.sweep["side"] = "buy_side"
             self.range_high_swept = True
             self.sweep["time"] = candle["timestamp"]
@@ -721,6 +723,7 @@ class NewYorkMarketContext:
     # 7. Compression state
     # =========================================
     def update_compression_state(self, liquidity_level):
+        # if the last closed candle sweeps both sides, we need which one swept first
         if liquidity_level["cr8am_high"]["swept"] and not liquidity_level["cr8am_low"]["swept"]:
             self.structure["compression_state"]["first_sweep"] = "high"
             self.structure["compression_state"]["compression_partially_resolved"] = True
@@ -728,13 +731,13 @@ class NewYorkMarketContext:
             self.structure["compression_state"]["first_sweep"] = "low"
             self.structure["compression_state"]["compression_partially_resolved"] = True
         elif liquidity_level["cr8am_high"]["swept"] and liquidity_level["cr8am_low"]["swept"]:
-            if self.structure["compression_state"]["first_sweep"] == "high":
-                self.structure["compression_state"]["second_sweep"] = "low"
-            else:
-                self.structure["compression_state"]["second_sweep"] = "high"
+            first_sweep_high = liquidity_level["cr8am_high"]["timestamp"] < liquidity_level["cr8am_low"]["timestamp"]
+            self.structure["compression_state"]["first_sweep"] = "high" if first_sweep_high else "low"
+            self.structure["compression_state"]["second_sweep"] = "low" if first_sweep_high else "high"
             if not self.structure["compression_state"]["compression_resolved"]:
                 self.structure["compression_state"]["compression_resolved"] = True
-                self.structure["compression_state"]["is_fresh_compression_resolution"] = True
+                self.structure["compression_state"]["compression_partially_resolved"] = True
+                self.structure["compression_state"]["is_fresh_compression_resolution"] = True                
             else:
                 self.structure["compression_state"]["is_fresh_compression_resolution"] = False
 

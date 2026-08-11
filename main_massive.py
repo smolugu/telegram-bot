@@ -101,7 +101,111 @@ def main():
     
     if MODE == "BACKTEST":
 
-        run_quick_backtest("2026-08-05")
+        with SessionLocal() as session:
+            repo = SQLiteCandleRepository(session)
+
+            latest = repo.latest_timestamp("NQ", 1)
+
+            print("latest: ", latest)
+        rest = MassiveREST(POLYGON_API_KEY)
+
+        provider = MassiveFuturesProvider(rest)
+        session = SessionLocal()
+        contract_repo = SQLiteContractRepository(session)
+        candle_repo = SQLiteCandleRepository(session)
+        loader = HistoryLoader(
+            provider=provider,
+            contract_repo=contract_repo,
+            candle_repo=candle_repo,
+        )
+        # sync contracts
+        for instrument in ["NQ", "ES"]:
+            loader.sync_contracts(instrument)
+        contract_info_nq = contract_repo.get_front_month("NQ")
+        contract_info_es = contract_repo.get_front_month("ES")
+        
+        print("contract_info_nq: ", contract_info_nq)
+        print("contract_info_es: ", contract_info_es)
+        print("=========")
+        for instrument in ["NQ", "ES"]:
+            loader.sync_history(instrument)
+
+        candles_1m = candle_repo.get_all(
+            instrument="NQ",
+            timeframe=1,
+        )
+        print("1m candles lenght: from get_all: ")
+        print(len(candles_1m))
+        print(candles_1m[0])
+        print(candles_1m[-1])
+
+        # candle_builder = HTFCandleBuilder()
+
+        # candles_30m = candle_builder.build(
+        #     candles_1m,
+        #     timeframe=30,
+        # )
+        candles_30m = candle_repo.get_history(
+            contract=contract_info_nq.contract,
+            timeframe=30,
+        )
+        print("-----------")
+        print(candles_1m[0].timestamp)
+        
+        print("-----------")
+        print("candle length from get all:")
+        print(len(candles_30m))
+        print(candles_30m[0])
+        print(candles_30m[-1])
+        first = candles_30m[0].timestamp_ny
+        last = candles_30m[-1].timestamp_ny
+        print(candles_30m[0].timestamp_ny.hour)
+        print(candles_30m[-1].timestamp_ny.hour)
+        print("first:", first.strftime("%Y-%m-%d %H:%M:%S %Z"))
+        print("last :", last.strftime("%Y-%m-%d %H:%M:%S %Z"))
+
+        for candle in candles_30m[:10]:
+            print(candle)
+
+        
+
+        # print(response.data.decode())
+        # import requests
+
+        # url = "https://api.massive.com/futures/v1/aggs/NQU6"
+
+        # params = {
+        #     "resolution": "1min",
+        #     "window_start": "2026-07-15",
+        #     "limit": 5,
+        #     "apiKey": POLYGON_API_KEY,
+        # }
+
+        # r = requests.get(url, params=params)
+        # print("***")
+        # print(r.status_code)
+        # print(r.text)
+        # print(type(client.client))
+        # print(dir(client.client))
+        # import inspect
+
+        # print(inspect.signature(client.client.list_futures_aggregates))
+        # import requests
+
+        # url = "https://api.massive.com/futures/v1/aggs/NQU26"
+
+        # params = {
+        #     "resolution": "1min",
+        #     "window_start": "2025-12-15",
+        #     "limit": 5,
+        #     "apiKey": POLYGON_API_KEY,
+        # }
+
+        # r = requests.get(url, params=params)
+        # print("****")
+        # print(r.status_code)
+        # print(r.text)
+        run_quick_backtest("2026-07-31")
         # run_quick_test("2026-04-21")
         return
     # token = os.getenv("BOT_TOKEN")
