@@ -4,6 +4,7 @@ from typing import Optional
 from framework.models.auction.models.auction_progress import AuctionProgress
 
 
+
 @dataclass
 class AuctionContext:
 
@@ -15,15 +16,15 @@ class AuctionContext:
     # HTF Auctions
     #
     daily: AuctionProgress = field(
-        default_factory=lambda: AuctionProgress("D", "NEUTRAL")
+        default_factory=lambda: AuctionProgress("1d", "NEUTRAL")
     )
 
     h7: AuctionProgress = field(
-        default_factory=lambda: AuctionProgress("7H", "NEUTRAL")
+        default_factory=lambda: AuctionProgress("7h", "NEUTRAL")
     )
 
     h4: AuctionProgress = field(
-        default_factory=lambda: AuctionProgress("4H", "NEUTRAL")
+        default_factory=lambda: AuctionProgress("4h", "NEUTRAL")
     )
     
     bullish_swings: list = field(default_factory=list)
@@ -65,3 +66,9 @@ class AuctionContext:
 
     swept_bullish_levels = 0
     swept_bearish_levels = 0
+
+    def summary(self) -> dict:
+        return {
+            "bullish_levels": self.bullish_levels,
+            "bearish_levels": self.bearish_levels,
+        }

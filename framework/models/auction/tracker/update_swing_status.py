@@ -1,4 +1,4 @@
-from framework.models.auction.models.base_model import HTFSwingStatus
+from framework.models.auction.models.enums import HTFSwingStatus
 from data.models.candle import Candle
 from framework.models.auction.models.htf_swing import HTFSwing, SwingType
 
@@ -23,7 +23,7 @@ def update_swing_status(
         return
 
     # Ensure chronological order
-    candles = sorted(candles, key=lambda c: c.time)
+    candles = sorted(candles, key=lambda c: c.timestamp)
 
     for swing in swings:
 
@@ -42,11 +42,11 @@ def update_swing_status(
                     swing.is_swept = True
                 if candle.high > swing.price:
                     swing.status = HTFSwingStatus.SWEPT
-                    swing.mitigated_time = candle.timestamp
+                    swing.mitigation_time = candle.timestamp
                     break
                 elif candle.high == swing.price:
                     swing.status = HTFSwingStatus.TOUCHED
-                    swing.mitigated_time = candle.timestamp
+                    swing.mitigation_time = candle.timestamp
                     break
 
             else:   # LOW
@@ -56,9 +56,9 @@ def update_swing_status(
 
                 if candle.low < swing.price:
                     swing.status = HTFSwingStatus.SWEPT
-                    swing.mitigated_time = candle.timestamp
+                    swing.mitigation_time = candle.timestamp
                     break
                 elif candle.low == swing.price:
                     swing.status = HTFSwingStatus.TOUCHED
-                    swing.mitigated_time = candle.timestamp
+                    swing.mitigation_time = candle.timestamp
                     break

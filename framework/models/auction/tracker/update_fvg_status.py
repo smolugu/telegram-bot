@@ -1,4 +1,4 @@
-from framework.models.auction.models.base_model import HTFFvgStatus
+from framework.models.auction.models.enums import HTFFvgStatus
 from data.models.candle import Candle
 from framework.models.auction.models.htf_fvg import HTFFVG
 
@@ -15,7 +15,7 @@ def update_fvg_status(
         return
 
     # Ensure chronological order
-    candles = sorted(candles, key=lambda c: c.time)
+    candles = sorted(candles, key=lambda c: c.timestamp)
 
     for fvg in fvgs:
 
@@ -25,7 +25,7 @@ def update_fvg_status(
         for candle in candles:
 
             # Ignore candles before the FVG formed
-            if candle.candle.timestamp <= fvg.timestamp:
+            if candle.timestamp <= fvg.timestamp:
                 continue
 
             if fvg.is_bullish: # bullish fvg
@@ -35,19 +35,19 @@ def update_fvg_status(
 
                 if candle.low == fvg.upper:
                     fvg.status = HTFFvgStatus.TOUCHED
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                     break
                 elif candle.low < fvg.upper:
                     fvg.status = HTFFvgStatus.PARTIAL
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                     break
                 elif candle.low <= fvg.lower:
                     fvg.status = HTFFvgStatus.MITIGATED
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                     break
                 elif candle.close <= fvg.lower:
                     fvg.status = HTFFvgStatus.RECLAIMED
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                 
             else:   # bearish fvg
                 # set is_swept flag
@@ -55,18 +55,18 @@ def update_fvg_status(
                     fvg.is_swept = True
                 if candle.high == fvg.lower:
                     fvg.status = HTFFvgStatus.TOUCHED
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                     break
                 elif candle.high > fvg.lower:
                     fvg.status = HTFFvgStatus.PARTIAL
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                     break
                 elif candle.low >= fvg.upper:
                     fvg.status = HTFFvgStatus.MITIGATED
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
                     break
                 elif candle.close >= fvg.upper:
                     fvg.status = HTFFvgStatus.RECLAIMED
-                    fvg.mitigated_time = candle.timestamp
+                    fvg.mitigation_time = candle.timestamp
 
                 

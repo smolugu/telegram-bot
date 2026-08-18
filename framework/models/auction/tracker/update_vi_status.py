@@ -1,4 +1,4 @@
-from framework.models.auction.models.base_model import HTFViStatus
+from framework.models.auction.models.enums import HTFViStatus
 
 from data.models.candle import Candle
 from framework.models.auction.models.htf_vi import HTFVolumeImbalance
@@ -17,7 +17,7 @@ def update_vi_status(
         return
 
     # Ensure chronological order
-    candles = sorted(candles, key=lambda c: c.time)
+    candles = sorted(candles, key=lambda c: c.timestamp)
 
     for vi in vis:
 
@@ -32,23 +32,23 @@ def update_vi_status(
 
             if vi.is_bullish: # bullish vi
                 # set is_swept flag
-                if candle.low < vi.higher and not vi.is_swept:
+                if candle.low < vi.upper and not vi.is_swept:
                     vi.is_swept = True
                 if candle.low == vi.upper:
                     vi.status = HTFViStatus.TOUCHED
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                     break
                 elif candle.low < vi.upper:
                     vi.status = HTFViStatus.PARTIAL
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                     break
                 elif candle.low <= vi.lower:
                     vi.status = HTFViStatus.MITIGATED
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                     break
                 elif candle.close <= vi.lower:
                     vi.status = HTFViStatus.RECLAIMED
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                 
             else:   # bearish fvg
                 # set is_swept flag
@@ -56,18 +56,18 @@ def update_vi_status(
                     vi.is_swept = True
                 if candle.high == vi.lower:
                     vi.status = HTFViStatus.TOUCHED
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                     break
                 elif candle.high > vi.lower:
                     vi.status = HTFViStatus.PARTIAL
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                     break
                 elif candle.low >= vi.upper:
                     vi.status = HTFViStatus.MITIGATED
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
                     break
                 elif candle.close >= vi.upper:
                     vi.status = HTFViStatus.RECLAIMED
-                    vi.mitigated_time = candle.timestamp
+                    vi.mitigation_time = candle.timestamp
 
                 

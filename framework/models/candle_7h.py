@@ -31,6 +31,7 @@ class SevenHourCandle:
         self.high = None
         self.low = None
         self.close = None
+        self.timestamp = None
 
         self.body = None
         self.upper_wick = None
@@ -56,6 +57,7 @@ class SevenHourCandle:
         h = candle["high"]
         l = candle["low"]
         c = candle["close"]
+        t = candle["timestamp"]
         
         
         if self.open is None:
@@ -63,6 +65,7 @@ class SevenHourCandle:
             self.open = o
             self.high = h
             self.low = l
+            self.timestamp = t
 
         else:
             
@@ -116,6 +119,7 @@ class SevenHourCandle:
 
         return {
             "instrument": self.instrument,
+            "timestamp": self.timestamp,
             "ib_ready": self.ib_ready,
             "label": self.label,
             "open": self.open,

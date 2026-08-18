@@ -1,6 +1,9 @@
-from framework.models.auction.detector import collect_levels, detect_fvg, detect_swings, detect_vi
-from framework.models.auction.engine.auction_engine import build_auction_context
-from framework.models.auction.engine.update_levels import update_historical_level_state
+from framework.models.auction.detector.collect_levels import collect_levels
+from framework.models.auction.detector.detect_fvg import detect_fvg
+from framework.models.auction.detector.detect_swings import detect_swings
+from framework.models.auction.detector.detect_vi import detect_vi
+from framework.models.auction.engine.auction_context import build_auction_context
+from framework.models.auction.engine.add_update_levels import update_historical_level_state
 
 
 def initialize_auction_engine(auction_engine, candles_for_auction):
@@ -23,7 +26,7 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
     # 1. Get historical candles
     # ---------------------------------------------------------
 
-    daily_candles = candles_for_auction.get("daily", [])
+    daily_candles = candles_for_auction.get("1d", [])
     h7_candles = candles_for_auction.get("7h", [])
     h4_candles = candles_for_auction.get("4h", [])
 
@@ -31,20 +34,22 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
     # 2. Detect HTF levels
     # ---------------------------------------------------------
 
-    daily_swings = detect_swings(daily_candles,timeframe="D",)
-    daily_fvgs = detect_fvg(daily_candles,timeframe="D",)
-    daily_vis = detect_vi(daily_candles,timeframe="D",)
-    h7_swings = detect_swings(h7_candles,timeframe="7H",)
-    h7_fvgs = detect_fvg(h7_candles,timeframe="7H",)
-    h7_vis = detect_vi(h7_candles,timeframe="7H",)
-    h4_swings = detect_swings(h4_candles,timeframe="4H",)
-    h4_fvgs = detect_fvg(h4_candles,timeframe="4H",)
-    h4_vis = detect_vi(h4_candles,timeframe="4H",)
+    daily_swings = detect_swings(daily_candles,timeframe="1d",)
+    
+    daily_fvgs = detect_fvg(daily_candles,timeframe="1d",)
+    daily_vis = detect_vi(daily_candles,timeframe="1d",)
+    h7_swings = detect_swings(h7_candles,timeframe="7h",)
+    
+    h7_fvgs = detect_fvg(h7_candles,timeframe="7h",)
+    h7_vis = detect_vi(h7_candles,timeframe="7h",)
+    h4_swings = detect_swings(h4_candles,timeframe="4h",)
+    h4_fvgs = detect_fvg(h4_candles,timeframe="4h",)
+    h4_vis = detect_vi(h4_candles,timeframe="4h",)
 
     # ---------------------------------------------------------
     # 3. Collect all HTF levels
     # ---------------------------------------------------------
-
+    print("7h swings: ", h7_swings)
     levels = collect_levels(
         daily_swings=daily_swings,
         daily_fvgs=daily_fvgs,
@@ -58,11 +63,15 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
         h4_fvgs=h4_fvgs,
         h4_vis=h4_vis,
     )
+    print("levels before: ", levels)
     levels = update_historical_level_state(levels, candles_for_auction)
+    print("levels after: ", levels)
     # build auction context
-    auction_engine.auction_context = build_auction_context(levels)
+    # auction_engine.auction_context = build_auction_context(levels)
+    build_auction_context(levels, auction_engine)
+    print("==================================")
+    print("auction_context: ", auction_engine.context.summary())
     # set auction progress in the for loop at the end of each 30m candle
 
     
-    
-    return auction_engine
+    # return auction_engine

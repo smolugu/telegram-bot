@@ -284,6 +284,7 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, inside_candles_3m, t
 
 
 def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candles_1m, last_closed_candle, current_30m_start):
+    print("calling detect_key_liquidity_sweep")
     sweep_highs_key_levels_info = None
     sweep_lows_key_levels_info = None
 
@@ -291,6 +292,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candle
     close = last_closed_candle["close"]
     high = last_closed_candle["high"]
     low = last_closed_candle["low"]
+    last_closed_is_bearish = last_closed_candle["open"] > last_closed_candle["close"]
+    last_closed_is_bullish = last_closed_candle["close"] > last_closed_candle["open"]
     sweep_candle_start = last_closed_candle["timestamp"]
     sweep_candle_end = (
         datetime.fromisoformat(sweep_candle_start)
@@ -302,6 +305,8 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candle
     body_size = abs(close - open)
     body_ratio = body_size / range_size
     strong_body = body_size/range_size > 0.5
+    bullish_strong_body = strong_body and last_closed_is_bullish
+    bearish_strong_body = strong_body and last_closed_is_bearish
     strong_body_ce = body_size/range_size > 0.4
 
     upper_wick_ratio = (
@@ -327,7 +332,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candle
         nq_sweep_and_ob_confirmation_timestamp = None
         points_tol = 3 if instrument == "NQ" else 1.5
         
-        nq_sweep_and_ob_confirmed = close > open - points_tol or sweep_type_low == "rejection"
+        nq_sweep_and_ob_confirmed = close > open - points_tol or (sweep_type_low == "rejection" and not bearish_strong_body)
         
         if nq_sweep_and_ob_confirmed:
             nq_sweep_and_ob_entry = open if close > open else close
@@ -386,7 +391,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candle
         print("last closed candle sweep: ", last_closed_candle)
         print("sweep ob strong_body: ", strong_body, body_size/range_size)
         
-        nq_sweep_and_ob_confirmed = close < open + points_tol or sweep_type_high == "rejection"
+        nq_sweep_and_ob_confirmed = close < open + points_tol or (sweep_type_high == "rejection" and not bullish_strong_body)
     
         if nq_sweep_and_ob_confirmed:
             nq_sweep_and_ob_entry = open if close < open else close
@@ -439,6 +444,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candle
     return sweep_highs_key_levels_info, sweep_lows_key_levels_info
 
 def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lows, candles_3m, inside_candles_1m, last_closed_candle, key_levels, current_30m_start):
+    print("calling detect_30m_and_key_level_sweep")
     sweep_highs_info = None
     sweep_lows_info = None
 
@@ -452,6 +458,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
     body_size = abs(close - open)
     body_ratio = body_size / range_size
     strong_body = body_size/range_size > 0.5
+    bullish_strong_body = strong_body and last_closed_is_bullish
+    bearish_strong_body = strong_body and last_closed_is_bearish
     strong_body_ce = body_size/range_size > 0.4
 
     upper_wick_ratio = (
@@ -462,9 +470,10 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
     ) / range_size
 
     points_tol = 3 if instrument == "NQ" else 1.5
-
+    print("valid swing highs: ", valid_swing_highs)
     for swing in valid_swing_highs:
         if high > swing["high"]:
+            print("valid swing high: ", swing["high"])
             sweep_type = None
             sweep_type = "rejection" if close < swing["high"] else "breakout"
             # last candle high and low
@@ -481,16 +490,21 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_confirmation_timestamp = None
             
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
-            sweep_time = find_sweep_time_3m(inside_3m_candles, high, "buy_side")
+            sweep_time = find_sweep_time_3m(inside_3m_candles, swing["high"], "buy_side")
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels, inside_3m_candles)
+            print("detect_key_liquidity_sweep_highs return")
+            print(key_levels["asia_high"])
+
             # print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
             wick_ratio = abs(close - high) / abs(high - low)
             print("wick ratio: ", wick_ratio)
+            if sweep_type_kl is not None:
+                sweep_type = sweep_type_kl
 
             # set sweep obs based on keylevel sweep
             # "sweep" = sweep of key level from detect_key_liquidity_sweep_highs function
             if sweep:
-                nq_sweep_and_ob_confirmed = close < open + points_tol or sweep_type_kl == "rejection"
+                nq_sweep_and_ob_confirmed = close < open + points_tol or (sweep_type_kl == "rejection" and not bullish_strong_body) 
     
                 if nq_sweep_and_ob_confirmed:
                     print("sweep and ob confirmed")
@@ -511,7 +525,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 rejection_ob_level = ob_level if is_level_rejection else None
 
             else:
-                nq_sweep_and_ob_confirmed = close < open or wick_ratio > 0.6
+                # nq_sweep_and_ob_confirmed = close < open or wick_ratio > 0.6
+                nq_sweep_and_ob_confirmed = close < open or (sweep_type == "rejection" and not bullish_strong_body)
                 if nq_sweep_and_ob_confirmed:
                     print("2024")
                     nq_sweep_and_ob_entry = open
@@ -574,15 +589,18 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_confirmation_timestamp = None
 
             inside_3m_candles = [c for c in candles_3m if c["timestamp"] >= sweep_candle_start and c["timestamp"] < sweep_candle_end]
-            sweep_time = find_sweep_time_3m(inside_3m_candles, low, "sell_side")
+            sweep_time = find_sweep_time_3m(inside_3m_candles, swing["low"], "sell_side")
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels, inside_3m_candles)
             # print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
             wick_ratio = abs(close - low) / abs(high - low)
             print("wick ration: ", wick_ratio)
 
+            if sweep_type_kl is not None:
+                sweep_type = sweep_type_kl
+
             if sweep:
                 print("popo5")
-                nq_sweep_and_ob_confirmed = close > open - points_tol or sweep_type_kl == "rejection"
+                nq_sweep_and_ob_confirmed = close > open - points_tol or (sweep_type_kl == "rejection" and not bearish_strong_body) 
                 if nq_sweep_and_ob_confirmed:
                     print("popo4")
                     nq_sweep_and_ob_entry = open if close > open else close
@@ -601,7 +619,8 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 
             else:
                 print("popo6")
-                nq_sweep_and_ob_confirmed = close > open or wick_ratio > 0.6
+                # nq_sweep_and_ob_confirmed = close > open or wick_ratio > 0.6
+                nq_sweep_and_ob_confirmed = close > open or (sweep_type == "rejection" and not bearish_strong_body) 
                 if nq_sweep_and_ob_confirmed:
                     print("popo1")
                     nq_sweep_and_ob_entry = open

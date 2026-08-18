@@ -1,6 +1,6 @@
 from alerts.execute import execute_trade_and_log, send_newyork_summary
 from framework.models.auction.detector.detect_swings import detect_swings
-from framework.models.auction.engine.auction_engine import initialize_auction_engine, refresh_auction_engine
+from framework.models.auction.engine.auction_engine import initialize_auction, refresh_auction
 from framework.models.auction.models.auction_engine import AuctionEngine
 from framework.models.candle_7h import SevenHourBuilder
 from framework.models.compression import detect_compression
@@ -277,42 +277,43 @@ def run_quick_backtest(test_date: str):
     )
     for c in nq["4h"][:10]:
         print(c["timestamp"])
-    converted_4h_nq = [candle_from_dict(c) for c in nq["4h"]]
-    converted_7h_nq = [candle_from_dict(c) for c in nq["7h"]]
-    converted_1d_nq = [candle_from_dict(c) for c in nq["1d"]]
-    converted_4h_es = [candle_from_dict(c) for c in es["4h"]]
-    converted_7h_es = [candle_from_dict(c) for c in es["7h"]]
-    converted_1d_es = [candle_from_dict(c) for c in es["1d"]]
+        print(c)
+    converted_4h_nq = [candle_from_dict(c=c, timeframe="4h", instrument= "NQ", contract=nq_contract) for c in nq["4h"]]
+    converted_7h_nq = [candle_from_dict(c=c, timeframe="7h", instrument= "NQ", contract=nq_contract) for c in nq["7h"]]
+    converted_1d_nq = [candle_from_dict(c=c, timeframe="1d", instrument= "NQ", contract=nq_contract) for c in nq["1d"]]
+    converted_4h_es = [candle_from_dict(c=c, timeframe="4h", instrument= "ES", contract=es_contract) for c in es["4h"]]
+    converted_7h_es = [candle_from_dict(c=c, timeframe="7h", instrument= "ES", contract=es_contract) for c in es["7h"]]
+    converted_1d_es = [candle_from_dict(c=c, timeframe="1d", instrument= "ES", contract=es_contract) for c in es["1d"]]
     h4_swings_nq = detect_swings(
         candles = converted_4h_nq,
-        timeframe = "H4",
+        timeframe = "4h",
     )
     print("h4_swings_nq: ", h4_swings_nq)
     h7_swings_nq = detect_swings(
         candles = converted_7h_nq,
-        timeframe = "H7",
+        timeframe = "7h",
     )
     print("h7_swings_nq: ", h7_swings_nq)
 
     d_swings_nq = detect_swings(
         candles = converted_1d_nq,
-        timeframe = "D1",
+        timeframe = "1d",
     )
     print("d_swings_nq: ", d_swings_nq)
     h4_swings_es = detect_swings(
         candles = converted_4h_es,
-        timeframe = "H4",
+        timeframe = "4h",
     )
     # print("h4_swings_es: ", h4_swings_es)
     h7_swings_es = detect_swings(
         candles = converted_7h_es,
-        timeframe = "H7",
+        timeframe = "7h",
     )
     # print("h7_swings_es: ", h7_swings_es)
 
     d_swings_es = detect_swings(
         candles = converted_1d_es,
-        timeframe = "D1",
+        timeframe = "1d",
     )
     # print("d_swings_es: ", d_swings_es)
 
@@ -329,9 +330,16 @@ def run_quick_backtest(test_date: str):
     }
     nq_auction_engine = AuctionEngine()
     es_auction_engine = AuctionEngine()
-    nq_auction_engine = initialize_auction_engine(nq_auction_engine, nq_candles_for_auction)
-    es_auction_engine = initialize_auction_engine(es_auction_engine, es_candles_for_auction)
-
+    print("nq candles: ", nq_candles_for_auction)
+    print("es candles: ", es_candles_for_auction)
+    initialize_auction(nq_auction_engine, nq_candles_for_auction)
+    initialize_auction(es_auction_engine, es_candles_for_auction)
+    print("initialized context")
+    # print("nq auction engine status: ", nq_auction_engine.status.summary())
+    print("nq auction engine context: ", nq_auction_engine.context.summary())
+    # print("es auction engine status: ", es_auction_engine.status.summary())
+    print("es auction engine context: ", es_auction_engine.context.summary())
+    print("====================================================")
     #  looping through 30m candles from 18:00 futures start
     for candle_3m in nq_3m:
         
@@ -342,8 +350,10 @@ def run_quick_backtest(test_date: str):
             current_30m_start = nq_30m[i]["timestamp"]
             last_closed_nq = nq_30m[i - 1]
             last_closed_es = es_30m[i - 1]
+            last_closed_candle_timestamp = nq_30m[i - 1]["timestamp"] 
 
             dt = datetime.fromisoformat(last_closed_nq["timestamp"])
+            dt_current = datetime.fromisoformat(current_30m_start)
             inside_1m_candles_nq = [c for c in nq_1m if c["timestamp"] >= last_closed_nq["timestamp"] and c["timestamp"] < last_closed_nq["timestamp"]]
             inside_1m_candles_es = [c for c in es_1m if c["timestamp"] >= last_closed_es["timestamp"] and c["timestamp"] < last_closed_es["timestamp"]]
             
@@ -363,15 +373,6 @@ def run_quick_backtest(test_date: str):
                 liquidity_es = refresh_liquidity(liquidity_es, prev_liquidity_es) 
                 print("refreshed liquidity nq: ", liquidity_nq)
                 print("refreshed liquidity es: ", liquidity_es)
-                # update auction engine
-                nq_auction_engine = refresh_auction_engine(
-                    nq_auction_engine,
-                    last_closed_nq,
-                )
-                es_auction_engine = refresh_auction_engine(
-                    es_auction_engine,
-                    last_closed_es,
-                )
                 
 
                 # print("resetting market context at : ", dt.hour)
@@ -386,6 +387,75 @@ def run_quick_backtest(test_date: str):
                 nq_market_context.set_daily_atr(nq_daily_atr)
                 es_market_context.set_daily_atr(es_daily_atr)
 
+            if i >= 1:
+                # get completed 4h and 7h candle
+                # 7h candle
+                last_3_7h_nq=None
+                last_3_7h_es=None
+                # start last closed 8am 30m candle, 
+                # we have 7hr candle built at last closed 7:30 candle
+                if dt.hour in [1, 8, 15] and dt.minute == 00:
+                    if dt_current.hour == 1:
+                        new_7h_candle_nq = nq_seven_hour_builder.candles["6PM"].values()
+                        new_7h_candle_es = es_seven_hour_builder.candles["6PM"].values()
+                    elif dt_current.hour == 8:
+                        new_7h_candle_nq = nq_seven_hour_builder.candles["1AM"].values()
+                        new_7h_candle_es = es_seven_hour_builder.candles["1AM"].values()
+                    elif dt_current.hour == 15:
+                        new_7h_candle_nq = nq_seven_hour_builder.candles["8AM"].values()
+                        new_7h_candle_es = es_seven_hour_builder.candles["8AM"].values()
+                    # 3pm candle will be captured converted_7h_nq before the start of day
+                    converted_7h_nq.append(candle_from_dict(c=new_7h_candle_nq, timeframe="7h", instrument= "NQ", contract=nq_contract))
+                    converted_7h_es.append(candle_from_dict(c=new_7h_candle_es, timeframe="7h", instrument= "ES", contract=es_contract))
+                    last_3_7h_nq = converted_7h_nq[-3:]
+                    last_3_7h_es = converted_7h_es[-3:]
+
+                # 4h candle
+                last_3_4h_nq=None
+                last_3_4h_es=None
+                if dt.hour in [22, 2, 6, 10, 14] and dt.minute == 00:
+                    new_4h_candle_nq = {
+                        "open": nq_market_context.four_session_open,
+                        "close": nq_market_context.four_session_close,
+                        "low": nq_market_context.four_session_low,
+                        "high": nq_market_context.four_session_high,
+                        "timestamp": nq_market_context.four_session_timestamp,
+                    }
+                    print("new 4h candle: ", new_4h_candle_nq)
+                    new_4h_candle_es = {
+                        "open": es_market_context.four_session_open,
+                        "close": es_market_context.four_session_close,
+                        "low": es_market_context.four_session_low,
+                        "high": es_market_context.four_session_high,
+                        "timestamp": es_market_context.four_session_timestamp,
+                    }
+                    converted_4h_nq.append(candle_from_dict(c=new_4h_candle_nq, timeframe="4h", instrument= "NQ", contract=nq_contract))
+                    converted_4h_es.append(candle_from_dict(c=new_4h_candle_es, timeframe="4h", instrument= "ES", contract=es_contract))
+                    last_3_4h_nq = converted_4h_nq[-3:]
+                    last_3_4h_es = converted_4h_es[-3:]
+
+                    
+                # update auction engine with context and status
+                refresh_auction(
+                    nq_auction_engine,
+                    candle_from_dict(c=last_closed_nq, timeframe="30m", instrument= "NQ", contract=nq_contract),
+                    last_3_4h_nq,
+                    last_3_7h_nq,
+                )
+                
+                refresh_auction(
+                    es_auction_engine,
+                    candle_from_dict(c=last_closed_es,timeframe="30m", instrument= "ES", contract=es_contract),
+                    last_3_4h_es,
+                    last_3_7h_es,
+                )
+                if dt.hour == 8:
+                    print("nq auction engine status: ", nq_auction_engine.status.summary())
+                    print("nq auction engine context: ", nq_auction_engine.context.summary())
+                    # print("es auction engine status: ", es_auction_engine.status.summary())
+                    # print("es auction engine context: ", es_auction_engine.context.summary())
+                
+            # continue
             if i == 2:
                 update_weekly_1h_structure_abs(nq_weekly_state = nq_weekly_state, es_weekly_state= es_weekly_state, current_30m_start=current_30m_start)
         
@@ -426,8 +496,8 @@ def run_quick_backtest(test_date: str):
 
                 print("Current window:", current_window)
                 # previous 30m candle just closed
-                last_closed_nq = nq_30m[i - 1]
-                last_closed_es = es_30m[i - 1]
+                # last_closed_nq = nq_30m[i - 1]
+                # last_closed_es = es_30m[i - 1]
 
                 print("i =", i, " | current 30m boundary at: ", current_30m_start)
                 print("NQ Last closed:", last_closed_nq["timestamp"], "| Open: ", last_closed_nq["open"], "| Low: ", last_closed_nq["low"], "| High: ", last_closed_nq["high"], "| Close: ", last_closed_nq["close"])
@@ -465,7 +535,7 @@ def run_quick_backtest(test_date: str):
                     nq_seven_hour_builder.update(nq_30m[0])
                     nq_seven_hour_builder.update(nq_30m[1])
                     nq_seven_hour_builder.update(nq_30m[2])
-                    print("nq 7h before: ", nq_seven_hour_builder.candles["6PM"].values())                
+                    print("nq 7h before: ", nq_seven_hour_builder.candles["6PM"].values())
                  
                     # nq_seven_hour_builder.candles["6PM"].ib_high = 29283.75
                     # nq_seven_hour_builder.candles["6PM"].ib_low = 29110
@@ -481,12 +551,12 @@ def run_quick_backtest(test_date: str):
                     # es_seven_hour_builder.candles["6PM"].ib_ce = (7408.5+7435)/2
                     # nq_seven_hour_builder.candles["6PM"].ib_open = 7410
                     # nq_seven_hour_builder.candles["6PM"].ib_close = 7429
-                    nq_market_context.update_session_range(nq_30m[0]["high"], nq_30m[0]["low"], nq_30m[0]["open"], nq_30m[0]["close"])
-                    nq_market_context.update_session_range(nq_30m[1]["high"], nq_30m[1]["low"], nq_30m[1]["open"], nq_30m[1]["close"])
-                    nq_market_context.update_session_range(nq_30m[2]["high"], nq_30m[2]["low"], nq_30m[2]["open"], nq_30m[2]["close"])
-                    es_market_context.update_session_range(es_30m[0]["high"], es_30m[0]["low"], es_30m[0]["open"], es_30m[0]["close"])
-                    es_market_context.update_session_range(es_30m[1]["high"], es_30m[1]["low"], es_30m[1]["open"], es_30m[1]["close"])
-                    es_market_context.update_session_range(es_30m[2]["high"], es_30m[2]["low"], es_30m[2]["open"], es_30m[2]["close"])
+                    nq_market_context.update_session_range(nq_30m[0]["high"], nq_30m[0]["low"], nq_30m[0]["open"], nq_30m[0]["close"], dt.hour, dt.minute, nq_30m[0]["timestamp"])
+                    nq_market_context.update_session_range(nq_30m[1]["high"], nq_30m[1]["low"], nq_30m[1]["open"], nq_30m[1]["close"], dt.hour, dt.minute, nq_30m[1]["timestamp"])
+                    nq_market_context.update_session_range(nq_30m[2]["high"], nq_30m[2]["low"], nq_30m[2]["open"], nq_30m[2]["close"], dt.hour, dt.minute, nq_30m[2]["timestamp"])
+                    es_market_context.update_session_range(es_30m[0]["high"], es_30m[0]["low"], es_30m[0]["open"], es_30m[0]["close"], dt.hour, dt.minute, nq_30m[0]["timestamp"])
+                    es_market_context.update_session_range(es_30m[1]["high"], es_30m[1]["low"], es_30m[1]["open"], es_30m[1]["close"], dt.hour, dt.minute, nq_30m[1]["timestamp"])
+                    es_market_context.update_session_range(es_30m[2]["high"], es_30m[2]["low"], es_30m[2]["open"], es_30m[2]["close"], dt.hour, dt.minute, nq_30m[2]["timestamp"])
                     # nq_market_context.session_open = 29135
 
                     # nq_market_context.session_close = 29232.75
@@ -674,12 +744,12 @@ def run_quick_backtest(test_date: str):
                     print("es 10am IB: ", es_ny_market_context. ib_10)
                 
                 # update market context for NQ and ES
-                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"])
-                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"], last_closed_es["open"], last_closed_es["close"])
-                print("session_open: ", nq_market_context.session_open)
-                print("session_high: ", nq_market_context.session_high)
-                print("session_low: ", nq_market_context.session_low)
-                print("session_close: ", nq_market_context.session_close)
+                nq_market_context.update_session_range(last_closed_nq["high"], last_closed_nq["low"], last_closed_nq["open"], last_closed_nq["close"], dt.hour, dt.minute, last_closed_candle_timestamp)
+                es_market_context.update_session_range(last_closed_es["high"], last_closed_es["low"], last_closed_es["open"], last_closed_es["close"], dt.hour, dt.minute, last_closed_candle_timestamp)
+                # print("session_open: ", nq_market_context.session_open)
+                # print("session_high: ", nq_market_context.session_high)
+                # print("session_low: ", nq_market_context.session_low)
+                # print("session_close: ", nq_market_context.session_close)
                 # update Newyork Context
                 if dt.hour > 8 and dt.hour < 15:
                     nq_ny_market_context.update(last_closed_nq, liquidity_nq)
@@ -726,7 +796,7 @@ def run_quick_backtest(test_date: str):
                 sweep_es_highs_key_level = None
                 sweep_nq_lows_key_level = None
                 sweep_es_lows_key_level = None
-                print("sweep_es_lows_key_level: ", sweep_es_lows_key_level)
+                
                 # print("liquidity nq levels: ", liquidity_nq)
                 # print("liquidity es levels: ", liquidity_es)
                 # get valid swing points and key levels and send to detect_30m_key_level_sweep
@@ -735,7 +805,7 @@ def run_quick_backtest(test_date: str):
                 # sweep detection 30m Swing points
                 sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, inside_candles_1m = inside_1m_candles_nq, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
                 sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, inside_candles_1m = inside_1m_candles_es, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
-                
+                print("liquidity test in main: ", liquidity_nq["asia_high"])
                 # sweep detection at key levels
                 sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = liquidity_nq, candles_3m = nq_3m, inside_candles_1m = inside_1m_candles_nq, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
                 sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = liquidity_es, candles_3m = es_3m, inside_candles_1m = inside_1m_candles_es, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
@@ -1529,6 +1599,7 @@ def run_quick_backtest(test_date: str):
                     "london_context": es_london_market_context,
                     "newyork_context": es_ny_market_context,
                     "liquidity_levels": liquidity_es,
+                    "auction_engine": es_auction_engine,
                     
                 }
                 nq_context = {
@@ -1537,6 +1608,7 @@ def run_quick_backtest(test_date: str):
                     "london_context": nq_london_market_context,
                     "newyork_context": nq_ny_market_context,
                     "liquidity_levels": liquidity_nq,
+                    "auction_engine": nq_auction_engine,
                     
                 }
 
@@ -1548,7 +1620,7 @@ def run_quick_backtest(test_date: str):
                     # filter based on SMT and other market context
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, es_sell_candidate)
+                    send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, es_sell_candidate, nq_auction_engine)
                     print("nq rocket triggered: ", nq_ny_market_context.execution_state["rocket_triggered"])
                     # check for alert at 9:30
                     if send:
@@ -1592,7 +1664,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if nq_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, es_buy_candidate)
+                    send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, es_buy_candidate, nq_auction_engine)
                     print("send from check nq buy candidate: ", send)
                     # check for alert at 9:30
                     if send:
@@ -1629,7 +1701,7 @@ def run_quick_backtest(test_date: str):
                     # rejection of IB at asia session sweep
                     # atr for move
                     send = False                    
-                    send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, nq_sell_candidate)
+                    send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, nq_sell_candidate, es_auction_engine)
                     print("send 1: ", send)
                     # if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
                     #     send = True
@@ -1684,7 +1756,7 @@ def run_quick_backtest(test_date: str):
                         send = True
                     # if es_market_context.atr_usage > 0.8:
                     #     send = True
-                    send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, nq_buy_candidate)
+                    send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, nq_buy_candidate, es_auction_engine)
                     print("send 3: ", send)
                     # check for alert at 9:30
                     if send:

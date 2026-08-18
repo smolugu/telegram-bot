@@ -47,6 +47,11 @@ class MarketContext:
         self.session_low = None
         self.session_open = None
         self.session_close = None
+        self.four_session_high = None
+        self.four_session_low = None
+        self.four_session_open = None
+        self.four_session_close = None
+        self.four_session_timestamp = None
         self.session_range = None
         self.session_direction = None
         self.directional_move = None
@@ -176,7 +181,7 @@ class MarketContext:
         self.compression_flags = compression_flags
         self.compression_range = compression_range
 
-    def update_session_range(self, high, low, open, close):
+    def update_session_range(self, high, low, open, close, hour, minute, current_start):
 
         if self.session_open is None:
             self.session_open = open
@@ -191,11 +196,26 @@ class MarketContext:
         self.session_range = self.session_high - self.session_low
         # direction
         self.session_direction = "bullish" if self.session_close > self.session_open else "bearish"
-        # print("session high: ", self.session_high)
-        # print("sessionlow: ", self.session_low)
-        # print("session range: ", self.session_range)
-        # print("atrusage: ", self.atr_usage)
-        # print("daily atr: ", self.daily_atr)
+        if hour in [18, 22, 2, 6, 10, 14] and minute == 00:
+            # reset 4h session
+            self.four_session_close = None
+            self.four_session_high = None
+            self.four_session_low = None
+            self.four_session_open = None
+            self.four_session_timestamp = None
+
+        if self.four_session_open is None:
+            self.four_session_open = open
+        self.four_session_close = close
+
+        if self.four_session_high is None:
+            self.four_session_high = high
+            self.four_session_low = low
+        else:
+            self.four_session_high = max(self.four_session_high, high)
+            self.four_session_low = min(self.four_session_low, low)
+        if self.four_session_timestamp is None:
+            self.four_session_timestamp = current_start
     
     def set_daily_atr(self, atr):
         self.daily_atr = atr

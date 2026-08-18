@@ -696,9 +696,8 @@ def classify_ib_structure(
             "note_internal":
 
                 "8AM IB engulfed 1AM IB overlapping prior value. "
-                "Continuation vs reversal unresolved. ",
-                "Mixed decompression before NY open."
-
+                "Continuation vs reversal unresolved. "
+                "Mixed decompression before NY open.",
             "note":
                 "Early expansion before NY open with unresolved direction, continuation vs reversal. "
                 "Liquidity event likely before direction.",
@@ -1085,7 +1084,11 @@ def classify_ib_structure(
 
     if (
         ib1_engulf_ib18
-        and ib8_above_ib1
+        and (
+            ib8_above_ib1
+            or
+            ib1["high"] > ib8["low"] > ib1["low"]
+        )
     ):
         name = None
         group = "decompression"
@@ -1162,7 +1165,10 @@ def classify_ib_structure(
 
     if (
         ib1_engulf_ib18
-        and ib8_below_ib1
+        and (
+            ib8_below_ib1
+            or ib1["low"] < ib8["high"] < ib1["high"]
+        )
     ):
         name = None
         group = "decompression"
@@ -1557,16 +1563,14 @@ def classify_ib_structure(
     # =====================================================
     # here there could be no gaps or atmost one gap between ibs
     # the below two possibilities are IB1 overlapping with top if ib18 and bottom of ib18
+    # (correction) in staircase bullish, IB1 overlapping with top of ib18. overlapping at the bo
+    # ttom of ib18 is part of reintegration
 
     if (
         (
             ib8["low"] > ib1["high"]
         and ib18["high"]  > ib1["low"] >= ib18["low"]
         and ib1["high"] > ib18["high"]
-        ) or (
-        ib8["low"] > ib1["high"]
-        and ib18["low"] > ib1["high"] <= ib18["high"]
-        and ib1["low"] < ib18["low"]
         )
     ):
         name = None
@@ -2323,7 +2327,7 @@ def classify_ib_structure(
             "note_internal":
                 "Bullish expansion weakened into rebalance.",
             "note":
-                "Bullish expansion weakened into rebalance near daily open."    ,
+                "Bullish expansion weakened into rebalance near daily open.",
             "context_summary": {
                 "market_state":
                     "Price migrated higher during London but later returned back into the broader overnight range, rebalancing a significant portion of the bullish move.",
@@ -2522,7 +2526,7 @@ def classify_ib_structure(
     # =====================================================
 
     if (
-        (ib1_below_ib18 or ib1["high"] >= ib18["low"] >= ib1["low"])
+        (ib1_below_ib18 or ib18["high"] >= ib1["high"] >= ib18["low"])
         and ib18["high"] > ib8["low"] > ib18["low"]
         and ib8["high"] > ib18["high"]
     ):
@@ -2637,7 +2641,7 @@ def classify_ib_structure(
         return {
             "execution_edge": 95,
             "direction_score": 90,
-            "migration_score": 90,
+            "migration_score": 100,
             "pqs": 92,
             "reaction_levels": {"Bearish 30m OB", "Pre-market Highs"},
             "structure_name": name,
@@ -2714,7 +2718,7 @@ def classify_ib_structure(
         return {
             "execution_edge": 95,
             "direction_score": 90,
-            "migration_score": 90,
+            "migration_score": 100,
             "pqs": 92,
             "reaction_levels": {"Bullish 30m OB", "Pre-market Lows"},
             "structure_name": name,

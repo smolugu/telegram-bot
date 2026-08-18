@@ -3,11 +3,78 @@ from typing import List
 from data.models.candle import Candle
 from framework.models.auction.models.htf_swing import HTFSwing, SwingType
 
+HTF_TIMEFRAMES = {"1d", "7h", "4h"}
+
+
+def detect_htf_swings(
+    candles,
+    timeframe,
+):
+    """
+    Detect pivot=1 HTF swings from the last 3 candles.
+
+    C1 = candles[-3]
+    C2 = candles[-2]  # pivot candle
+    C3 = candles[-1]  # confirmation candle
+    """
+
+    if len(candles) < 3:
+        return []
+
+    c1 = candles[-3]
+    c2 = candles[-2]
+    c3 = candles[-1]
+    print("c1: ", c1)
+    print("c2: ", c2)
+    print("c3: ", c3)
+
+    swings = []
+
+    # ---------------------------------------------------------
+    # Swing High
+    # ---------------------------------------------------------
+
+    if (
+        c1.high< c2.high
+        and c2.high > c3.high
+    ):
+        swings.append(
+            HTFSwing(
+                timeframe=timeframe,
+                swing_type=SwingType.BUY_SIDE,
+                price=c2.high,
+                index=-2,
+                timestamp=c2.timestamp,
+                is_bullish=True
+            )
+        )
+
+    # ---------------------------------------------------------
+    # Swing Low
+    # ---------------------------------------------------------
+
+    if (
+        c1.low > c2.low
+        and c2.low < c3.low
+    ):
+        swings.append(
+            HTFSwing(
+                timeframe=timeframe,
+                swing_type=SwingType.SELL_SIDE,
+                price=c2.low,
+                index=-2,
+                timestamp=c2.timestamp,
+                is_bullish=False
+            )
+        )
+
+    return swings
+
 
 def detect_swings(
     candles: List[Candle],
     timeframe: str,
-    pivot: int = 2,
+    pivot=None,
 ) -> List[HTFSwing]:
     """
     Detect swing highs and swing lows.
@@ -15,6 +82,8 @@ def detect_swings(
     BUY_SIDE  = Swing High
     SELL_SIDE = Swing Low
     """
+    if pivot is None:
+        pivot = 1 if timeframe in HTF_TIMEFRAMES else 2
 
     swings: List[HTFSwing] = []
 
@@ -48,6 +117,7 @@ def detect_swings(
                     price=current.high,
                     index=i,
                     timestamp=current.timestamp,
+                    is_bullish=True
                 )
             )
 
@@ -74,6 +144,7 @@ def detect_swings(
                     price=current.low,
                     index=i,
                     timestamp=current.timestamp,
+                    is_bullish=False
                 )
             )
 

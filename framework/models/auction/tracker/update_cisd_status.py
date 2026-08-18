@@ -1,4 +1,4 @@
-from framework.models.auction.models.base_model import HTFCisdStatus
+from framework.models.auction.models.enums import HTFCisdStatus
 from data.models.candle import Candle
 from framework.models.auction.models.htf_cisd import HTFCISD
 
@@ -15,7 +15,7 @@ def update_cisd_status(
         return
 
     # Ensure chronological order
-    candles = sorted(candles, key=lambda c: c.time)
+    candles = sorted(candles, key=lambda c: c.timestamp)
 
     for cisd in cisds:
 
@@ -30,41 +30,41 @@ def update_cisd_status(
 
             if cisd.is_bullish: # bullish cisd
                 # set is_swept value
-                if candle.close < cisd.upper_body and not cisd.is_swept:
+                if candle.close < cisd.upper and not cisd.is_swept:
                     cisd.is_swept = True
                 if candle.close < cisd.lower_wick or candle.low < cisd.lower_wick:
                     cisd.status = HTFCisdStatus.RCISD
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
                 elif candle.low < cisd.lower_wick:
                     cisd.status = HTFCisdStatus.RCISD
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
-                elif candle.close < cisd.lower_body:
+                elif candle.close < cisd.lower:
                     cisd.status = HTFCisdStatus.RECLAIMED
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
-                elif candle.low < cisd.upper_body:
+                elif candle.low < cisd.upper:
                     cisd.status = HTFCisdStatus.MITIGATED
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break                
             else:   # bearish CISD
                 # set is_swept value
-                if candle.high > cisd.lower_body and not cisd.is_swept:
+                if candle.high > cisd.lower and not cisd.is_swept:
                     cisd.is_swept = True
                 if candle.close > cisd.upper_wick or candle.high > cisd.upper_wick:
                     cisd.status = HTFCisdStatus.RCISD
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
                 elif candle.high > cisd.upper_wick:
                     cisd.status = HTFCisdStatus.RCISD
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
-                elif candle.close > cisd.upper_body:
+                elif candle.close > cisd.upper:
                     cisd.status = HTFCisdStatus.RECLAIMED
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
-                elif candle.high > cisd.lower_body:
+                elif candle.high > cisd.lower:
                     cisd.status = HTFCisdStatus.MITIGATED
-                    cisd.mitigated_time = candle.timestamp
+                    cisd.mitigation_time = candle.timestamp
                     break
