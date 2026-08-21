@@ -42,7 +42,7 @@ def _add_htf_level(
     # Overall directional list
     # ---------------------------------------------------------
 
-    if level.is_bullish:
+    if level.is_buy_side:
         context.bullish_levels.append(level)
     else:
         context.bearish_levels.append(level)

@@ -7,6 +7,7 @@ from alembic import context
 
 from database.base import Base
 import market_data.models
+import accounts.models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -23,6 +24,11 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 # target_metadata = None
 target_metadata = Base.metadata
+print("ALEMBIC TABLES:")
+print(list(Base.metadata.tables.keys()))
+
+print("USER COLUMNS:")
+print(list(Base.metadata.tables["users"].columns.keys()))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

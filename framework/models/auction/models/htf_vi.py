@@ -9,6 +9,7 @@ class HTFVolumeImbalance:
     timeframe: str
     timestamp: datetime
     is_bullish: bool
+    is_buy_side: bool
 
     upper: float
     lower: float

@@ -17,8 +17,10 @@ class HTFSwing:
     index: int
 
     timestamp: datetime
+    is_buy_side: bool
     is_swept: bool = False
     is_bullish: bool = False
+    
     status: HTFSwingStatus = HTFSwingStatus.OPEN
     liquidity_type: LiquidityType = LiquidityType.EXTERNAL
     level_type: LevelType = LevelType.SWING

@@ -34,10 +34,11 @@ def detect_htf_fvg(
             HTFFVG(
                 timeframe=timeframe,
                 timestamp=c3.timestamp,
-                is_bullish=True,
                 upper=c3.low,
                 lower=c1.high,
                 price=c3.low,
+                is_bullish=True,
+                is_buy_side=False
             )
         )
 
@@ -52,10 +53,11 @@ def detect_htf_fvg(
             HTFFVG(
                 timeframe=timeframe,
                 timestamp=c3.timestamp,
-                is_bullish=False,
                 upper=c1.low,
                 lower=c3.high,
                 price=c3.high,
+                is_bullish=False,
+                is_buy_side=True
             )
         )
 
@@ -84,8 +86,9 @@ def detect_fvg(
                     timestamp=c3.timestamp,
                     upper=c3.low,
                     lower=c1.high,
-                    is_bullish=True,
                     price=c3.low,
+                    is_bullish=True,
+                    is_buy_side=False
                 )
             )
 
@@ -98,8 +101,9 @@ def detect_fvg(
                     timestamp=c3.timestamp,
                     upper=c1.low,
                     lower=c3.high,
-                    is_bullish=False,
                     price=c3.high,
+                    is_bullish=False,
+                    is_buy_side=True
                 )
             )
 

@@ -4,7 +4,6 @@ from framework.models.auction.models.enums import LevelType, LiquidityType
 
 def _closest_level(
     levels,
-    reference_level,
     direction,
 ):
     """
@@ -88,397 +87,15 @@ def _candle_interacts_with_level(
             and candle_low <= level.lower
         )
 
-    
-
-def _update_timeframe_progress_old(
-        auction_progress: AuctionProgress,
-        levels,
-        candle_30m: Candle,
-        is_bullish: bool
-):
-    
-    """
-    Update auction progress for one HTF timeframe.
-
-    Logic:
-
-    1. If the current 30m candle is interacting with an HTF level:
-       - Identify the HTF level being interacted with.
-       - Find the most recent swept level before it.
-       - The movement from previous swept level -> current HTF
-         level determines the previous auction direction.
-
-    2. If the current 30m candle is not interacting with an HTF level:
-       - Find the most recent swept level.
-       - Find the nearest OPEN level with alternating liquidity type.
-       - Confirm price is between the two levels.
-       - Calculate auction progress.
-       - Confirm auction once progress >= 50%.
-    """
-    current_price = candle_30m.close
-    candle_high = candle_30m.high
-    candle_low = candle_30m.low
-
-    # ---------------------------------------------------------
-    # 1. Levels for this timeframe
-    # ---------------------------------------------------------
-
-    tf_levels = [
-        level
-        for level in levels
-        if level.timeframe == auction_progress.timeframe
-    ]
-
-    if not tf_levels:
-        return
-
-    # ---------------------------------------------------------
-    # 2. Find HTF level currently being interacted with
-    # ---------------------------------------------------------
-
-    interacting_levels = [
-        level
-        for level in tf_levels
-        if (
-            _candle_interacts_with_level(
-                level,
-                candle_high,
-                candle_low,
-            )
-        )
-    ]
-
-    # =========================================================
-    # CASE 1:
-    # Current 30m candle is interacting with an HTF level
-    # =========================================================
-    current_level = None
-    if interacting_levels:
-
-        # If multiple levels are being interacted with,
-        # use the closest one to current price.
-        # use the one closest based on bullush or bearish levels
-        # current_level = min(
-        #     interacting_levels,
-        #     key=lambda level: abs(
-        #         current_price - level.price
-        #     ),
-        # )
-
-        current_level = min(
-            interacting_levels,
-            key=lambda level: level.price
-        ) if is_bullish else max(
-            interacting_levels,
-            key=lambda level: level.price
-        )
-
-        # -----------------------------------------------------
-        # Find the most recent swept level BEFORE current level
-        # -----------------------------------------------------
-
-        previous_liquidity_type = (
-            LiquidityType.INTERNAL
-            if current_level.liquidity_type == LiquidityType.EXTERNAL
-            else LiquidityType.EXTERNAL
-        )
-
-        previous_swept_levels = [
-            level
-            for level in tf_levels
-            if (
-                level.is_swept
-                and level.liquidity_type == previous_liquidity_type
-                and level.timestamp < current_level.timestamp
-            )
-        ]
-
-        if not previous_swept_levels:
-            return
-
-        if current_level.is_bullish:
-            if previous_liquidity_type == LiquidityType.EXTERNAL:
-                # bullish internal objective.
-                # previous external liquidity is above
-                candidates = [
-                    level
-                    for level in previous_swept_levels
-                    if level.price > current_level.price
-                ]
-                if not candidates:
-                    return
-
-                previous = min(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-            else:
-                # bullish external objective.
-                # previous internal liquidity is below.
-                candidates = [
-                    level
-                    for level in previous_swept_levels
-                    if level.price < current_level.price
-                ]
-                if not candidates:
-                    return
-                previous = max(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-        else:
-
-            if previous_liquidity_type == LiquidityType.EXTERNAL:
-                # bearish internal objective
-                # previous external liquidity is below
-                candidates = [
-                    level
-                    for level in previous_swept_levels
-                    if level.price < current_level.price
-                ]
-
-                if not candidates:
-                    return
-
-                previous = max(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-            else:
-                # bearish external objective
-                # previous internal liquidity is above
-                candidates = [
-                    level
-                    for level in previous_swept_levels
-                    if level.price > current_level.price
-                ]
-
-                if not candidates:
-                    return
-                previous = min(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-        
-
-        # -----------------------------------------------------
-        # Determine auction direction from price movement
-        #
-        # Previous level -> Current level
-        # -----------------------------------------------------
-
-        if current_level.price > previous.price:
-
-            auction_direction = (
-                AuctionDirection.BULLISH
-            )
-
-        elif current_level.price < previous.price:
-
-            auction_direction = (
-                AuctionDirection.BEARISH
-            )
-
-        else:
-            return
-
-        # -----------------------------------------------------
-        # Store current HTF interaction
-        # -----------------------------------------------------
-        # auction at key level
-        # reset auction progress
-        auction_progress.at_htf = True
-        auction_progress.at_htf_level = current_level
-        auction_progress.completed = True
-        auction_progress.previous_objective = previous
-        auction_progress.current_objective = current_level
-
-        auction_progress.progress = 0.0
-
-        auction_progress.confirmed = False
-        auction_progress.previous_direction = auction_direction
-        auction_progress.confirmed_direction = (
-            AuctionDirection.NEUTRAL
-        )
-
-        return
-    
-    # =========================================================
-    # CASE 2:
-    # Price is NOT currently interacting with HTF
-    # =========================================================
-
-    # ---------------------------------------------------------
-    # Find most recent swept level
-    # ---------------------------------------------------------
-
-    swept = [
-        level
-        for level in tf_levels
-        if level.is_swept
-    ]
-
-    if not swept:
-        return
-
-    previous = max(
-        swept,
-        key=lambda level: level.timestamp,
-    )
-
-    target_liquidity_type = (
-        LiquidityType.INTERNAL
-        if previous.liquidity_type == LiquidityType.EXTERNAL
-        else LiquidityType.EXTERNAL
-    )
-
-    open_levels = [
-        level
-        for level in tf_levels
-        if (
-            not level.is_swept
-            and level.liquidity_type == target_liquidity_type
-        )
-    ]
-
-    current_objective = None
-    if is_bullish:
-        if target_liquidity_type == LiquidityType.EXTERNAL:
-            candidates = [
-                level
-                for level in open_levels
-                if level.price > previous.price
-            ]
-
-            if len(candidates)>0:
-                current_objective = min(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-        elif target_liquidity_type == LiquidityType.INTERNAL:
-            candidates = [
-                level
-                for level in open_levels
-                if level.price < previous.price
-            ]
-            if len(candidates)>0:
-                current_objective = max(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-        else:
-            return
-    else:
-        if target_liquidity_type == LiquidityType.EXTERNAL:
-            candidates = [
-                level
-                for level in open_levels
-                if level.price < previous.price
-            ]
-            if len(candidates)>0:
-                current_objective = max(
-                    candidates,
-                    key=lambda level: level.price,
-                ) 
-        elif target_liquidity_type == LiquidityType.INTERNAL:
-            candidates = [
-                level
-                for level in open_levels
-                if level.price > previous.price
-            ]
-            if len(candidates)>0:
-                current_objective = min(
-                    candidates,
-                    key=lambda level: level.price,
-                )
-        else:
-            return
-    total_distance = 0
-    travelled = 0
-    progress = 0.0
-    if current_objective is None:
-        return
-    if current_objective.price > previous.price:
-        auction_direction = (
-            AuctionDirection.BULLISH
-        )
-        total_distance = (
-            current_objective.price - previous.price
-        )
-        travelled = (
-            candle_30m.high - previous.price
-        )
-        if total_distance <= 0:
-            progress = 0.0
-        else:
-            progress = travelled / total_distance
-
-        
-    elif current_objective.price < previous.price:
-        auction_direction = (
-            AuctionDirection.BEARISH
-        )
-        total_distance = (
-            previous.price - current_objective.price
-        )
-        travelled = (
-            previous.price - candle_30m.low
-        )
-        if total_distance <= 0:
-            progress = 0.0
-        else:
-            progress = travelled / total_distance
-    else:
-        return
-
-    # ---------------------------------------------------------
-    # Make sure price is actually between the two levels
-    # ---------------------------------------------------------
-
-    if not (
-        min(previous.price, current_objective.price)
-        <= current_price
-        <= max(previous.price, current_objective.price)
-    ):
-        return
-    
-    # -----------------------------------------------------
-    # Store current HTF interaction
-    # -----------------------------------------------------
-    progress = max(0.0, min(progress, 1.0))
-    auction_progress.previous_objective = previous
-    auction_progress.current_objective = current_objective
-
-    auction_progress.progress = progress
-
-    if progress >= 0.4:
-        auction_progress.confirmed = True
-        auction_progress.confirmed_direction = (
-                auction_direction
-            )
-    else:
-        auction_progress.confirmed = False
-        auction_progress.confirmed_direction = AuctionDirection.NEUTRAL
-
-
-    # We are at the objective, but it has not necessarily
-    # been swept yet.
-    if current_level is not None:
-        auction_progress.completed = (
-            current_level.is_swept
-        )
-
-    return
-
-
 
 def _update_timeframe_progress(
-    auction_progress: AuctionProgress,
-    levels,
+    tf_auction_progress: AuctionProgress,
+    bullish_levels,
+    bearish_levels,
     candle_30m: Candle,
-    is_bullish: bool
 ):
     """
+    auction_progress is the auction progress for a specific timeframe daily, 7h, 4h
     Update auction progress for one HTF timeframe.
 
     Auction model:
@@ -507,22 +124,23 @@ def _update_timeframe_progress(
     current_price = candle_30m.close
     current_candle_high = candle_30m.high
     current_candle_low = candle_30m.low
+    all_levels = bullish_levels + bearish_levels
 
     tf_levels = [
         level
-        for level in levels
+        for level in all_levels
         if level.timeframe
-        == auction_progress.timeframe
+        == tf_auction_progress.timeframe
     ]
 
     if not tf_levels:
         return
 
-
     # =========================================================
     # 1. Check HTF interaction
     # =========================================================
 
+    # interacting levels includes all buy side and sell side interacting levels
     interacting_levels = [
         level
         for level in tf_levels
@@ -537,19 +155,19 @@ def _update_timeframe_progress(
 
     if interacting_levels:
 
-        # current_htf = min(
-        #     interacting_levels,
-        #     key=lambda level: abs(
-        #         current_price - level.price
-        #     ),
-        # )
         current_htf = min(
             interacting_levels,
-            key=lambda level: level.price
-        ) if is_bullish else max(
-            interacting_levels,
-            key=lambda level: level.price
+            key=lambda level: abs(
+                current_price - level.price
+            ),
         )
+        # current_htf = min(
+        #     interacting_levels,
+        #     key=lambda level: level.price
+        # ) if is_bullish else max(
+        #     interacting_levels,
+        #     key=lambda level: level.price
+        # )
 
     # =========================================================
     # 2. PRICE IS AT HTF
@@ -557,8 +175,8 @@ def _update_timeframe_progress(
 
     if current_htf is not None:
 
-        auction_progress.at_htf = True
-        auction_progress.at_htf_level = current_htf
+        tf_auction_progress.at_htf = True
+        tf_auction_progress.at_htf_level = current_htf
 
         # -----------------------------------------------------
         # Determine auction direction from HTF level.
@@ -567,7 +185,7 @@ def _update_timeframe_progress(
         # Bearish level = price arrived from above.
         # -----------------------------------------------------
 
-        if current_htf.is_bullish:
+        if current_htf.is_buy_side:
 
             direction = AuctionDirection.BULLISH
 
@@ -576,7 +194,7 @@ def _update_timeframe_progress(
                 for level in tf_levels
                 if (
                     level.is_swept
-                    and not level.is_bullish
+                    and not level.is_buy_side
                     and level.timestamp
                     <= current_htf.timestamp
                 )
@@ -591,7 +209,7 @@ def _update_timeframe_progress(
                 for level in tf_levels
                 if (
                     level.is_swept
-                    and level.is_bullish
+                    and level.is_buy_side
                     and level.timestamp
                     <= current_htf.timestamp
                 )
@@ -617,8 +235,8 @@ def _update_timeframe_progress(
                     key=lambda level: level.price,
                 )
 
-            auction_progress.previous_origin = previous
-            auction_progress.previous_objective = (
+            tf_auction_progress.previous_origin = previous
+            tf_auction_progress.previous_objective = (
                 current_htf
             )
 
@@ -626,17 +244,17 @@ def _update_timeframe_progress(
         # Preserve direction of auction that reached HTF.
         # -----------------------------------------------------
 
-        auction_progress.previous_direction = (
+        tf_auction_progress.previous_direction = (
             direction
         )
 
-        auction_progress.confirmed_direction = (
+        tf_auction_progress.confirmed_direction = (
             direction
         )
 
-        auction_progress.confirmed = True
-        auction_progress.progress = 1.0
-        auction_progress.completed = True
+        tf_auction_progress.confirmed = True
+        tf_auction_progress.progress = 1.0
+        tf_auction_progress.completed = True
 
         return
 
@@ -644,8 +262,8 @@ def _update_timeframe_progress(
     # 3. PRICE IS NOT AT HTF
     # =========================================================
 
-    auction_progress.at_htf = False
-    auction_progress.at_htf_level = None
+    tf_auction_progress.at_htf = False
+    tf_auction_progress.at_htf_level = None
 
     # ---------------------------------------------------------
     # Find latest swept liquidity.
@@ -717,7 +335,6 @@ def _update_timeframe_progress(
 
         objective = _closest_level(
             internal,
-            latest_swept,
             direction,
         )
 
@@ -743,8 +360,8 @@ def _update_timeframe_progress(
     # New anticipated auction
     # ---------------------------------------------------------
 
-    auction_progress.origin = latest_swept
-    auction_progress.current_objective = objective
+    tf_auction_progress.origin = latest_swept
+    tf_auction_progress.current_objective = objective
 
     total_distance = abs(
         objective.price
@@ -777,7 +394,7 @@ def _update_timeframe_progress(
         min(progress, 1.0),
     )
 
-    auction_progress.progress = progress
+    tf_auction_progress.progress = progress
 
     # ---------------------------------------------------------
     # Confirm auction after 40%
@@ -785,15 +402,15 @@ def _update_timeframe_progress(
 
     if progress >= 0.40:
 
-        auction_progress.confirmed = True
-        auction_progress.confirmed_direction = (
+        tf_auction_progress.confirmed = True
+        tf_auction_progress.confirmed_direction = (
             direction
         )
 
     else:
 
-        auction_progress.confirmed = False
-        auction_progress.confirmed_direction = (
+        tf_auction_progress.confirmed = False
+        tf_auction_progress.confirmed_direction = (
             AuctionDirection.NEUTRAL
         )
 
@@ -803,10 +420,10 @@ def _update_timeframe_progress(
 
     if objective.is_swept:
 
-        auction_progress.progress = 1.0
-        auction_progress.completed = True
+        tf_auction_progress.progress = 1.0
+        tf_auction_progress.completed = True
 
-        auction_progress.previous_direction = (
+        tf_auction_progress.previous_direction = (
             direction
         )
 
@@ -815,48 +432,48 @@ def _update_timeframe_progress(
 
     else:
 
-        auction_progress.completed = False
+        tf_auction_progress.completed = False
 
 def update_auction_progress(context, candle_30m):
 
     _update_timeframe_progress(
         context.daily,
         context.bullish_levels,
+        context.bearish_levels,
         candle_30m,
-        True,
     )
 
     _update_timeframe_progress(
         context.daily,
+        context.bullish_levels,
         context.bearish_levels,
         candle_30m,
-        False,
     )
 
     _update_timeframe_progress(
         context.h7,
         context.bullish_levels,
+        context.bearish_levels,
         candle_30m,
-        True,
     )
 
     _update_timeframe_progress(
         context.h7,
+        context.bullish_levels,
         context.bearish_levels,
         candle_30m,
-        False,
     )
 
     _update_timeframe_progress(
         context.h4,
         context.bullish_levels,
+        context.bearish_levels,
         candle_30m,
-        True,
     )
 
     _update_timeframe_progress(
         context.h4,
+        context.bullish_levels,
         context.bearish_levels,
         candle_30m,
-        False,
     )

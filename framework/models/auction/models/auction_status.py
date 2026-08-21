@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from framework.models.auction.models.auction_progress import AuctionProgress
+from framework.models.auction.models.auction_snapshot import AuctionSnapshot
 from framework.models.auction.models.enums import AuctionDirection, AuctionMomentumType, AuctionStageType
 
 
@@ -28,6 +29,14 @@ class AuctionStatus:
     daily: AuctionProgress | None = None
     h7: AuctionProgress | None = None
     h4: AuctionProgress | None = None
+
+    # ---------------------------------------------------------
+    # Historical auction snapshots
+    # ---------------------------------------------------------
+
+    snapshot_1am: AuctionSnapshot | None = None
+    snapshot_8am: AuctionSnapshot | None = None
+    snapshot_3pm: AuctionSnapshot | None = None
 
     def summary(self) -> dict:
         return {

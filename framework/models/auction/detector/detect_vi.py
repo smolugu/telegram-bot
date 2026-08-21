@@ -35,8 +35,9 @@ def detect_htf_vi(
                 timestamp=c2.timestamp,
                 upper=c2.open,
                 lower=c1.close,
-                is_bullish=True,
                 price=c2.open,
+                is_bullish=True,
+                is_buy_side=False
             )
         )
 
@@ -49,8 +50,9 @@ def detect_htf_vi(
                 timestamp=c2.timestamp,
                 upper=c1.close,
                 lower=c2.open,
-                is_bullish=False,
                 price=c2.open,
+                is_bullish=False,
+                is_buy_side=True
             )
         )
 
@@ -77,8 +79,9 @@ def detect_vi(
                     timestamp=curr.timestamp,
                     upper=curr.open,
                     lower=prev.close,
-                    is_bullish=True,
                     price=curr.open,
+                    is_bullish=True,
+                    is_buy_side=False
                 )
             )
 
@@ -91,8 +94,9 @@ def detect_vi(
                     timestamp=curr.timestamp,
                     upper=prev.close,
                     lower=curr.open,
-                    is_bullish=False,
                     price=curr.open,
+                    is_bullish=False,
+                    is_buy_side=True
                 )
             )
 

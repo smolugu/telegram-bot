@@ -8,6 +8,7 @@ class HTFFVG:
     timeframe: str
     timestamp: datetime
     is_bullish: bool
+    is_buy_side: bool
     
     price: float
     upper: float

@@ -6,37 +6,10 @@ from framework.models.auction.engine.auction_progress import update_auction_prog
 from framework.models.auction.engine.auction_status import build_auction_status
 from framework.models.auction.engine.add_update_levels import _add_htf_level, update_current_level_status
 
-
-def _refresh_level_statistics(context):
-
-    context.open_bullish_levels = sum(
-        1
-        for level in context.bullish_levels
-        if level.status == "OPEN"
-    )
-
-    context.open_bearish_levels = sum(
-        1
-        for level in context.bearish_levels
-        if level.status == "OPEN"
-    )
-
-    context.swept_bullish_levels = sum(
-        1
-        for level in context.bullish_levels
-        if level.status == "SWEPT"
-    )
-
-    context.swept_bearish_levels = sum(
-        1
-        for level in context.bearish_levels
-        if level.status == "SWEPT"
-    )
-
 def _refresh_level_lists(context):
 
-    context.bullish_levels = context.bullish_swings + context.bullish_fvgs + context.bullish_vis + context.bullish_cisds
-    context.bearish_levels = context.bearish_swings + context.bearish_fvgs + context.bearish_vis + context.bearish_cisds
+    context.bullish_levels = context.bullish_swings + context.bearish_fvgs + context.bearish_vis + context.bearish_cisds
+    context.bearish_levels = context.bearish_swings + context.bullish_fvgs + context.bullish_vis + context.bullish_cisds
 
 
 def _nearest_above(levels, candle_30m):

@@ -1060,7 +1060,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     and candidate.ob_level <
                         newyork_context.structure["mitigation_level"]
                     # and candidate.ob_level > newyork_context.structure["range_low"]
-                    and not rocket_triggered_triggered
+                    and not rocket_triggered
                     
                 ):
                     print("shorts passed filters")
@@ -1449,7 +1449,6 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         newyork_context.execution_state["rocket_triggered"] = True
 
                 
-        
         # =====================================================
         # REBALANCE COMPRESSION CONFIRMATIONS
         # =====================================================
@@ -2455,8 +2454,6 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # newyork_context.execution_state["flush_triggered"] = True
                     
             
-            
-
         # block completed - V3
         elif structure_name == "bearish_macro_decompression":
             print("structure : bearish macro decompression")

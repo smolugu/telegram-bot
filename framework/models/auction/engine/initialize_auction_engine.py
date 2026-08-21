@@ -35,13 +35,13 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
     # ---------------------------------------------------------
 
     daily_swings = detect_swings(daily_candles,timeframe="1d",)
-    
     daily_fvgs = detect_fvg(daily_candles,timeframe="1d",)
     daily_vis = detect_vi(daily_candles,timeframe="1d",)
+
     h7_swings = detect_swings(h7_candles,timeframe="7h",)
-    
     h7_fvgs = detect_fvg(h7_candles,timeframe="7h",)
     h7_vis = detect_vi(h7_candles,timeframe="7h",)
+    
     h4_swings = detect_swings(h4_candles,timeframe="4h",)
     h4_fvgs = detect_fvg(h4_candles,timeframe="4h",)
     h4_vis = detect_vi(h4_candles,timeframe="4h",)

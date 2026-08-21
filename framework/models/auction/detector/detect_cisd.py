@@ -33,6 +33,7 @@ def detect_htf_cisd(
                     lower_wick=last_bearish.low,
                     price=last_bearish.open,
                     is_bullish=True,
+                    is_buy_side=False,
                 )
             )
             last_bearish = None
@@ -51,8 +52,9 @@ def detect_htf_cisd(
                     lower=last_bullish.open,
                     upper_wick=last_bullish.high,
                     lower_wick=last_bullish.low,
-                    is_bullish=False,
                     price=last_bullish.open,
+                    is_bullish=False,
+                    is_buy_side=True
                 )
             )
             last_bullish = None
@@ -94,6 +96,7 @@ def detect_cisd(
                     lower_wick=last_bearish.low,
                     price=last_bearish.open,
                     is_bullish=True,
+                    is_buy_side=False
                 )
             )
             last_bearish = None
@@ -112,8 +115,9 @@ def detect_cisd(
                     lower=last_bullish.open,
                     upper_wick=last_bullish.high,
                     lower_wick=last_bullish.low,
-                    is_bullish=False,
                     price=last_bullish.open,
+                    is_bullish=False,
+                    is_buy_side=True
                 )
             )
             last_bullish = None

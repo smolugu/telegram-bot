@@ -45,7 +45,8 @@ def detect_htf_swings(
                 price=c2.high,
                 index=-2,
                 timestamp=c2.timestamp,
-                is_bullish=True
+                is_bullish=True,
+                is_buy_side=True
             )
         )
 
@@ -64,7 +65,8 @@ def detect_htf_swings(
                 price=c2.low,
                 index=-2,
                 timestamp=c2.timestamp,
-                is_bullish=False
+                is_bullish=False,
+                is_buy_side=False
             )
         )
 
@@ -117,7 +119,8 @@ def detect_swings(
                     price=current.high,
                     index=i,
                     timestamp=current.timestamp,
-                    is_bullish=True
+                    is_bullish=True,
+                    is_buy_side=True
                 )
             )
 
@@ -144,7 +147,8 @@ def detect_swings(
                     price=current.low,
                     index=i,
                     timestamp=current.timestamp,
-                    is_bullish=False
+                    is_bullish=False,
+                    is_buy_side=False
                 )
             )
 
