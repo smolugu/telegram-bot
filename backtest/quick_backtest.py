@@ -212,13 +212,11 @@ def run_quick_backtest(test_date: str):
     nq_weekly_context = WeeklyContext(
     instrument = "NQ",
     daily_candles = nq["1d"],
-    candles_1h = nq["1h"],
-    current_date = "2026-05-15T09:30:00-04:00")
+    candles_1h = nq["1h"],)
     es_weekly_context = WeeklyContext(
     instrument = "ES",
     daily_candles = nq["1d"],
-    candles_1h = nq["1h"],
-    current_date = "2026-05-15T09:30:00-04:00")
+    candles_1h = nq["1h"],)
 
     print("nq weekly summary: ", nq_weekly_context.summary())
     print("es weekly summary: ", es_weekly_context.summary())
@@ -451,7 +449,7 @@ def run_quick_backtest(test_date: str):
                 )
                 if dt.hour == 8:
                     print("nq auction engine status: ", nq_auction_engine.status.summary())
-                    print("nq auction engine context: ", nq_auction_engine.context.summary())
+                    # print("nq auction engine context: ", nq_auction_engine.context.summary())
                     # print("es auction engine status: ", es_auction_engine.status.summary())
                     # print("es auction engine context: ", es_auction_engine.context.summary())
                 

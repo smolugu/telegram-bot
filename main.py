@@ -45,7 +45,7 @@ CHECK_INTERVAL_SECONDS = 180
 GRACE_SECONDS = 10
 NY = pytz.timezone("America/New_York")
 MODE = "BACKTEST"   # change to "LIVE" when done
-MODE = "LIVE"
+# MODE = "LIVE"
 def wait_until_next_3m_close():
     now = datetime.now(NY)
     minute = now.minute
@@ -101,8 +101,8 @@ def main():
     
     if MODE == "BACKTEST":
 
-        run_quick_backtest("2026-08-13")
-        # run_quick_test("2026-04-21")
+        # run_quick_backtest("2026-08-21")
+        run_quick_test("2026-08-21")
         return
     # token = os.getenv("BOT_TOKEN")
     application = ApplicationBuilder().token(BOT_TOKEN).build()

@@ -25,9 +25,12 @@ def detect_htf_vi(
     # ---------------------------------------------------------
     # Put your existing VI conditions here
     # ---------------------------------------------------------
-
+    
+    
     if (
-        c2.open > c1.close
+        c1.close > c1.open
+        and c2.close > c2.open
+        and c2.open > c1.close
     ):
         vi.append(
             HTFVolumeImbalance(
@@ -42,7 +45,9 @@ def detect_htf_vi(
         )
 
     elif (
-        c1.close > c2.open
+        c1.open > c1.close
+        and c2.open > c2.close
+        and c1.close > c2.open
     ):
         vi.append(
             HTFVolumeImbalance(
@@ -71,7 +76,12 @@ def detect_vi(
         curr = candles[i]
 
         # Bullish VI
-        if prev.close < curr.open:
+        if (
+            prev.close > prev.open
+            and curr.close > curr.open
+            and prev.close < curr.open
+
+            ):
 
             vis.append(
                 HTFVolumeImbalance(
@@ -86,7 +96,11 @@ def detect_vi(
             )
 
         # Bearish VI
-        elif prev.close > curr.open:
+        elif (
+            prev.open > prev.close
+            and curr.open > curr.close
+            and prev.close > curr.open
+        ):
 
             vis.append(
                 HTFVolumeImbalance(

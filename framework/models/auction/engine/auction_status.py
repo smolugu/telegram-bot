@@ -49,6 +49,7 @@ def build_auction_status(context):
     ):
 
         if auction.confirmed:
+            print("confirmed auction timeframe when not at htf: ", timeframe)
 
             status.active_timeframe = timeframe
             status.active_direction = (

@@ -84,6 +84,15 @@ def detect_swings(
     BUY_SIDE  = Swing High
     SELL_SIDE = Swing Low
     """
+    # print("CANDLES PASSED TO SWING DETECTOR")
+
+    # for candle in candles:
+    #     if candle.timestamp.strftime("%Y-%m-%d %H:%M") in [
+    #         "2026-08-16 18:00",
+    #         "2026-08-16 22:00",
+    #     ]:
+    #         print("candlesss: ")
+    #         print(candle)
     if pivot is None:
         pivot = 1 if timeframe in HTF_TIMEFRAMES else 2
 
@@ -95,6 +104,8 @@ def detect_swings(
     for i in range(pivot, len(candles) - pivot):
 
         current = candles[i]
+        # print("swings: ", swings)
+        # print("************************")
 
         # --------------------------------------------------
         # Swing High
@@ -133,6 +144,14 @@ def detect_swings(
 
             if j == i:
                 continue
+            # print(
+            #     "SWING LOW CHECK:",
+            #     "current:", current.timestamp,
+            #     current.low,
+            #     "compare:", candles[j].timestamp,
+            #     candles[j].low,
+            # )
+
 
             if candles[j].low <= current.low:
                 is_swing_low = False

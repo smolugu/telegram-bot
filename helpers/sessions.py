@@ -23,6 +23,7 @@ def get_max_high_low_with_time(candles):
         "low_ts": low_candle["timestamp"]
     }
 
+
 def get_futures_session(candles, test_date):
 
     test_dt = datetime.strptime(test_date, "%Y-%m-%d")
@@ -40,6 +41,41 @@ def get_futures_session(candles, test_date):
             filtered.append(c)
 
     print("start, end: ", session_start, session_end)
+
+    return filtered
+
+
+def get_htf_historical_candles(candles, test_date):
+
+    test_dt = datetime.strptime(test_date, "%Y-%m-%d")
+
+    session_start = test_dt - timedelta(hours=6)
+    # session_end = test_dt + timedelta(hours=16)
+    filtered = []
+    # print("candles all: ", candles)
+
+    for c in candles:
+        ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+        # print("ts before: ", ts)
+        if ts < session_start:
+            # print("ts session: ", ts)
+            filtered.append(c)
+
+    return filtered
+
+def get_daily_historical_candles(candles, test_date):
+
+    test_dt = datetime.strptime(test_date, "%Y-%m-%d")
+
+    session_start = test_dt
+    filtered = []
+    
+    for c in candles:
+        ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+        # print("ts before: ", ts)
+        if ts < session_start:
+            # print("ts session: ", ts)
+            filtered.append(c)
 
     return filtered
 

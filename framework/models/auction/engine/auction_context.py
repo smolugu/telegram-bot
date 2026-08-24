@@ -148,7 +148,16 @@ def build_auction_context(levels, auction_engine):
         key=lambda x: x.price,
         reverse=True
     )
-    auction_engine.context.nearest_bullish_level = open_bullish_levels[0]
-    auction_engine.context.nearest_bearish_level = open_bearish_levels[0]
+    # auction_engine.context.nearest_bullish_level = open_bullish_levels[0]
+    auction_engine.context.nearest_bullish_level = (
+            open_bullish_levels[0]
+            if open_bullish_levels
+            else None
+        )
+    auction_engine.context.nearest_bearish_level = (
+        open_bearish_levels[0]
+        if open_bearish_levels
+        else None
+    )
 
     # return context

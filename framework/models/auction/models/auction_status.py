@@ -38,8 +38,28 @@ class AuctionStatus:
     snapshot_8am: AuctionSnapshot | None = None
     snapshot_3pm: AuctionSnapshot | None = None
 
+
+    # previous_direction: AuctionDirection = (
+    #         AuctionDirection.NEUTRAL
+    #     )
+    #     stage: AuctionStageType = AuctionStageType.NEUTRAL
+    #     momentum: AuctionMomentumType = AuctionMomentumType.NEUTRAL
+    
+    #     # Highest-priority active auction
+    #     active_timeframe: str | None = None
+    #     active_direction: AuctionDirection = (
+    #         AuctionDirection.NEUTRAL
+    #     )
+    #     active_progress: float = 0.0
     def summary(self) -> dict:
         return {
+            "final at_htf": self.at_htf,
+            "final at_htf_level": self.at_htf_level,
+            "final previous direction": self.previous_direction,
+            "final active timeframe": self.active_timeframe,
+            "final active direction": self.active_direction,
+            "final active progress": self.active_progress,
+
             "daily": self.daily.summary(),
             "h7": self.h7.summary(),
             "h4": self.h4.summary(),

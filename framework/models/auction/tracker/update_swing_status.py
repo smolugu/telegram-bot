@@ -23,7 +23,7 @@ def update_swing_status(
         return
 
     # Ensure chronological order
-    candles = sorted(candles, key=lambda c: c.timestamp)
+    # candles = sorted(candles, key=lambda c: c.timestamp)
 
     for swing in swings:
 
@@ -38,27 +38,48 @@ def update_swing_status(
 
             if swing.swing_type == SwingType.BUY_SIDE:
                 # set is_swept flag
-                if candle.high > swing.price and not swing.is_swept:
+                if (
+                    candle.high > swing.price
+                    and candle.low < swing.price < candle.high
+                    and candle.open < swing.price
+                    and not swing.is_swept
+
+                ):
                     swing.is_swept = True
-                if candle.high > swing.price:
                     swing.status = HTFSwingStatus.SWEPT
                     swing.mitigation_time = candle.timestamp
+                    swing.is_touched = False
                     break
-                elif candle.high == swing.price:
+                elif (
+                    candle.high == swing.price
+                    and candle.open < swing.price
+                    and not swing.is_swept
+                ):
                     swing.status = HTFSwingStatus.TOUCHED
-                    swing.mitigation_time = candle.timestamp
+                    swing.mitigation_time=candle.timestamp
+                    swing.is_touched=True
                     break
 
             else:   # LOW
                 # set is_swept flag
-                if candle.low < swing.price and not swing.is_swept:
+                if (
+                    candle.low < swing.price 
+                    and candle.open > swing.price
+                    and candle.low < swing.price < candle.high
+                    and not swing.is_swept
+                ):
                     swing.is_swept = True
-
-                if candle.low < swing.price:
                     swing.status = HTFSwingStatus.SWEPT
                     swing.mitigation_time = candle.timestamp
+                    swing.is_touched=False
                     break
-                elif candle.low == swing.price:
+
+                elif (
+                    candle.low == swing.price
+                    and candle.open > swing.price
+                    and not swing.is_swept
+                ):
                     swing.status = HTFSwingStatus.TOUCHED
                     swing.mitigation_time = candle.timestamp
+                    swing.is_touched=True
                     break

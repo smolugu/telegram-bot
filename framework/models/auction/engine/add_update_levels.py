@@ -21,8 +21,8 @@ def _add_htf_level(
 
     # ---------------------------------------------------------
     # Prevent duplicate levels
-    # ---------------------------------------------------------
-
+    # --------------------------------------------------------- 
+    print("adding new level: ", level)
     all_levels = (
         context.bullish_levels
         + context.bearish_levels
@@ -84,55 +84,105 @@ def _add_htf_level(
             
 
 
-def update_current_level_status(auction_context, candle_30m):
+def update_current_level_status(context, candle_30m, ltf_candles, last_3_4h_candles,
+        last_3_7h_candles):
     """
     Update all HTF level states using the completed 30m candle.
     """
     candles = [candle_30m]
+    all_levels = context.bullish_levels+context.bearish_levels
 
-    # Swings
-    update_swing_status(
-        auction_context.bullish_swings,
-        candles,
-    )
+    for level in all_levels:
+        # htf_candles = historical_candles.get(fvgs[0].timeframe, [])
+        htf_candles = []
+        if level.timeframe == '4h':
+            htf_candles = last_3_4h_candles
+        elif level.timeframe == '7h':
+            htf_candles=last_3_7h_candles
+        
+        if not ltf_candles:
+            continue
 
-    update_swing_status(
-        auction_context.bearish_swings,
-        candles,
-    )
+        if level.level_type == LevelType.SWING:
 
-    # FVGs
-    update_fvg_status(
-        auction_context.bullish_fvgs,
-        candles,
-    )
+            update_swing_status(
+                [level],
+                ltf_candles,
+            )
 
-    update_fvg_status(
-        auction_context.bearish_fvgs,
-        candles,
-    )
+        elif level.level_type == LevelType.FVG:
 
-    # Volume Imbalances
-    update_vi_status(
-        auction_context.bullish_vis,
-        candles,
-    )
+            update_fvg_status(
+                [level],
+                ltf_candles,
+                htf_candles,
+            )
 
-    update_vi_status(
-        auction_context.bearish_vis,
-        candles,
-    )
+        elif level.level_type == LevelType.VI:
 
-    # CISDs
-    update_cisd_status(
-        auction_context.bullish_cisds,
-        candles,
-    )
+            update_vi_status(
+                [level],
+                ltf_candles,
+                htf_candles,
+            )
 
-    update_cisd_status(
-        auction_context.bearish_cisds,
-        candles,
-    )
+        elif level.level_type == LevelType.CISD:
+
+            update_cisd_status(
+                [level],
+                ltf_candles,
+                htf_candles,
+            )
+
+    # # Swings
+    # update_swing_status(
+    #     auction_context.bullish_swings,
+    #     ltf_candles,
+    # )
+
+    # update_swing_status(
+    #     auction_context.bearish_swings,
+    #     ltf_candles,
+    # )
+    
+    # # FVGs
+    # update_fvg_status(
+    #     fvgs=auction_context.bullish_fvgs,
+    #     ltf_candles=ltf_candles,
+    #     htf_candles=htf_candles,
+    # )
+
+    # update_fvg_status(
+    #     fvgs=auction_context.bearish_fvgs,
+    #     ltf_candles=ltf_candles,
+    #     htf_candles=htf_candles,
+    # )
+
+    # # Volume Imbalances
+    # update_vi_status(
+    #     vis=auction_context.bullish_vis,
+    #     ltf_candles=ltf_candles,
+    #     htf_candles=htf_candles,
+    # )
+
+    # update_vi_status(
+    #     vis=auction_context.bearish_vis,
+    #     ltf_candles=ltf_candles,
+    #     htf_candles=htf_candles,
+    # )
+
+    # # CISDs
+    # update_cisd_status(
+    #     cisds=auction_context.bullish_cisds,
+    #     ltf_candles=ltf_candles,
+    #     htf_candles=htf_candles,
+    # )
+
+    # update_cisd_status(
+    #     cisds=auction_context.bearish_cisds,
+    #     ltf_candles=ltf_candles,
+    #     htf_candles=htf_candles,
+    # )
 
 def update_historical_level_state(levels, historical_candles):
     """
@@ -145,40 +195,44 @@ def update_historical_level_state(levels, historical_candles):
     Returns:
         Updated levels list.
     """
+    ltf_candles = historical_candles.get('3m', [])
+    
 
     for level in levels:
-
-        candles = historical_candles.get(level.timeframe, [])
-
-        if not candles:
+        # htf_candles = historical_candles.get(fvgs[0].timeframe, [])
+        htf_candles = historical_candles.get(level.timeframe, [])
+        if not ltf_candles:
             continue
 
         if level.level_type == LevelType.SWING:
 
             update_swing_status(
                 [level],
-                candles,
+                ltf_candles,
             )
 
         elif level.level_type == LevelType.FVG:
 
             update_fvg_status(
                 [level],
-                candles,
+                ltf_candles,
+                htf_candles,
             )
 
         elif level.level_type == LevelType.VI:
 
             update_vi_status(
                 [level],
-                candles,
+                ltf_candles,
+                htf_candles,
             )
 
         elif level.level_type == LevelType.CISD:
 
             update_cisd_status(
                 [level],
-                candles,
+                ltf_candles,
+                htf_candles,
             )
 
     return levels

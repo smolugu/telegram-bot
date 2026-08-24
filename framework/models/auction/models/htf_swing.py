@@ -19,6 +19,7 @@ class HTFSwing:
     timestamp: datetime
     is_buy_side: bool
     is_swept: bool = False
+    is_touched: bool = False
     is_bullish: bool = False
     
     status: HTFSwingStatus = HTFSwingStatus.OPEN

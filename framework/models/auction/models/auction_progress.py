@@ -42,6 +42,17 @@ class AuctionProgress:
 
     completed: bool = False
 
+    def summary(self) -> dict:
+        return {
+            "timeframe": self.timeframe,
+            "progress": self.progress,
+            "confirmed": self.confirmed,
+            "confirmed_direction": self.confirmed_direction,
+            "previous_direction": self.previous_direction,
+            "at_htf": self.at_htf,
+            "at_htf_level": self.at_htf_level,
+        }
+
 @dataclass
 class AuctionProgressOld2:
 

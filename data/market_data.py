@@ -113,7 +113,7 @@ def fetch_symbol_data(symbol: str):
     # 1d
     df_1d = ticker.history(interval="1d", period="14d", auto_adjust=False)
     # print("direct daily candles: ", df_1d.head(20).to_string())
-
+    # df_4h = ticker.history(interval="240m", period="14d", auto_adjust=False)
     # 1h
     df_1h = ticker.history(interval="60m", period="14d")
     # print("df_1h: ", df_1h)
