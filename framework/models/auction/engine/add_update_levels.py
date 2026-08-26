@@ -96,9 +96,9 @@ def update_current_level_status(context, candle_30m, ltf_candles, last_3_4h_cand
         # htf_candles = historical_candles.get(fvgs[0].timeframe, [])
         htf_candles = []
         if level.timeframe == '4h':
-            htf_candles = last_3_4h_candles
+            htf_candles = last_3_4h_candles or []
         elif level.timeframe == '7h':
-            htf_candles=last_3_7h_candles
+            htf_candles=last_3_7h_candles or []
         
         if not ltf_candles:
             continue

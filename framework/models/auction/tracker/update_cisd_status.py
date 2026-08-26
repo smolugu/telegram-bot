@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from framework.models.auction.models.enums import HTFCisdStatus
 from data.models.candle import Candle
 from framework.models.auction.models.htf_cisd import HTFCISD
@@ -25,11 +27,17 @@ def update_cisd_status(
         #     continue
 
         for candle in ltf_candles:
-
             # Ignore candles before the cisd formed
-            if candle.timestamp <= cisd.timestamp:
+            cisd_confirmation_time = cisd.timestamp
+            if cisd.timeframe == "4h":
+                cisd_confirmation_time = cisd.timestamp + timedelta(hours=4)
+            elif cisd.timeframe == "7h":
+                cisd_confirmation_time = cisd.timestamp + timedelta(hours=7)
+            elif cisd.timeframe == '1d':
+                cisd_confirmation_time = cisd.timestamp + timedelta(days=1)
+
+            if candle.timestamp <= cisd_confirmation_time:
                 continue
-            
                 
             if cisd.is_bullish: # bullish cisd
                 # set is_swept value
@@ -57,7 +65,7 @@ def update_cisd_status(
                     cisd.is_swept=True
                 elif (
                     candle.high > cisd.lower
-                    and candle.open < cisd.higher
+                    and candle.open < cisd.upper
                 ):
                     cisd.status = HTFCisdStatus.MITIGATED
                     cisd.mitigation_time = candle.timestamp
@@ -66,8 +74,16 @@ def update_cisd_status(
 
     for cisd in cisds:
         for candle in htf_candles:
-            # Ignore candles before the FVG formed
-            if candle.timestamp <= cisd.timestamp:
+            # Ignore candles before the cisd formed
+            cisd_confirmation_time = cisd.timestamp
+            if cisd.timeframe == "4h":
+                cisd_confirmation_time = cisd.timestamp + timedelta(hours=4)
+            elif cisd.timeframe == "7h":
+                cisd_confirmation_time = cisd.timestamp + timedelta(hours=7)
+            elif cisd.timeframe == '1d':
+                cisd_confirmation_time = cisd.timestamp + timedelta(days=1)
+
+            if candle.timestamp <= cisd_confirmation_time:
                 continue
             if cisd.is_bullish:
                 if (

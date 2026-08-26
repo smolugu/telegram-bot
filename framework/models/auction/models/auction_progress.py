@@ -18,6 +18,9 @@ class AuctionProgress:
     current_objective = None
 
     progress: float = 0.0
+    direction: AuctionDirection = (
+        AuctionDirection.NEUTRAL
+    )
 
     confirmed: bool = False
 

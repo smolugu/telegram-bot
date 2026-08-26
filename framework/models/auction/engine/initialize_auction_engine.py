@@ -73,9 +73,9 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
         h4_fvgs=h4_fvgs,
         h4_vis=h4_vis,
     )
-    # print("levels before: ", levels)
+    print("levels before: ", levels)
     levels = update_historical_level_state(levels, candles_for_auction)
-    # print("levels after: ", levels)
+    print("levels after: ", levels)
     # build auction context
     # auction_engine.auction_context = build_auction_context(levels)
     build_auction_context(levels, auction_engine)

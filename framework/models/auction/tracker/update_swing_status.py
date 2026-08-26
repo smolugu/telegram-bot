@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from framework.models.auction.models.enums import HTFSwingStatus
 from data.models.candle import Candle
 from framework.models.auction.models.htf_swing import HTFSwing, SwingType
@@ -33,9 +35,19 @@ def update_swing_status(
         for candle in candles:
 
             # Ignore candles before the swing formed
-            if candle.timestamp <= swing.timestamp:
-                continue
+            swing_confirmation_time = (
+                swing.timestamp + timedelta(hours=8)
+            )
+            if swing.timeframe == "4h":
+                swing_confirmation_time = swing.timestamp + timedelta(hours=8)
+            elif swing.timeframe == "7h":
+                swing_confirmation_time = swing.timestamp + timedelta(hours=14)
+            elif swing.timeframe == "1d":
+                swing_confirmation_time = swing.timestamp + timedelta(days=2)
 
+            if candle.timestamp <= swing_confirmation_time:
+                continue
+            
             if swing.swing_type == SwingType.BUY_SIDE:
                 # set is_swept flag
                 if (
@@ -49,6 +61,7 @@ def update_swing_status(
                     swing.status = HTFSwingStatus.SWEPT
                     swing.mitigation_time = candle.timestamp
                     swing.is_touched = False
+                    swing.is_mitigated=True
                     break
                 elif (
                     candle.high == swing.price
@@ -58,6 +71,7 @@ def update_swing_status(
                     swing.status = HTFSwingStatus.TOUCHED
                     swing.mitigation_time=candle.timestamp
                     swing.is_touched=True
+                    swing.is_mitigated=True
                     break
 
             else:   # LOW
@@ -72,6 +86,7 @@ def update_swing_status(
                     swing.status = HTFSwingStatus.SWEPT
                     swing.mitigation_time = candle.timestamp
                     swing.is_touched=False
+                    swing.is_mitigated=True
                     break
 
                 elif (
@@ -82,4 +97,5 @@ def update_swing_status(
                     swing.status = HTFSwingStatus.TOUCHED
                     swing.mitigation_time = candle.timestamp
                     swing.is_touched=True
+                    swing.is_mitigated=True
                     break

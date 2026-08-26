@@ -9,12 +9,14 @@ class HTFFVG:
     timestamp: datetime
     is_bullish: bool
     is_buy_side: bool
-    is_touched: bool
+    
     
     price: float
     upper: float
     lower: float
     is_swept: bool = False
+    is_touched: bool = False
+    is_mitigated: bool = False
     status: HTFFvgStatus = HTFFvgStatus.OPEN
     liquidity_type = LiquidityType.INTERNAL
     level_type = LevelType.FVG

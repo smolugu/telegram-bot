@@ -84,10 +84,13 @@ def run_quick_test(test_date: str):
     # nq_30m = [c for c in nq["30m"] if test_date in c["timestamp"]]
     # nq_3m  = [c for c in nq["3m"] if test_date in c["timestamp"]]
     nq_30m = get_futures_session(nq["30m"], test_date)
-    nq_4h = get_htf_historical_candles(nq["4h"], test_date)
-    nq_7h = get_htf_historical_candles(nq["7h"], test_date)
-    nq_1d = get_daily_historical_candles(nq["1d"], test_date)
+    nq_3m_historical = get_htf_historical_candles(nq["3m"], test_date)
+    nq_4h_historical = get_htf_historical_candles(nq["4h"], test_date)
+    nq_7h_historical = get_htf_historical_candles(nq["7h"], test_date)
+    nq_1d_historical = get_daily_historical_candles(nq["1d"], test_date)
     # print("nq_30m candles for date: ", nq_30m)
+    print("First 3:", nq_3m_historical[:3])
+    print("Last 3:", nq_3m_historical[-3:])
     
     nq_3m = get_futures_session(nq["3m"], test_date)
     nq_1m = get_futures_session(nq["1m"], test_date)
@@ -101,9 +104,11 @@ def run_quick_test(test_date: str):
     # es_30m = [c for c in es["30m"] if test_date in c["timestamp"]]
     # es_3m  = [c for c in es["3m"] if test_date in c["timestamp"]]
     es_30m = get_futures_session(es["30m"], test_date)
-    es_4h = get_htf_historical_candles(es["4h"], test_date)
-    es_7h = get_htf_historical_candles(es["7h"], test_date)
-    es_1d = get_daily_historical_candles(es["1d"], test_date)
+    es_3m_historical = get_htf_historical_candles(es["3m"], test_date)
+    es_4h_historical = get_htf_historical_candles(es["4h"], test_date)
+    es_7h_historical = get_htf_historical_candles(es["7h"], test_date)
+    es_3m_historical = get_htf_historical_candles(es["3m"], test_date)
+    es_1d_historical = get_daily_historical_candles(es["1d"], test_date)
     es_3m = get_futures_session(es["3m"], test_date)
     es_1m = get_futures_session(es["1m"], test_date)
     
@@ -164,7 +169,7 @@ def run_quick_test(test_date: str):
             ts = candle_3m["timestamp"]
             if ts in prev_nq_30m_closes:
                 i = prev_nq_30m_closes[ts]
-                print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
+                print("Matching 30m candle in prev code found for 3m timestamp:", ts, "at index", i)
                 prev_current_30m_start = prev_nq_30m[i]["timestamp"]
                 prev_last_closed_nq = prev_nq_30m[i - 1]
                 prev_last_closed_es = prev_es_30m[i - 1]
@@ -259,59 +264,66 @@ def run_quick_test(test_date: str):
     #     print(c)
     converted_1m_nq = [candle_from_dict(c=c, timeframe="1m", instrument= "NQ", contract=nq_contract) for c in nq_1m]
     converted_3m_nq = [candle_from_dict(c=c, timeframe="1m", instrument= "NQ", contract=nq_contract) for c in nq_3m]
-    converted_4h_nq = [candle_from_dict(c=c, timeframe="4h", instrument= "NQ", contract=nq_contract) for c in nq_4h]
-    converted_7h_nq = [candle_from_dict(c=c, timeframe="7h", instrument= "NQ", contract=nq_contract) for c in nq_7h]
-    converted_1d_nq = [candle_from_dict(c=c, timeframe="1d", instrument= "NQ", contract=nq_contract) for c in nq_1d]
+    # converted_4h_nq = [candle_from_dict(c=c, timeframe="4h", instrument= "NQ", contract=nq_contract) for c in nq_4h]
+    # converted_7h_nq = [candle_from_dict(c=c, timeframe="7h", instrument= "NQ", contract=nq_contract) for c in nq_7h]
+    # converted_1d_nq = [candle_from_dict(c=c, timeframe="1d", instrument= "NQ", contract=nq_contract) for c in nq_1d]
     converted_1m_es = [candle_from_dict(c=c, timeframe="1m", instrument= "ES", contract=nq_contract) for c in es_1m]
     converted_3m_es = [candle_from_dict(c=c, timeframe="1m", instrument= "ES", contract=nq_contract) for c in es_3m]
-    converted_4h_es = [candle_from_dict(c=c, timeframe="4h", instrument= "ES", contract=es_contract) for c in es_4h]
-    converted_7h_es = [candle_from_dict(c=c, timeframe="7h", instrument= "ES", contract=es_contract) for c in es_7h]
-    converted_1d_es = [candle_from_dict(c=c, timeframe="1d", instrument= "ES", contract=es_contract) for c in es_1d]
-    h4_swings_nq = detect_swings(
-        candles = converted_4h_nq,
-        timeframe = "4h",
-    )
+    # converted_4h_es = [candle_from_dict(c=c, timeframe="4h", instrument= "ES", contract=es_contract) for c in es_4h]
+    # converted_7h_es = [candle_from_dict(c=c, timeframe="7h", instrument= "ES", contract=es_contract) for c in es_7h]
+    # converted_1d_es = [candle_from_dict(c=c, timeframe="1d", instrument= "ES", contract=es_contract) for c in es_1d]
+    # h4_swings_nq = detect_swings(
+    #     candles = converted_4h_nq,
+    #     timeframe = "4h",
+    # )
     # print("h4_swings_nq: ", h4_swings_nq)
-    h7_swings_nq = detect_swings(
-        candles = converted_7h_nq,
-        timeframe = "7h",
-    )
+    # h7_swings_nq = detect_swings(
+    #     candles = converted_7h_nq,
+    #     timeframe = "7h",
+    # )
     # print("h7_swings_nq: ", h7_swings_nq)
 
-    d_swings_nq = detect_swings(
-        candles = converted_1d_nq,
-        timeframe = "1d",
-    )
+    # d_swings_nq = detect_swings(
+    #     candles = converted_1d_nq,
+    #     timeframe = "1d",
+    # )
     # print("d_swings_nq: ", d_swings_nq)
-    h4_swings_es = detect_swings(
-        candles = converted_4h_es,
-        timeframe = "4h",
-    )
+    # h4_swings_es = detect_swings(
+    #     candles = converted_4h_es,
+    #     timeframe = "4h",
+    # )
     # print("h4_swings_es: ", h4_swings_es)
-    h7_swings_es = detect_swings(
-        candles = converted_7h_es,
-        timeframe = "7h",
-    )
+    # h7_swings_es = detect_swings(
+    #     candles = converted_7h_es,
+    #     timeframe = "7h",
+    # )
     # print("h7_swings_es: ", h7_swings_es)
 
-    d_swings_es = detect_swings(
-        candles = converted_1d_es,
-        timeframe = "1d",
-    )
+    # d_swings_es = detect_swings(
+    #     candles = converted_1d_es,
+    #     timeframe = "1d",
+    # )
     # print("d_swings_es: ", d_swings_es)
-
+    converted_3m_nq_h = [candle_from_dict(c=c, timeframe="1m", instrument= "NQ", contract=nq_contract) for c in nq_3m_historical]
+    converted_4h_nq_h = [candle_from_dict(c=c, timeframe="4h", instrument= "NQ", contract=nq_contract) for c in nq_4h_historical]
+    converted_7h_nq_h = [candle_from_dict(c=c, timeframe="7h", instrument= "NQ", contract=nq_contract) for c in nq_7h_historical]
+    converted_1d_nq_h = [candle_from_dict(c=c, timeframe="1d", instrument= "NQ", contract=nq_contract) for c in nq_1d_historical]
+    converted_3m_es_h = [candle_from_dict(c=c, timeframe="1m", instrument= "ES", contract=es_contract) for c in es_3m_historical]
+    converted_4h_es_h = [candle_from_dict(c=c, timeframe="4h", instrument= "ES", contract=es_contract) for c in es_4h_historical]
+    converted_7h_es_h = [candle_from_dict(c=c, timeframe="7h", instrument= "ES", contract=es_contract) for c in es_7h_historical]
+    converted_1d_es_h = [candle_from_dict(c=c, timeframe="1d", instrument= "ES", contract=es_contract) for c in es_1d_historical]
     # initialize auction engine
     nq_candles_for_auction = {
-        "3m": converted_3m_nq,
-        "4h": converted_4h_nq,
-        "7h": converted_7h_nq,
-        "1d": converted_1d_nq
+        "3m": converted_3m_nq_h,
+        "4h": converted_4h_nq_h,
+        "7h": converted_7h_nq_h,
+        "1d": converted_1d_nq_h
     }
     es_candles_for_auction = {
-        "3m": converted_3m_es,
-        "4h": converted_4h_es,
-        "7h": converted_7h_es,
-        "1d": converted_1d_es
+        "3m": converted_3m_es_h,
+        "4h": converted_4h_es_h,
+        "7h": converted_7h_es_h,
+        "1d": converted_1d_es_h
     }
     nq_auction_engine = AuctionEngine()
     es_auction_engine = AuctionEngine()
@@ -392,10 +404,10 @@ def run_quick_test(test_date: str):
                         new_7h_candle_nq = nq_seven_hour_builder.candles["8AM"].values()
                         new_7h_candle_es = es_seven_hour_builder.candles["8AM"].values()
                     # 3pm candle will be captured converted_7h_nq before the start of day
-                    converted_7h_nq.append(candle_from_dict(c=new_7h_candle_nq, timeframe="7h", instrument= "NQ", contract=nq_contract))
-                    converted_7h_es.append(candle_from_dict(c=new_7h_candle_es, timeframe="7h", instrument= "ES", contract=es_contract))
-                    last_3_7h_nq = converted_7h_nq[-3:]
-                    last_3_7h_es = converted_7h_es[-3:]
+                    converted_7h_nq_h.append(candle_from_dict(c=new_7h_candle_nq, timeframe="7h", instrument= "NQ", contract=nq_contract))
+                    converted_7h_es_h.append(candle_from_dict(c=new_7h_candle_es, timeframe="7h", instrument= "ES", contract=es_contract))
+                    last_3_7h_nq = converted_7h_nq_h[-3:]
+                    last_3_7h_es = converted_7h_es_h[-3:]
 
                 # 4h candle
                 last_3_4h_nq=None
@@ -416,23 +428,26 @@ def run_quick_test(test_date: str):
                         "high": es_market_context.four_session_high,
                         "timestamp": es_market_context.four_session_timestamp,
                     }
-                    converted_4h_nq.append(candle_from_dict(c=new_4h_candle_nq, timeframe="4h", instrument= "NQ", contract=nq_contract))
-                    converted_4h_es.append(candle_from_dict(c=new_4h_candle_es, timeframe="4h", instrument= "ES", contract=es_contract))
-                    last_3_4h_nq = converted_4h_nq[-3:]
-                    last_3_4h_es = converted_4h_es[-3:]
+                    converted_4h_nq_h.append(candle_from_dict(c=new_4h_candle_nq, timeframe="4h", instrument= "NQ", contract=nq_contract))
+                    converted_4h_es_h.append(candle_from_dict(c=new_4h_candle_es, timeframe="4h", instrument= "ES", contract=es_contract))
+                    last_3_4h_nq = converted_4h_nq_h[-3:]
+                    last_3_4h_es = converted_4h_es_h[-3:]
 
-                    
                 # update auction engine with context and status
                 # TODO: send 1m or 3m candle to mitigation time
+                # current_30m_start = datetime.fromisoformat(
+                #     last_closed_30m["timestamp"]
+                # )
+                current_30m_start_datetime = datetime.fromisoformat(current_30m_start)
                 nq_candles_3m_for_auction = [
                     candle
                     for candle in converted_3m_nq
-                    if candle.timestamp < current_30m_start
+                    if candle.timestamp < current_30m_start_datetime
                 ][-40:]
                 es_candles_3m_for_auction = [
                     candle
                     for candle in converted_3m_es
-                    if candle.timestamp < current_30m_start
+                    if candle.timestamp < current_30m_start_datetime
                 ][-40:]
                 # new 4h candle for reclaimed levels
                 

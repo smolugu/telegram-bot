@@ -162,20 +162,13 @@ def _update_timeframe_progress(
             ),
         )
         print("interacting with htf: ", current_htf)
-        # current_htf = min(
-        #     interacting_levels,
-        #     key=lambda level: level.price
-        # ) if is_bullish else max(
-        #     interacting_levels,
-        #     key=lambda level: level.price
-        # )
 
     # =========================================================
     # 2. PRICE IS AT HTF
     # =========================================================
 
     if current_htf is not None:
-        print("current_htf is not None")
+        print("price is at htf")
 
         tf_auction_progress.at_htf = True
         tf_auction_progress.at_htf_level = current_htf
@@ -258,6 +251,7 @@ def _update_timeframe_progress(
 
         tf_auction_progress.confirmed = True
         tf_auction_progress.progress = 1.0
+        tf_auction_progress.direction = direction
         tf_auction_progress.completed = True
 
         return
@@ -290,8 +284,8 @@ def _update_timeframe_progress(
         key=lambda level: level.mitigation_time,
         reverse=True
     )
-    if tf_auction_progress.timeframe == "4h":
-        print("swept_levels: ", swept_levels)
+    # if tf_auction_progress.timeframe == "4h":
+    #     print("swept_levels: ", swept_levels)
     print("recent swept: ", latest_swept)
     # ---------------------------------------------------------
     # Determine direction of anticipated auction.
@@ -417,6 +411,7 @@ def _update_timeframe_progress(
         tf_auction_progress.confirmed_direction = (
             direction
         )
+        tf_auction_progress.direction = direction
 
     else:
         print("progress less than 0.4")
@@ -425,6 +420,7 @@ def _update_timeframe_progress(
         tf_auction_progress.confirmed_direction = (
             AuctionDirection.NEUTRAL
         )
+        tf_auction_progress.direction = direction
 
     # ---------------------------------------------------------
     # Objective reached
@@ -456,13 +452,7 @@ def update_auction_progress(context, candle_30m):
         candle_30m,
     )
 
-    # _update_timeframe_progress(
-    #     context.daily,
-    #     context.bullish_levels,
-    #     context.bearish_levels,
-    #     candle_30m,
-    # )
-
+    
     _update_timeframe_progress(
         context.h7,
         context.bullish_levels,
@@ -470,23 +460,10 @@ def update_auction_progress(context, candle_30m):
         candle_30m,
     )
 
-    # _update_timeframe_progress(
-    #     context.h7,
-    #     context.bullish_levels,
-    #     context.bearish_levels,
-    #     candle_30m,
-    # )
-
+    
     _update_timeframe_progress(
         context.h4,
         context.bullish_levels,
         context.bearish_levels,
         candle_30m,
     )
-
-    # _update_timeframe_progress(
-    #     context.h4,
-    #     context.bullish_levels,
-    #     context.bearish_levels,
-    #     candle_30m,
-    # )

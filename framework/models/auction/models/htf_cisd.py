@@ -8,7 +8,7 @@ class HTFCISD:
     timestamp: datetime
     is_bullish: bool
     is_buy_side: bool
-    is_touched: bool
+    
     upper: float
     lower: float
     upper_wick: float
@@ -16,6 +16,8 @@ class HTFCISD:
     price: float
 
     is_swept: bool = False
+    is_touched: bool = False
+    is_mitigated: bool = False
     status: HTFCisdStatus = HTFCisdStatus.OPEN
     liquidity_type = LiquidityType.INTERNAL
     level_type = LevelType.CISD

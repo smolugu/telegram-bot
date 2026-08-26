@@ -10,12 +10,13 @@ class HTFVolumeImbalance:
     timestamp: datetime
     is_bullish: bool
     is_buy_side: bool
-    is_touched: bool
-
+    
     upper: float
     lower: float
     price: float
     is_swept: bool = False
+    is_touched: bool = False
+    is_mitigated: bool = False
     status: HTFViStatus = HTFViStatus.OPEN
     liquidity_type = LiquidityType.INTERNAL
     level_type = LevelType.VI

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from framework.models.auction.models.enums import HTFFvgStatus
 from data.models.candle import Candle
 from framework.models.auction.models.htf_fvg import HTFFVG
@@ -28,8 +30,17 @@ def update_fvg_status(
         for candle in ltf_candles:
 
             # Ignore candles before the FVG formed
-            if candle.timestamp <= fvg.timestamp:
+            fvg_confirmation_time = fvg.timestamp
+            if fvg.timeframe == "4h":
+                fvg_confirmation_time = fvg.timestamp + timedelta(hours=4)
+            elif fvg.timeframe == "7h":
+                fvg_confirmation_time = fvg.timestamp + timedelta(hours=7)
+            elif fvg.timeframe == '1d':
+                fvg_confirmation_time = fvg.timestamp + timedelta(days=1)
+
+            if candle.timestamp <= fvg_confirmation_time:
                 continue
+            
             # candle should be interating with the fvg
             if fvg.is_bullish: # bullish fvg
                 # set is_swept flag
@@ -109,10 +120,19 @@ def update_fvg_status(
     for fvg in fvgs:
         # process through htf timeframe candles to set RECLAIMED status
         for candle in htf_candles:
-        
+
             # Ignore candles before the FVG formed
-            if candle.timestamp <= fvg.timestamp:
+            fvg_confirmation_time = fvg.timestamp
+            if fvg.timeframe == "4h":
+                fvg_confirmation_time = fvg.timestamp + timedelta(hours=4)
+            elif fvg.timeframe == "7h":
+                fvg_confirmation_time = fvg.timestamp + timedelta(hours=7)
+            elif fvg.timeframe == '1d':
+                fvg_confirmation_time = fvg.timestamp + timedelta(days=1)
+
+            if candle.timestamp <= fvg_confirmation_time:
                 continue
+            
             # candle should be interating with the fvg
             if fvg.is_bullish: # bullish fvg
                 # set is_swept flag

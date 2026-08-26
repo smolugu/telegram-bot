@@ -88,7 +88,8 @@ def detect_fvg(
                     lower=c1.high,
                     price=c3.low,
                     is_bullish=True,
-                    is_buy_side=False
+                    is_buy_side=False,
+                    
                 )
             )
 
@@ -104,6 +105,7 @@ def detect_fvg(
                     price=c3.high,
                     is_bullish=False,
                     is_buy_side=True
+                    
                 )
             )
 
