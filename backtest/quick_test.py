@@ -763,9 +763,6 @@ def run_quick_test(test_date: str):
                     nq_market_context.set_ib(nq_ib_candidate.ib_high, nq_ib_candidate.ib_low)
                     es_market_context.set_ib(es_ib_candidate.ib_high, es_ib_candidate.ib_low)
                 
-                
-                
-                
         # Always monitor open trades
         monitor_open_trades(candle_3m)
     print("checkval: ", checkval)
