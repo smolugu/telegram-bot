@@ -9,7 +9,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from database.session import SessionLocal
-from market_data.api.projectx_rest import ProjectXREST
+from market_data.api.projectx.rest.projectx_rest import ProjectXREST
 from market_data.contracts.contracts_mapper import ContractMapper
 from market_data.htf.htf_candle_builder import HTFCandleBuilder, inspect_1m_gaps
 from market_data.providers.projectx_futures_provider import ProjectXFuturesProvider
