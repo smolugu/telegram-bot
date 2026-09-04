@@ -1,3 +1,5 @@
+from datetime import date
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -40,14 +42,51 @@ class SQLiteContractRepository(ContractRepository):
     def get_front_month(
         self,
         instrument: str,
+        as_of_date: date,
     ) -> Contract | None:
 
         stmt = (
             select(ContractORM)
             .where(ContractORM.instrument == instrument)
-            .where(ContractORM.active.is_(True))
             .where(ContractORM.contract_type == "single")
+            .where(ContractORM.last_trade_date >= as_of_date)
             .order_by(ContractORM.last_trade_date)
+            .limit(1)
+        )
+
+        row = self.session.scalar(stmt)
+
+        if row is None:
+            return None
+
+        return self._to_domain(row)
+
+    def get_next_contract(
+        self,
+        instrument: str,
+        contract: str,
+    ) -> Contract | None:
+
+        current = self.get(contract)
+
+        if current is None:
+            return None
+
+        stmt = (
+            select(ContractORM)
+            .where(
+                ContractORM.instrument == instrument
+            )
+            .where(
+                ContractORM.contract_type == "single"
+            )
+            .where(
+                ContractORM.last_trade_date
+                > current.last_trade_date
+            )
+            .order_by(
+                ContractORM.last_trade_date
+            )
             .limit(1)
         )
 
@@ -65,6 +104,7 @@ class SQLiteContractRepository(ContractRepository):
             instrument=row.instrument,
             contract_type=row.contract_type,
             first_trade_date=row.first_trade_date,
+            rollover_date=row.rollover_date,
             last_trade_date=row.last_trade_date,
             settlement_date=row.settlement_date,
             days_to_maturity=row.days_to_maturity,
@@ -78,6 +118,7 @@ class SQLiteContractRepository(ContractRepository):
             instrument=contract.instrument,
             contract_type=contract.contract_type,
             first_trade_date=contract.first_trade_date,
+            rollover_date=contract.rollover_date,
             last_trade_date=contract.last_trade_date,
             settlement_date=contract.settlement_date,
             days_to_maturity=contract.days_to_maturity,

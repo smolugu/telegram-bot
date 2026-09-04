@@ -11,6 +11,37 @@ class LondonMarketContext:
 
         # -------- STRUCTURE --------
         self.structure = {
+            "name": None,
+            "group": None,
+            "category": None,
+            "market_phase": None,
+            "is_compression": False,
+            "is_compression_resolution": False,
+            "is_strong_compression": False,
+            "range_high_swept": False,
+            "range_low_swept": False,
+            "compression_strength": None,
+            "compression_state": {
+                "first_sweep": None,      # "high" | "low"
+                "second_sweep": None,     # "high" | "low"
+                "compression_resolved": False,
+                "is_fresh_compression_resolution": False,
+                "compression_partially_resolved": False,
+            },
+            "compression_high": None,
+            "compression_low": None,
+            "compressison_ce": None,
+            "range_high": None,
+            "range_low": None,
+            "range_ce": None,
+            "equilibrium_high": None,
+            "equilibrium_low": None,
+            "equilibrium_ce": None,   
+            "mitigation_level": None,
+            "ib_direction_8": None,
+            "is_ib_strong_body": False,
+            "ib_body_range": None,
+
             "position_vs_18": None,
             "ib_relationship": None,
             "overlap_type": None,
@@ -100,6 +131,11 @@ class LondonMarketContext:
         # -----------------------------------
         if ib1_high <= ib18_high and ib1_low >= ib18_low:
             print("Ib relationship: ib1 inside ib18")
+            self.structure["name"] = "compression"
+            self.structure["group"] = "compression"
+            self.structure["category"]= "compression"
+            self.structure["market_phase"]= "compression"
+            self.structure["is_compression"]= True
             self.structure["ib_relationship"] = "inside"
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = True

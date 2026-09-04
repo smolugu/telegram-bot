@@ -21,6 +21,8 @@ class ContractORM(Base):
 
     first_trade_date: Mapped[date | None] = mapped_column(Date)
 
+    rollover_date: Mapped[date | None] = mapped_column(Date)
+
     last_trade_date: Mapped[date | None] = mapped_column(Date)
 
     settlement_date: Mapped[date | None] = mapped_column(Date)

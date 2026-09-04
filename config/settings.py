@@ -5,6 +5,8 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+PROJECTX_API_KEY=os.getenv("PROJECTX_API_KEY")
+PROJECTX_USERNAME=os.getenv("PROJECTX_USERNAME")
 DATABASE_URL = os.getenv("DATABASE_URL")
 # Replace with YOUR Telegram chat_id(s)
 ADMIN_CHAT_IDS = {

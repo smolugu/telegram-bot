@@ -56,6 +56,7 @@ def build_auction_status(context):
                 auction.confirmed_direction
             )
             status.active_progress = auction.progress
+            status.active_objective = auction.current_objective.price
 
             return status
 

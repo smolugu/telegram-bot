@@ -13,8 +13,24 @@ class CandleRepository(ABC):
     def save(self, candles: list[Candle]) -> None:
         pass
 
+    # @abstractmethod
+    # def latest_timestamp(
+    #     self,
+    #     contract: str,
+    #     timeframe: int,
+    # ) -> datetime | None:
+    #     pass
+
     @abstractmethod
-    def latest_timestamp(
+    def latest_timestamp_by_instrument(
+        self,
+        instrument: str,
+        timeframe: int,
+    ) -> datetime | None:
+        pass
+
+    @abstractmethod
+    def latest_timestamp_by_contract(
         self,
         contract: str,
         timeframe: int,

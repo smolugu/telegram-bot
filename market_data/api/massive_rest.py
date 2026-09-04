@@ -43,21 +43,62 @@ class MassiveREST:
             )
         )
 
+    # def list_futures_contracts(
+    #     self,
+    #     product_code: str,
+    #     snapshot_date: date,
+    # ):
+    #     # print(start)
+    #     # print(type(start))
+
+    #     # print(end)
+    #     # print(type(end))
+    #     print("calling list_futures_contracts")
+    #     print(snapshot_date.isoformat())
+    #     print(type(snapshot_date))
+    #     return list(self._client.list_futures_contracts(
+    #         product_code=product_code,
+    #         date=self._to_date_str(snapshot_date),
+    #     ))
+    def get_futures_contract(
+        self,
+        ticker: str,
+    ):
+        return list(
+            self._client.list_futures_contracts(
+                ticker=ticker,
+                limit=10,
+            )
+        )
+    # def list_futures_contracts(
+    #     self,
+    #     product_code: str,
+    #     last_trade_date_gte: date | None = None,
+    #     last_trade_date_lte: date | None = None,
+    # ):
+    #     return self._client.list_futures_contracts(
+    #         product_code=product_code,
+    #         last_trade_date_gte=(
+    #             self._to_date_str(last_trade_date_gte)
+    #             if last_trade_date_gte
+    #             else None
+    #         ),
+    #         last_trade_date_lte=(
+    #             self._to_date_str(last_trade_date_lte)
+    #             if last_trade_date_lte
+    #             else None
+    #         ),
+    #         limit=1000,
+    #         raw=True,
+    #     )
     def list_futures_contracts(
         self,
         product_code: str,
         snapshot_date: date,
     ):
-        # print(start)
-        # print(type(start))
-
-        # print(end)
-        # print(type(end))
-        print("calling list_futures_contracts")
-        print(snapshot_date.isoformat())
-        print(type(snapshot_date))
-        return list(self._client.list_futures_contracts(
-            product_code=product_code,
-            date=self._to_date_str(snapshot_date),
-        ))
-    
+        return list(
+            self._client.list_futures_contracts(
+                product_code=product_code,
+                date=self._to_date_str(snapshot_date),
+            )
+        )

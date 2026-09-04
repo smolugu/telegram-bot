@@ -1,7 +1,7 @@
 from framework.models.auction.models.auction_progress import AuctionDirection
 from framework.models.compression import detect_compression
 from framework.models.displacement import is_displacement_candle
-from framework.models.filters.auction_filter import determine_auction_direction
+from framework.models.filters.auction_filter import allowed_auction_direction, get_auction_direction
 from framework.models.final_context import determine_ping_direction
 from framework.models.ib_alignment import analyze_cross_asset_alignment
 from helpers.ib_helpers import check_ib_rejection
@@ -334,9 +334,6 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 is_bullish_atr_exhausted = True
         return is_bullish_atr_exhausted, is_bearish_atr_exhausted
     
-    def bullish_atr_exhausted():
-        is_exhausted = False
-        return is_exhausted
 
     def atr_filter():
         allow_shorts = True
@@ -357,7 +354,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
             filters_passed = False
         
         # check auction status
-        auction_allowed_direction = determine_auction_direction(auction_engine.status)
+        auction_allowed_direction = allowed_auction_direction(auction_engine.status)
         print("auction_allowed_direction: ", auction_allowed_direction)
         # give preference to auction_direction
         if auction_allowed_direction == AuctionDirection.BULLISH:
@@ -431,6 +428,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     def overextended_atr():
         return market_context.atr_usage >= 2.0
     # HTF BIAS
+    # TODO: combine htf bias based on weekly + 1h CISD + FVG and Auction Status
     # Primarily for the following structures as these are balanced inventory structures
         # sandwich_bullish
         # sandwich_bearish
@@ -498,9 +496,16 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     asia_swept = False
 
     # check session, identify session
+    is_london_window = in_session(current_30m_start, 0, 0, 7, 0)
+    is_1am_wick_window = in_session(current_30m_start, 0, 0, 2, 0)
     is_london_killzone = in_session(current_30m_start, 3, 0, 5, 0)
+    
+    is_8am_wick_window = in_session(current_30m_start, 7, 0, 9, 30)
+    
     is_post_london_killzone = in_session(current_30m_start, 5, 0, 6, 30)
-    is_post_1AM_IB = in_session(current_30m_start, 2, 30, 8, 0)
+    is_post_1AM_IB = False
+    is_post_1AM_IB = in_session(current_30m_start, 2, 0, 8, 0)
+    
     is_post_8AM_IB = in_session(current_30m_start, 9, 30, 15, 0 )
     # in ny killzone lets include 8am wick window as out setup forms around 7hr wicks
     is_ny_am_killzone = in_session(current_30m_start, 8, 0, 11, 30)
@@ -541,6 +546,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     passed_atr_displacement_filter = displacement_atr_filter()
     bullish_atr_target_price = market_context.session_low + market_context.daily_atr
     bearish_atr_target_price = market_context.session_high - market_context.daily_atr
+    auction_direction = get_auction_direction(auction_engine.status)
     
     # rejection or fvg_confirmed or strong OB
 
@@ -554,7 +560,125 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     # -----------------------------------------------
     
     # -----------------------------------------------
-    if is_post_1AM_IB:
+    if is_london_window:
+        if is_1am_wick_window:
+            # 30m candidate plus auction engine plus weekly bias
+            if (
+                is_atr_filter
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # targets and ping type
+            elif (
+                look_for_longs and auction_direction == AuctionDirection.BULLISH
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # targets and ping type
+            elif (
+                look_for_shorts and auction_direction == AuctionDirection.BEARISH
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # targets and ping type
+
+
+        if is_post_1AM_IB:
+            # use structures for precise levels and alerts
+
+            if (
+                is_atr_filter
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+            elif (
+                look_for_longs and auction_direction == AuctionDirection.BULLISH
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # targets and ping type
+            elif (
+                look_for_shorts and auction_direction == AuctionDirection.BEARISH
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # targets and ping type
+    elif is_8am_wick_window:
+        # use auction direction + htf bias
+        if look_for_longs:
+            if (
+                is_atr_filter
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                candidate.initial_target_price = market_context.session_high
+                
+                final_target_text = "ATR"
+                candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                candidate.final_target_price = bullish_atr_target_price
+                
+                if candidate.ping_type == "Rocket":
+                    newyork_context.execution_state["rocket_triggered"] = True
+    
+            elif (
+                look_for_longs and auction_direction == AuctionDirection.BULLISH and htf_bias == "bullish"
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # continuation trade
+                candidate.ping_type = "Rocket"
+                candidate.initial_target_price = market_context.session_high
+                candidate.final_target = "ATR"
+                if auction_engine.status.active_objective is not None:
+                    candidate.final_target_price = auction_engine.status.active_objective
+                else:
+                    candidate.final_target_price = bullish_atr_target_price 
+                newyork_context.execution_state["rocket_triggered"] = True
+
+
+        elif look_for_shorts:
+            if (
+                is_atr_filter
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                candidate.initial_target_price = market_context.session_low
+                
+                final_target_text = "ATR"
+                candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                candidate.final_target_price = bearish_atr_target_price
+                
+                if candidate.ping_type == "Flush":
+                    newyork_context.execution_state["flush_triggered"] = True
+    
+            elif (
+                auction_direction == AuctionDirection.BEARISH and htf_bias == "bearish"
+                and is_smt
+                and is_rejection
+            ):
+                reversal_confirmation = True
+                # continuation trade
+                candidate.ping_type = "Flush"
+                candidate.initial_target_price = market_context.session_low
+                candidate.final_target = "ATR"
+                if auction_engine.status.active_objective is not None:
+                    candidate.final_target_price = auction_engine.status.active_objective
+                else:
+                    candidate.final_target_price = bearish_atr_target_price 
+                newyork_context.execution_state["flush_triggered"] = True
+
+    elif is_post_1AM_IB:
         # get IB zones
         print("post 1am IB zone:")
         # Asia and London compression
@@ -2422,7 +2546,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target_price = newyork_context.ib8["high"]
+                    candidate.initial_target_price = newyork_context.ib_8["high"]
                     candidate.final_target = "MITL"
                     candidate.final_target_price = newyork_context.structure["mitigation_level"]
                     newyork_context.execution_state["rocket_triggered"] = True
@@ -2449,7 +2573,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    # candidate.initial_target_price = newyork_context.ib8["low"]
+                    # candidate.initial_target_price = newyork_context.ib_8["low"]
                     candidate.final_target = "LIQUIDITY"
                     # newyork_context.execution_state["flush_triggered"] = True
                     
@@ -2491,7 +2615,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target_price = newyork_context.ib8["low"]
+                    candidate.initial_target_price = newyork_context.ib_8["low"]
                     candidate.final_target = ["MITL"]
                     candidate.final_target_price = newyork_context.structure["mitigation_level"]
                     newyork_context.execution_state["flush_triggered"] = True
@@ -2518,7 +2642,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    # candidate.initial_target_price = newyork_context.ib8["low"]
+                    # candidate.initial_target_price = newyork_context.ib_8["low"]
                     candidate.final_target = "LIQUIDITY"
                     # newyork_context.execution_state["flush_triggered"] = True
         # block completed - V3
@@ -2562,7 +2686,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target_price = newyork_context.ib8["high"]
+                    candidate.initial_target_price = newyork_context.ib_8["high"]
                     candidate.final_target = "LIQUIDITY"
                     newyork_context.execution_state["rocket_triggered"] = True
             
@@ -2588,7 +2712,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
-                    # candidate.initial_target_price = newyork_context.ib8["low"]
+                    # candidate.initial_target_price = newyork_context.ib_8["low"]
                     candidate.final_target = "LIQUIDITY"
                     # newyork_context.execution_state["flush_triggered"] = True
         # block completed - V3
@@ -2659,7 +2783,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
-                    # candidate.initial_target_price = newyork_context.ib8["low"]
+                    # candidate.initial_target_price = newyork_context.ib_8["low"]
                     candidate.final_target = "LIQUIDITY"
                     # newyork_context.execution_state["flush_triggered"] = True
 

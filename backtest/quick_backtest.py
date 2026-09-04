@@ -221,11 +221,14 @@ def run_quick_backtest(test_date: str):
     nq_weekly_context = WeeklyContext(
     instrument = "NQ",
     daily_candles = nq["1d"],
-    candles_1h = nq["1h"],)
+    candles_1h = nq["1h"],
+    current_date = test_date,
+    )
     es_weekly_context = WeeklyContext(
     instrument = "ES",
     daily_candles = nq["1d"],
-    candles_1h = nq["1h"],)
+    candles_1h = nq["1h"],
+    current_date = test_date,)
 
     print("nq weekly summary: ", nq_weekly_context.summary())
     print("es weekly summary: ", es_weekly_context.summary())

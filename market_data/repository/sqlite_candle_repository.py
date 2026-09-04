@@ -45,7 +45,7 @@ class SQLiteCandleRepository(CandleRepository):
         print("Rows after commit:", count)
         print("Save finished")
 
-    def latest_timestamp(
+    def latest_timestamp_by_contract(
         self,
         contract: str,
         timeframe: int,
@@ -63,8 +63,50 @@ class SQLiteCandleRepository(CandleRepository):
 
         if candle is None:
             return None
+        print("es candle: ", candle)
+        print(
+            candle.timestamp,
+            candle.open,
+            candle.high,
+            candle.low,
+            candle.close,
+            candle.volume,
+            candle.instrument,
+            candle.contract,
+        )
 
         return self._ensure_utc(candle.timestamp)
+
+    def latest_timestamp_by_instrument(
+            self,
+            instrument: str,
+            timeframe: int,
+        ):
+    
+            candle = (
+                self.session.query(CandleORM)
+                .filter(
+                    CandleORM.instrument == instrument,
+                    CandleORM.timeframe == timeframe,
+                )
+                .order_by(CandleORM.timestamp.desc())
+                .first()
+            )
+    
+            if candle is None:
+                return None
+            print("es candle: ", candle)
+            print(
+                candle.timestamp,
+                candle.open,
+                candle.high,
+                candle.low,
+                candle.close,
+                candle.volume,
+                candle.instrument,
+                candle.contract,
+            )
+            return self._ensure_utc(candle.timestamp)
     
 
     def get_last(

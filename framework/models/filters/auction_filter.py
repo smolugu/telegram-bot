@@ -2,7 +2,16 @@ from framework.models.auction.models.auction_progress import AuctionDirection
 from framework.models.auction.models.auction_status import AuctionStatus
 
 
-def determine_auction_direction(
+def get_auction_direction(
+        auction_status: AuctionStatus,
+) -> AuctionDirection:
+    if auction_status.active_direction == AuctionDirection.NEUTRAL:
+        return auction_status.previous_direction
+    else:
+        return auction_status.active_direction
+
+# used with ATR filter
+def allowed_auction_direction(
     auction_status: AuctionStatus,
 ) -> AuctionDirection:
     """
@@ -59,9 +68,11 @@ def determine_auction_direction(
     # ---------------------------------------------------------
     print("price is not at htf")
     for auction in auctions:
-
+        default_direction = AuctionDirection.NEUTRAL
         if not auction.confirmed:
             print("auction direction is not confirmed")
+            if default_direction == AuctionDirection.NEUTRAL:
+                default_direction = auction.direction
             continue
         print("auction confirmed direction: ", auction.confirmed_direction)
         if auction.confirmed_direction == (
@@ -75,7 +86,8 @@ def determine_auction_direction(
             return AuctionDirection.BEARISH
 
     # ---------------------------------------------------------
-    # 3. No directional auction
+    # 3. default direction - no confirmed auction but direction is present
     # ---------------------------------------------------------
-    print("Auction direction is neutral")
+    print("Auction direction is default_direction")
     return AuctionDirection.NEUTRAL
+    # return default_direction

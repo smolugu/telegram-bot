@@ -24,6 +24,7 @@ class AuctionStatus:
         AuctionDirection.NEUTRAL
     )
     active_progress: float = 0.0
+    active_objective: float | None = None
 
     # Individual timeframe states
     daily: AuctionProgress | None = None

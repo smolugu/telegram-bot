@@ -21,6 +21,7 @@ class FuturesProvider(ABC):
     @abstractmethod
     def get_history(
         self,
+        instrument: str,
         contract: str,
         timeframe: int,
         start: datetime,
