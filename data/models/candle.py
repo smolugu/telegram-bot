@@ -34,13 +34,3 @@ class Candle:
     @property
     def weekday_ny(self) -> int:
         return self.timestamp_ny.weekday()
-
-
-#     @dataclass(slots=True)
-# class Candle:
-#     timestamp: datetime      # America/New_York
-#     open: float
-#     high: float
-#     low: float
-#     close: float
-#     volume: int

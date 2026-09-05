@@ -10,6 +10,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from database.session import SessionLocal
 from market_data.api.projectx.rest.projectx_rest import ProjectXREST
+from market_data.api.projectx.websocket.projectx_websocket import ProjectXWebSocket
+from market_data.candle_builder.minute_candle_builder import MinuteCandleBuilder
 from market_data.contracts.contracts_mapper import ContractMapper
 from market_data.htf.htf_candle_builder import HTFCandleBuilder, inspect_1m_gaps
 from market_data.providers.projectx_futures_provider import ProjectXFuturesProvider
@@ -371,7 +373,31 @@ def main():
         #     instrument="NQ",
         #     timeframe=1,
         # )
+
+        # ================================
+        # ProjectX Websocket Connection
+        # ================================
+        builder = MinuteCandleBuilder(
+            on_candle=lambda candle: print("CANDLE:", candle)
+        )
+        projectx_websocket = ProjectXWebSocket(
+            token=projectx_rest.token,
+            contract_mapper=mapper,
+            contract_repo=contract_repo,
+            on_trade=builder.add_trade,
+        )
+
+        projectx_websocket.connect()
         
+        projectx_websocket.subscribe_trades(
+            "CON.F.US.ENQ.U26"
+        )
+
+        projectx_websocket.subscribe_trades(
+            "CON.F.US.EP.U26"
+        )
+        while True:
+            time.sleep(1)
 
         # print("1m:", len(candles_1m))
 

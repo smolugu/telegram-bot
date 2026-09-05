@@ -6,6 +6,7 @@ from market_data.providers.futures_provider import FuturesProvider
 from market_data.api.projectx.rest.projectx_rest import ProjectXREST
 from market_data.contracts.contracts_mapper import ContractMapper
 
+from data.models.trade import Trade
 
 class ProjectXFuturesProvider(FuturesProvider):
 

@@ -16,9 +16,16 @@ class ProjectXREST:
         self._api_key = api_key
 
         self._session = requests.Session()
+        self._token = None
 
         self._login()
 
+    @property
+    def token(self) -> str:
+        if not self._token:
+            raise RuntimeError("ProjectX authentication token unavailable")
+        return self._token
+    
     def _login(self):
         response = self._session.post(
             f"{self._BASE_URL}/Auth/loginKey",
@@ -32,7 +39,14 @@ class ProjectXREST:
         response.raise_for_status()
 
         data = response.json()
+        if not data.get("success") or not data.get("token"):
+            raise RuntimeError(
+                f"ProjectX login failed: "
+                f"{data.get('errorCode')} "
+                f"{data.get('errorMessage')}"
+            )
         print("Login response:", data)
+        self._token = data["token"]
 
         self._session.headers.update({
             "Authorization": f"Bearer {data['token']}",
