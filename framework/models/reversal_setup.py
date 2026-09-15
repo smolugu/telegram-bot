@@ -561,62 +561,165 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     
     # -----------------------------------------------
     if is_london_window:
+        print("is london window")
         if is_1am_wick_window:
+            print("is 1am wick window")
             # 30m candidate plus auction engine plus weekly bias
-            if (
-                is_atr_filter
-                and is_smt
-                and is_rejection
-            ):
-                reversal_confirmation = True
-                # targets and ping type
-            elif (
-                look_for_longs and auction_direction == AuctionDirection.BULLISH
-                and is_smt
-                and is_rejection
-            ):
-                reversal_confirmation = True
-                # targets and ping type
-            elif (
-                look_for_shorts and auction_direction == AuctionDirection.BEARISH
-                and is_smt
-                and is_rejection
-            ):
-                reversal_confirmation = True
-                # targets and ping type
+            if look_for_longs:
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and is_rejection
+                ):
+                    print("is 1am wick window + ping with is_atr_filter")
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = market_context.session_high
+                    
+                    final_target_text = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                    candidate.final_target_price = bullish_atr_target_price
+                    
+                    if candidate.ping_type == "Rocket":
+                        london_context.execution_state["rocket_triggered"] = True
+
+                elif (
+                    auction_direction == AuctionDirection.BULLISH
+                    and is_smt
+                    and is_rejection
+                ):
+                    print("is 1am wick window + auction direction is bullish + longs")
+                    reversal_confirmation = True
+                    # continuation trade
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target_price = market_context.session_high
+                    candidate.final_target = "ATR"
+                    if auction_engine.status.active_objective is not None:
+                        candidate.final_target_price = auction_engine.status.active_objective
+                    else:
+                        candidate.final_target_price = bullish_atr_target_price 
+                    london_context.execution_state["rocket_triggered"] = True
+
+            elif look_for_shorts:
+
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and is_rejection
+                ):
+                    print("is 1am wick window + ping with is_atr_filter")
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                    candidate.initial_target_price = market_context.session_low
+                    
+                    final_target_text = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                    candidate.final_target_price = bearish_atr_target_price
+                    
+                    if candidate.ping_type == "Flush":
+                        london_context.execution_state["flush_triggered"] = True
+                
+                elif (
+                    auction_direction == AuctionDirection.BEARISH
+                    and is_smt
+                    and is_rejection
+                ):
+                    print("is 1am wick window + auction direction is bearish + shorts")
+                    reversal_confirmation = True
+                    # continuation trade
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target_price = market_context.session_low
+                    candidate.final_target = "ATR"
+                    if auction_engine.status.active_objective is not None:
+                        candidate.final_target_price = auction_engine.status.active_objective
+                    else:
+                        candidate.final_target_price = bearish_atr_target_price 
+                    london_context.execution_state["flush_triggered"] = True
 
 
         if is_post_1AM_IB:
             # use structures for precise levels and alerts
+            print("is post 1am IB")
+            if look_for_longs:
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and is_rejection
+                ):  
+                    print("is post 1am IB + is_atr_filter")
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = market_context.session_high
+                    
+                    final_target_text = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                    candidate.final_target_price = bullish_atr_target_price
+                    
+                    if candidate.ping_type == "Rocket":
+                        london_context.execution_state["rocket_triggered"] = True
+                elif (
+                    auction_direction == AuctionDirection.BULLISH
+                    and is_smt
+                    and is_rejection
+                ):
+                    print("is post 1am IB + auction is bullish: continuation long")
+                    reversal_confirmation = True
+                    # continuation trade
+                    candidate.ping_type = "Rocket"
+                    candidate.initial_target_price = market_context.session_high
+                    candidate.final_target = "ATR"
+                    if auction_engine.status.active_objective is not None:
+                        candidate.final_target_price = auction_engine.status.active_objective
+                    else:
+                        candidate.final_target_price = bullish_atr_target_price 
+                    london_context.execution_state["rocket_triggered"] = True
 
-            if (
-                is_atr_filter
-                and is_smt
-                and is_rejection
-            ):
-                reversal_confirmation = True
-            elif (
-                look_for_longs and auction_direction == AuctionDirection.BULLISH
-                and is_smt
-                and is_rejection
-            ):
-                reversal_confirmation = True
-                # targets and ping type
-            elif (
-                look_for_shorts and auction_direction == AuctionDirection.BEARISH
-                and is_smt
-                and is_rejection
-            ):
-                reversal_confirmation = True
-                # targets and ping type
+            
+            elif look_for_shorts:
+                if (
+                    is_atr_filter
+                    and is_smt
+                    and is_rejection
+                ):  
+                    print("is post 1am IB + is_atr_filter")
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                    candidate.initial_target_price = market_context.session_low
+                    
+                    final_target_text = "ATR"
+                    candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                    candidate.final_target_price = bearish_atr_target_price
+                    
+                    if candidate.ping_type == "Flush":
+                        london_context.execution_state["flush_triggered"] = True
+                
+                elif (
+                    auction_direction == AuctionDirection.BEARISH
+                    and is_smt
+                    and is_rejection
+                ):
+                    print("is post 1am IB + auction is bearish")
+                    reversal_confirmation = True
+                    # continuation trade
+                    candidate.ping_type = "Flush"
+                    candidate.initial_target_price = market_context.session_low
+                    candidate.final_target = "ATR"
+                    if auction_engine.status.active_objective is not None:
+                        candidate.final_target_price = auction_engine.status.active_objective
+                    else:
+                        candidate.final_target_price = bearish_atr_target_price 
+                    london_context.execution_state["flush_triggered"] = True
+
     elif is_8am_wick_window:
         # use auction direction + htf bias
+        print("is 8am wick window")
         if look_for_longs:
             if (
                 is_atr_filter
                 and is_smt
                 and is_rejection
             ):
+                print("is 8am wick window + is_atr_filter")
                 reversal_confirmation = True
                 candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                 candidate.initial_target_price = market_context.session_high
@@ -629,10 +732,11 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     newyork_context.execution_state["rocket_triggered"] = True
     
             elif (
-                look_for_longs and auction_direction == AuctionDirection.BULLISH and htf_bias == "bullish"
+                auction_direction == AuctionDirection.BULLISH and htf_bias == "bullish"
                 and is_smt
                 and is_rejection
             ):
+                print("is 8am wick window + auction is bullish and htf bias is bullish")
                 reversal_confirmation = True
                 # continuation trade
                 candidate.ping_type = "Rocket"
@@ -651,6 +755,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 and is_smt
                 and is_rejection
             ):
+                print("is 8am wick window + is_atr_filter shorts")
                 reversal_confirmation = True
                 candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                 candidate.initial_target_price = market_context.session_low
@@ -663,10 +768,12 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     newyork_context.execution_state["flush_triggered"] = True
     
             elif (
+                
                 auction_direction == AuctionDirection.BEARISH and htf_bias == "bearish"
                 and is_smt
                 and is_rejection
             ):
+                print("is 8am wick window + auction is bearish and htf bias is bearish")
                 reversal_confirmation = True
                 # continuation trade
                 candidate.ping_type = "Flush"
@@ -3414,58 +3521,6 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     newyork_context.execution_state["rocket_triggered"] = True
 
             
-            # if look_for_shorts and allow_conflict_shorts:
-
-            #     # Flush:
-            #     # sweep of compression highs
-            #     # failed upside acceptance
-            #     #
-            #     # ideal continuation setup
-            #     # because bearish migration already accepted
-
-            #     if (
-            #         is_smt
-            #         and is_rejection
-            #     ):
-
-            #         reversal_confirmation = True
-            #         candidate.ping_type = "Flush"
-            #         # opposite side of compression
-            #         candidate.initial_target_price = (
-            #             newyork_context.structure["compression_low"]
-            #         )
-
-            #         # if ATR still available:
-            #         # continuation expansion possible
-            #         # bearish structure, final target is ATR
-            #         candidate.final_target = "ATR"
-
-            # elif look_for_longs and allow_conflict_longs:
-
-            #     # Rocket:
-            #     # sweep of compression lows
-            #     # rejection from elevated migration equilibrium
-
-            #     if (
-            #         is_smt
-            #         and is_rejection
-            #         and not liquidity_levels["cr8am_high"]["swept"]
-            #         and not co_asset["liquidity_levels"]["cr8am_high"]["swept"]
-            #     ):
-
-            #         reversal_confirmation = True
-            #         candidate.ping_type = "Mini Rocket"
-            #         # opposite side of compression
-            #         candidate.initial_target_price = newyork_context.structure["compression_high"]
-
-            #         # if downside ATR exhausted:
-            #         # upside likely terminates
-            #         # at upper compression boundary
-            #         #
-            #         # otherwise:
-            #         # full upside expansion possible
-            #         # close at compression highs
-            #         candidate.final_target = "MINI"
         # block completed - V4 - HTF for neutral structure
         elif structure_name == "sandwich_partial_overlap_bullish":
             print("structure : sandwich partial overlap bullish")
@@ -5857,107 +5912,6 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         candidate.set_ib_entry(ib_entry, ib_stop_loss)
         return reversal_confirmation
             
-    # TODO: implement this block after implementing IB blocks
-    elif window_name == "7h_wick_0100":
-        print("window trade: ", window_name)
-
-        # approach : 
-        # - 1am starts inside 18 IB and then moves outside of it with rejection, strong confirmation
-        # - 1am starts outside 18 IB and then moves inside of it with rejection, strong confirmation
-        # - 1am starts inside 18 IB and then moves inside of it with rejection, moderate confirmation
-        # - 1am starts outside 18 IB and then moves outside of it with rejection, moderate confirmation
-        # - if 1am is a strong rejection candle with close beyond 18 IB in either direction, strong confirmation
-        # - if 1am is a strong rejection candle but close is within 18 IB, moderate confirmation
-
-        # We shall implement compression and only strong confirmations, skip weak and moderate confirmations for now. We shall also skip smt confirmation for now. So the rules we shall implement now are:
-        # - if 1am is a strong rejection candle with close beyond 18 IB in either direction, strong confirmation - 3 AM Continuation
-        
-        
-
-
-        
-        return reversal_confirmation
-    
-    elif window_name == "7h_wick_0800":
-        print("candidate: ", candidate.sweep_3m_timestamp, candidate.sweep_and_ob_confirmation_timestamp)
-        print("candidate ob daate: ", candidate.ob_data)
-        print("window trade: ", window_name, candidate.sweep_timestamp)
-        print("candidate sweep time: ", candidate.sweep_timestamp)
-        print("candidate coasset sweeo time:", co_asset_candidate.sweep_timestamp)
-        # sweep should be inside the 7h wick window. this window is only to capture 7h wick reversals
-        # at least sweep should be in this window
-        if candidate.sweep_timestamp is None:
-            sweep_window_name = get_active_window(co_asset_candidate.sweep_timestamp)
-        else:
-            sweep_window_name = get_active_window(candidate.sweep_timestamp)
-        print("sweep window: ", sweep_window_name)
-
-        allow_shorts = True
-        allow_longs = True
-        print("overnight expansion: ", market_context.overnight_expansion, "exhaustion: ", market_context.exhaustion, "bias: ", market_context.bias )
-        
-        ib_high_18 = seven_hour_candle_6pm["ib_high"]
-        ib_low_18 = seven_hour_candle_6pm["ib_low"]
-        ib_ce_18 = seven_hour_candle_6pm["ib_ce"]
-        ib_high_1 = seven_hour_candle_1am["ib_high"]
-        ib_low_1 = seven_hour_candle_1am["ib_low"]
-        ib_ce_1 = seven_hour_candle_1am["ib_ce"]
-
-        # check if the setup passes displacement and atr filters
-
-        passed_atr_displacement_filter = displacement_atr_filter()
-        if passed_atr_displacement_filter and window_name == sweep_window_name:
-            reversal_confirmation = True
-
-        # if (market_context.overnight_expansion or market_context.exhaustion):
-        #     if market_context.session_direction == "bearish":
-        #         print("overnight bearish expansion or exhausion. not allowing shorts")
-        #         allow_shorts = False
-        #     elif market_context.session_direction == "bullish":
-        #         print("overnight bullish expansion or exhausion. not allowing shorts")
-        #         allow_longs = False        
-        #     else:
-        #         print("step 4")
-        
-        # print("inside last: ", candidate.instrument, candidate.sweep_and_ob_ce_confirmed)
-        # print("structure break: ", candidate.ob_data["structure_break"] if candidate.ob_data is not None else None, "strong_body_displacement: ", candidate.ob_data["strong_body_displacement"] if candidate.ob_data is not None else None)
-        # print("ob body range: ", candidate.ob_data["ob_body_range"] if candidate.ob_data is not None else None)
-        # if candidate.sweep_and_ob_ce_confirmed:
-        #     reversal_confirmation = True
-        #     print("aksnkdna 2")
-        # elif candidate.sweep_and_ob_confirmed:
-        #     if candidate.ob_data is not None:
-        #         if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
-        #             reversal_confirmation = True
-        #             print("lklkl 2")
-        # elif candidate.ob_data is not None:
-        #     if candidate.ob_data["structure_break"] and candidate.ob_data["ob_body_range"] > 0.5:
-        #         reversal_confirmation = True
-        #         print("aksnkdnaasdadasdas 2")
-        #     elif candidate.ob_data["strong_body_displacement"]:
-        #         reversal_confirmation = True
-        #         print("strong body displacement, allowing reversal")
-        #     else:
-        #         print("no strong body displacement, not allowing reversal")
-   
-            
-        # else:
-        #     print("none+none")
-
-        # # elif (market_context.overnight_expansion or market_context.exhaustion) and market_context.session_direction == "bullish":
-        # #     allow_longs = False
-        # print("allow_shorts: ", allow_shorts, "allow_longs: ", allow_longs)
-        # # allow reversal with reversal_confirmation as true
-        
-        # if look_for_longs and not allow_longs:
-        #     print("market exhauted, not allowing longs")
-        #     reversal_confirmation = False
-        # if look_for_shorts and not allow_shorts:
-        #     print("market exhauted, not allowing shorts")
-            # reversal_confirmation = False
-        # TODO: disabling wick window trades, review
-        reversal_confirmation = False
-        return reversal_confirmation
     elif is_post_london_killzone:
         print("window trade: ", "post london killzone")
         allow_longs = filter_longs_london(look_for_longs, session_direction, atr_usage, is_smt)

@@ -27,9 +27,6 @@ def initialize_weekly_state(instrument):
         "rocket": {"status": False, "time": None},
     }
 
-
-from datetime import timedelta
-
 def get_week_start(dt):
     """
     Returns the start of the CME trading week (Sunday 18:00 ET).
@@ -100,16 +97,16 @@ def _detect_latest_fvg(candles):
     #
     # Bullish FVG
     #
-    print("c1: ", c1)
-    print("c2: ", c2)
-    print("c3: ", c3)
+    # print("c1: ", c1)
+    # print("c2: ", c2)
+    # print("c3: ", c3)
 
-    if c3["low"] > c1["high"]:
+    if c3.low > c1.high:
 
         bullish_fvg = {
-            "low": c1["high"],
-            "high": c3["low"],
-            "ce": (c1["high"] + c3["low"]) / 2,
+            "low": c1.high,
+            "high": c3.low,
+            "ce": (c1.high + c3.low) / 2,
             "state": "open",
             "timestamp": c3["timestamp"],
         }
@@ -118,13 +115,13 @@ def _detect_latest_fvg(candles):
     # Bearish FVG
     #
 
-    elif c3["high"] < c1["low"]:
+    elif c3.high < c1.low:
         print("c3 high < c1 low")
 
         bearish_fvg = {
-            "low": c3["high"],
-            "high": c1["low"],
-            "ce": (c3["high"] + c1["low"]) / 2,
+            "low": c3.high,
+            "high": c1.low,
+            "ce": (c3.high + c1.low) / 2,
             "state": "open",
             "timestamp": c3["timestamp"],
         }
@@ -135,7 +132,7 @@ def _find_recent_bullish_candle(candles):
 
     for candle in reversed(candles[:-1]):
 
-        if candle["close"] > candle["open"]:
+        if candle.close > candle.open:
             return candle
 
     return None
@@ -144,7 +141,7 @@ def _find_recent_bearish_candle(candles):
 
     for candle in reversed(candles[:-1]):
 
-        if candle["close"] < candle["open"]:
+        if candle.close < candle.open:
             return candle
 
     return None
@@ -178,18 +175,11 @@ def build_weekly_state(
             if datetime.fromisoformat(candle["timestamp"]).date() == target_date
         ),
         None,
-    )
-    
+    ) 
     
     # weekly_state["week_start"] = week_start
     print("weekly_open_daily: ", week_open_daily)
-    if week_open_daily is None:
-        if instrument == "NQ":
-            weekly_state["weekly_open"] = 28747.5
-        elif instrument == "ES":
-            weekly_state["weekly_open"] = 7484.5
-    else:
-        weekly_state["weekly_open"] = week_open_daily["open"]
+    weekly_state["weekly_open"] = week_open_daily.open
 
     history = []
 
@@ -212,13 +202,13 @@ def build_weekly_state(
         
         candles_to_update_state.append(candle)
         # temporary fix to correct 1st 1h candle at week open
-        if len(candles_to_update_state) == 1:
-            print("updating first candle")
-            candles_to_update_state[0]["open"] = 28747.5 if instrument == "NQ" else 7484.5
-            # print("candles_to_update_state 0 open: ", candles_to_update_state[0]["open"])
-            candles_to_update_state[0]["high"] = 28851.25 if instrument == "NQ" else 7502.5
-            candles_to_update_state[0]["low"] = 28706.75 if instrument == "NQ" else 7482
-            candles_to_update_state[0]["close"] = 28815.75 if instrument == "NQ" else 7495.75
+        # if len(candles_to_update_state) == 1:
+        #     print("updating first candle")
+        #     candles_to_update_state[0]["open"] = 28747.5 if instrument == "NQ" else 7484.5
+        #     # print("candles_to_update_state 0 open: ", candles_to_update_state[0]["open"])
+        #     candles_to_update_state[0]["high"] = 28851.25 if instrument == "NQ" else 7502.5
+        #     candles_to_update_state[0]["low"] = 28706.75 if instrument == "NQ" else 7482
+        #     candles_to_update_state[0]["close"] = 28815.75 if instrument == "NQ" else 7495.75
         # print("candles_to_update_state: ", candles_to_update_state[0])
         weekly_state = update_weekly_1h_structure(
             weekly_state,
@@ -268,7 +258,7 @@ def update_weekly_1h_structure(
         
     # print("weekly open: ", weekly_state["weekly_open"])
     
-    current_price = candles_1h[-1]["close"]
+    current_price = candles_1h[-1].close
     last_closed = candles_1h[-1]
     print("===========================")
     print("last_closed: ", last_closed)
@@ -292,7 +282,7 @@ def update_weekly_1h_structure(
     if (
         weekly_state["bullish_cisd"] is not None
         and
-        last_closed["close"] < weekly_state["bullish_cisd"]["invalidate_below"]
+        last_closed.close < weekly_state["bullish_cisd"]["invalidate_below"]
     ):
         print("Weekly Bullish CISD invalidated")
         weekly_state["bullish_cisd"] = None
@@ -300,7 +290,7 @@ def update_weekly_1h_structure(
     if (
         weekly_state["bearish_cisd"] is not None
         and
-        last_closed["close"] > weekly_state["bearish_cisd"]["invalidate_above"]
+        last_closed.close > weekly_state["bearish_cisd"]["invalidate_above"]
     ):
         print("Weekly Bearish CISD invalidated")
         weekly_state["bearish_cisd"] = None
@@ -308,7 +298,7 @@ def update_weekly_1h_structure(
     if (
         weekly_state["new_bullish_cisd"] is not None
         and
-        last_closed["close"] < weekly_state["new_bullish_cisd"]["invalidate_below"]
+        last_closed.close < weekly_state["new_bullish_cisd"]["invalidate_below"]
     ):
         print("Weekly New Bullish CISD invalidated")
         weekly_state["new_bullish_cisd"] = None
@@ -316,7 +306,7 @@ def update_weekly_1h_structure(
     if (
         weekly_state["new_bearish_cisd"] is not None
         and
-        last_closed["close"] > weekly_state["new_bearish_cisd"]["invalidate_above"]
+        last_closed.close > weekly_state["new_bearish_cisd"]["invalidate_above"]
     ):
         print("Weekly New Bearish CISD invalidated")
         weekly_state["new_bearish_cisd"] = None
@@ -333,7 +323,7 @@ def update_weekly_1h_structure(
 
     if (
         recent_bearish is not None
-        and last_closed["close"] > recent_bearish["open"]
+        and last_closed.close > recent_bearish.open
         and last_closed["timestamp"] != recent_bearish["timestamp"]
 
     ):
@@ -348,16 +338,16 @@ def update_weekly_1h_structure(
 
             weekly_state["bullish_cisd"] = {
                 "timestamp": last_closed["timestamp"],
-                "cisd_level": recent_bearish["open"],
-                "invalidate_below": recent_bearish["close"] if recent_bearish["close"] < last_closed["open"] else last_closed["open"],
+                "cisd_level": recent_bearish.open,
+                "invalidate_below": recent_bearish.close if recent_bearish.close < last_closed.open else last_closed.open,
             }
             print("Weekly Bullish CISD formed: ", weekly_state["bullish_cisd"])
         elif weekly_state["new_bullish_cisd"] is not None:
 
             weekly_state["new_bullish_cisd"] = {
                 "timestamp": last_closed["timestamp"],
-                "cisd_level": recent_bearish["open"],
-                "invalidate_below": recent_bearish["close"] if recent_bearish["close"] < last_closed["open"] else last_closed["open"],
+                "cisd_level": recent_bearish.open,
+                "invalidate_below": recent_bearish.close if recent_bearish.close < last_closed.open else last_closed.open,
             }
             print("Weekly New Bullish CISD formed: ", weekly_state["new_bullish_cisd"])
         
@@ -380,31 +370,31 @@ def update_weekly_1h_structure(
 
     if (
         recent_bullish is not None
-        and last_closed["close"] < recent_bullish["open"]
+        and last_closed.close < recent_bullish.open
         and last_closed["timestamp"] != recent_bullish["timestamp"]
     ):
         print("check for new bearish cisd")
         print("recent_bullish: ", recent_bullish)
         print("last_closed timestamp: ", last_closed["timestamp"])
         print("recent timestamp: ", recent_bullish["timestamp"])
-        print("last_closed close: ", last_closed["close"])
-        print("recent bullish open: ", recent_bullish["open"])
+        print("last_closed close: ", last_closed.close)
+        print("recent bullish open: ", recent_bullish.open)
         print("prevous cisd: ", weekly_state["bearish_cisd"])
         if weekly_state["bearish_cisd"] is None:
 
             weekly_state["bearish_cisd"] = {
                 "timestamp": last_closed["timestamp"],
-                "cisd_level": recent_bullish["open"],
+                "cisd_level": recent_bullish.open,
                 # "invalidate_above": recent_bullish["high"] if recent_bullish["high"] > last_closed["high"] else last_closed["high"],
-                "invalidate_above": recent_bullish["close"] if recent_bullish["close"] > last_closed["open"] else last_closed["open"],
+                "invalidate_above": recent_bullish.close if recent_bullish.close > last_closed.open else last_closed.open,
             }
             print("Weekly Bearish CISD formed: ", weekly_state["bearish_cisd"])
             # update weekly state
         elif weekly_state["new_bearish_cisd"] is not None:
             weekly_state["new_bearish_cisd"] = {
                 "timestamp": last_closed["timestamp"],
-                "cisd_level": recent_bullish["open"],
-                "invalidate_above": recent_bullish["close"] if recent_bullish["close"] > last_closed["open"] else last_closed["open"],
+                "cisd_level": recent_bullish.open,
+                "invalidate_above": recent_bullish.close if recent_bullish.close > last_closed.open else last_closed.open,
             }
             print("Weekly New Bearish CISD formed: ", weekly_state["new_bearish_cisd"])
 
@@ -472,7 +462,7 @@ def update_weekly_1h_structure(
     if weekly_state["bullish_fvg"] is not None:
 
         if (
-            last_closed["close"] < weekly_state["bullish_fvg"]["low"]
+            last_closed.close < weekly_state["bullish_fvg"].low
             and weekly_state["bullish_fvg"]["state"] != "reclaimed"
         ):
             print("Weekly Bullish FVG reclaimed at: ", last_closed["timestamp"])
@@ -510,7 +500,7 @@ def update_weekly_1h_structure(
             weekly_state["rocket"]["time"] = None
 
         elif (
-            last_closed["low"] < weekly_state["bullish_fvg"]["high"]
+            last_closed.low < weekly_state["bullish_fvg"].high
             and weekly_state["bullish_fvg"]["state"] == "open"
         ):
             weekly_state["bullish_fvg"]["state"] = "mitigated"
@@ -520,7 +510,7 @@ def update_weekly_1h_structure(
     if weekly_state["bearish_fvg"] is not None:
 
         if (
-            last_closed["close"] > weekly_state["bearish_fvg"]["high"]
+            last_closed.close > weekly_state["bearish_fvg"].high
             and weekly_state["bearish_fvg"]["state"] != "reclaimed"
         ):
 
@@ -558,7 +548,7 @@ def update_weekly_1h_structure(
             weekly_state["flush"]["time"] = None
 
         elif (
-            last_closed["high"] > weekly_state["bearish_fvg"]["low"]
+            last_closed.high > weekly_state["bearish_fvg"].low
             and weekly_state["bearish_fvg"]["state"] == "open"
         ):
             weekly_state["bearish_fvg"]["state"] = "mitigated"

@@ -27,7 +27,7 @@ from bot.handlers import register_handlers
 from dotenv import load_dotenv
 
 from market_data.repository.sqlite_contract_repository import SQLiteContractRepository
-from market_data.services.history_loader import HistoryLoader
+from market_data.services.massive_history_loader_old import HistoryLoader
 from modules.orchestrator import evaluate_7h_setup
 from helpers.zones import get_current_7h_open
 from alerts.alert_engine import handle_stage

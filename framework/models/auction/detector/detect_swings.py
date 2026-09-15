@@ -24,9 +24,9 @@ def detect_htf_swings(
     c1 = candles[-3]
     c2 = candles[-2]
     c3 = candles[-1]
-    print("c1: ", c1)
-    print("c2: ", c2)
-    print("c3: ", c3)
+    # print("c1: ", c1)
+    # print("c2: ", c2)
+    # print("c3: ", c3)
 
     swings = []
 

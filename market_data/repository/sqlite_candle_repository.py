@@ -14,9 +14,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from database.session import SessionLocal
+# from helpers.time_windows import NY_TZ
 from market_data.models.candle import CandleORM
 from data.models.candle import Candle
 from market_data.repository.candle_repository import CandleRepository
+from zoneinfo import ZoneInfo
+
+UTC_TZ = ZoneInfo("UTC")
+NY_TZ = ZoneInfo("America/New_York")
 
 
 class SQLiteCandleRepository(CandleRepository):
@@ -28,6 +33,15 @@ class SQLiteCandleRepository(CandleRepository):
         if dt.tzinfo is None:
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
+    
+    @staticmethod
+    def _ensure_ny(dt: datetime) -> datetime:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        return dt.astimezone(NY_TZ)
+
+    
 
     def save(self, candles: list[Candle]) -> None:
         """
@@ -108,6 +122,56 @@ class SQLiteCandleRepository(CandleRepository):
             )
             return self._ensure_utc(candle.timestamp)
     
+    def exists(
+        self,
+        contract: str,
+        timeframe: int,
+        timestamp: datetime,
+    ) -> bool:
+
+        stmt = (
+            select(CandleORM.timestamp)
+            .where(CandleORM.contract == contract)
+            .where(CandleORM.timeframe == timeframe)
+            .where(CandleORM.timestamp == timestamp)
+            .limit(1)
+        )
+
+        return self.session.scalar(stmt) is not None
+    
+    def get_time_range(
+        self,
+        contract: str,
+        timeframe: int,
+    ) -> tuple[datetime | None, datetime | None]:
+
+        first_stmt = (
+            select(CandleORM.timestamp)
+            .where(CandleORM.contract == contract)
+            .where(CandleORM.timeframe == timeframe)
+            .order_by(CandleORM.timestamp.asc())
+            .limit(1)
+        )
+
+        last_stmt = (
+            select(CandleORM.timestamp)
+            .where(CandleORM.contract == contract)
+            .where(CandleORM.timeframe == timeframe)
+            .order_by(CandleORM.timestamp.desc())
+            .limit(1)
+        )
+
+        first_timestamp = self.session.scalar(first_stmt)
+        last_timestamp = self.session.scalar(last_stmt)
+
+        if first_timestamp is not None and first_timestamp.tzinfo is None:
+            first_timestamp = first_timestamp.replace(tzinfo=UTC_TZ)
+
+        if last_timestamp is not None and last_timestamp.tzinfo is None:
+            last_timestamp = last_timestamp.replace(tzinfo=UTC_TZ)
+
+        return first_timestamp, last_timestamp
+
 
     def get_last(
         self,
@@ -134,6 +198,29 @@ class SQLiteCandleRepository(CandleRepository):
         return [self._to_domain(row) for row in rows]
 
 
+    def get_last_n(
+        self,
+        contract: str,
+        timeframe: int,
+        end: datetime,
+        n: int,
+    ) -> list[Candle]:
+
+        stmt = (
+            select(CandleORM)
+            .where(CandleORM.contract == contract)
+            .where(CandleORM.timeframe == timeframe)
+            .where(CandleORM.timestamp <= end)
+            .order_by(CandleORM.timestamp.desc())
+            .limit(n)
+        )
+
+        rows = self.session.scalars(stmt).all()
+
+        rows.reverse()
+
+        return [self._to_domain(row) for row in rows]
+    
     def get_latest_by_instrument(
         self,
         instrument: str,
@@ -236,13 +323,35 @@ class SQLiteCandleRepository(CandleRepository):
             for row in rows
         ]
 
+    def get_at(
+        self,
+        contract: str,
+        timeframe: int,
+        timestamp: datetime,
+    ) -> Candle | None:
+
+        stmt = (
+            select(CandleORM)
+            .where(CandleORM.contract == contract)
+            .where(CandleORM.timeframe == timeframe)
+            .where(CandleORM.timestamp == timestamp)
+        )
+
+        row = self.session.scalar(stmt)
+
+        if row is None:
+            return None
+
+        return self._to_domain(row)
+
     @staticmethod
     def _to_domain(row: CandleORM) -> Candle:
+        
         return Candle(
             instrument=row.instrument,
             timeframe=row.timeframe,
             contract=row.contract,
-            timestamp=SQLiteCandleRepository._ensure_utc(row.timestamp),
+            timestamp=SQLiteCandleRepository._ensure_ny(row.timestamp),
             open=row.open,
             high=row.high,
             low=row.low,

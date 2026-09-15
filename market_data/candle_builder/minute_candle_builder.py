@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Callable
 
 from data.models.candle import Candle
@@ -8,8 +8,20 @@ class MinuteCandleBuilder:
     def __init__(self, on_candle: Callable[[Candle], None]):
         self._on_candle = on_candle
         self._current_candles: dict[tuple[str, str], Candle] = {}
+        self._realtime_start_bucket: datetime | None = None
 
-    
+    def set_realtime_start(self, timestamp: datetime) -> None:
+        timestamp = timestamp.astimezone(timezone.utc)
+
+        self._realtime_start_bucket = timestamp.replace(
+            second=0,
+            microsecond=0,
+        )
+
+        print(
+            f"Realtime candle start boundary: "
+            f"{self._realtime_start_bucket}"
+        )
 
     def add_trade(self, trade: Trade) -> None:
         timestamp = trade.timestamp.astimezone(timezone.utc)

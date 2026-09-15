@@ -8,12 +8,16 @@ import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+from data.models.candle import Candle
 from database.session import SessionLocal
+from engine.initialization import initialize_ping
+from engine.ping_flow import start_ping_flow
 from market_data.api.projectx.rest.projectx_rest import ProjectXREST
 from market_data.api.projectx.websocket.projectx_websocket import ProjectXWebSocket
+from market_data.candle_builder.htf_candle_builder import HTF_1H, HTF_30M, HTF_3M, HTF_4H, HTF_7H, HTF_D, NY_TZ, UTC_TZ, HTFCandleBuilder, HTFDefinition
 from market_data.candle_builder.minute_candle_builder import MinuteCandleBuilder
 from market_data.contracts.contracts_mapper import ContractMapper
-from market_data.htf.htf_candle_builder import HTFCandleBuilder, inspect_1m_gaps
+from market_data.htf.htf_candle_builder import inspect_1m_gaps
 from market_data.providers.projectx_futures_provider import ProjectXFuturesProvider
 from market_data.repository.sqlite_candle_repository import SQLiteCandleRepository
 
@@ -31,6 +35,7 @@ from bot.handlers import register_handlers
 from dotenv import load_dotenv
 
 from market_data.repository.sqlite_contract_repository import SQLiteContractRepository
+from market_data.scheduler.scheduler import Scheduler
 from market_data.services.massive_contracts_history_loader import MassiveContractsHistoryLoader
 from market_data.services.projectx_candle_history_loader import ProjectxCandlesHistoryLoader
 from market_data.services.set_rollovers import set_rollover_dates
@@ -113,6 +118,7 @@ def main():
             # latest = repo.latest_timestamp("NQ", 1)
 
             # print("latest: ", latest)
+        # initialize ping
         rest = MassiveREST(POLYGON_API_KEY)
 
         provider = MassiveFuturesProvider(rest)
@@ -139,21 +145,24 @@ def main():
             api_key=PROJECTX_API_KEY,
         )
 
+        projectx_session = SessionLocal()
+        projectx_contract_repo = SQLiteContractRepository(
+            projectx_session
+        )
+
+        projectx_candle_repo = SQLiteCandleRepository(
+            projectx_session
+        )
 
         projectx_provider = ProjectXFuturesProvider(
             rest=projectx_rest,
             contract_mapper=mapper,
         )
-        candle_loader = ProjectxCandlesHistoryLoader(
+        projectx_history_candle_loader = ProjectxCandlesHistoryLoader(
             provider=projectx_provider,
-            contract_repo=contract_repo,
-            candle_repo=candle_repo,
+            contract_repo=projectx_contract_repo,
+            candle_repo=projectx_candle_repo,
         )
-        # latest = candle_repo.latest_timestamp_by_contract(
-        #     contract="ESU6",
-        #     timeframe=1,
-        # )
-
         # end = datetime.now(timezone.utc)
         
         # start = end - timedelta(hours=1)
@@ -184,52 +193,6 @@ def main():
         #     contract="ESU6",
         #     timeframe=1,
         # )
-
-        # start = latest + timedelta(minutes=1)
-        # end = datetime.now(timezone.utc)
-
-        # print("DB latest:", latest)
-        # print("Requesting:", start, "→", end)
-        # end = datetime.now(timezone.utc)
-        # start = end - timedelta(hours=24)
-        # start = datetime(
-        #     2026, 8, 23, 0, 0,
-        #     tzinfo=timezone.utc,
-        # )
-
-        # end = datetime(
-        #     2026, 9, 3, 0, 0,
-        #     tzinfo=timezone.utc,
-        # )
-
-        # candles = projectx_provider.get_history(
-        #     instrument="ES",
-        #     contract="ESU6",
-        #     timeframe=1,
-        #     start=start,
-        #     end=end,
-        #     latest=latest,
-        # )
-        # if candles:
-        #     candle_repo.save(candles)
-        #     print(f"Saved {len(candles)} candles")
-        # print("Received:", len(candles))
-
-        # for candle in candles:
-        #     print(
-        #         candle.timestamp,
-        #         candle.open,
-        #         candle.high,
-        #         candle.low,
-        #         candle.close,
-        #         candle.volume,
-        #     )
-        # latest = candle_repo.latest_timestamp_by_contract(
-        #     contract="ESU6",
-        #     timeframe=1,
-        # )
-
-        # print("Latest:", latest)
 
         # ========================================
         # ========================================
@@ -306,98 +269,574 @@ def main():
         # get lastest candles from db by current contract
         # sync candles daily
         for instrument in ["NQ", "ES"]:
-            candle_loader.sync_candles(instrument)
+            projectx_history_candle_loader.sync_candles(instrument)
 
-        # NQ
-        # nq_latest = candle_repo.latest_timestamp_by_contract(
-        #     contract=contract_info_nq.contract,
-        #     timeframe=1,
-        # )
-        # start = nq_latest + timedelta(minutes=1)
-        # end = datetime.now(timezone.utc)
-        # nq_candles = projectx_provider.get_history(
-        #     instrument="NQ",
-        #     contract=nq_projectx_id,
-        #     timeframe=1,
-        #     start=start,
-        #     end=end,
-        #     latest=nq_latest,
-        # )
-        # if nq_candles:
-        #     candle_repo.save(nq_candles)
-        #     print(f"Saved {len(nq_candles)} candles")
-        # print("NQ candles Received:", len(nq_candles))
-
-        # for candle in nq_candles:
-        #     print(
-        #         candle.timestamp,
-        #         candle.open,
-        #         candle.high,
-        #         candle.low,
-        #         candle.close,
-        #         candle.volume,
-        #     )
-        # ES
-        # es_latest = candle_repo.latest_timestamp_by_contract(
-        #     contract=contract_info_es.contract,
-        #     timeframe=1,
-        # )
-        # start = es_latest + timedelta(minutes=1)
-        # end = datetime.now(timezone.utc)
-        # es_candles = projectx_provider.get_history(
-        #     instrument="ES",
-        #     contract=es_projectx_id,
-        #     timeframe=1,
-        #     start=start,
-        #     end=end,
-        #     latest=es_latest,
-        # )
-        # if es_candles:
-        #     candle_repo.save(es_candles)
-        #     print(f"Saved {len(es_candles)} candles")
-        # print("ES candles Received:", len(es_candles))
-
-        # for candle in es_candles:
-        #     print(
-        #         candle.timestamp,
-        #         candle.open,
-        #         candle.high,
-        #         candle.low,
-        #         candle.close,
-        #         candle.volume,
-        #     )
-
+        
         print("=========")
-        # print("getting full history")
-        # loader.download_full_history(
-        #     instrument="NQ",
-        #     timeframe=1,
-        # )
 
         # ================================
         # ProjectX Websocket Connection
         # ================================
-        builder = MinuteCandleBuilder(
-            on_candle=lambda candle: print("CANDLE:", candle)
-        )
-        projectx_websocket = ProjectXWebSocket(
-            token=projectx_rest.token,
-            contract_mapper=mapper,
-            contract_repo=contract_repo,
-            on_trade=builder.add_trade,
-        )
-
-        projectx_websocket.connect()
         
-        projectx_websocket.subscribe_trades(
-            "CON.F.US.ENQ.U26"
+        # Callback for completed realtime candles
+        def save_realtime_candle(candle: Candle) -> None:
+            projectx_candle_repo.save([candle])
+
+            print(
+                f"Saved realtime candle: "
+                f"{candle.instrument} "
+                f"{candle.contract} "
+                f"{candle.timestamp}"
+            )
+        # test
+        
+        # start = datetime(
+        #     2026, 9, 7, 15, 0,
+        #     tzinfo=timezone.utc,
+        # )
+
+        # end = datetime(
+        #     2026, 9, 7, 15, 29,
+        #     tzinfo=timezone.utc,
+        # )
+
+        # candles = candle_repo.get_between(
+        #     contract="NQU6",
+        #     timeframe=1,
+        #     start=start,
+        #     end=end,
+        # )
+
+        # print("COUNT:", len(candles))
+
+        # for candle in candles[:3]:
+        #     print("FIRST:", candle)
+
+        # for candle in candles[-3:]:
+        #     print("LAST:", candle)
+        
+        # latest = candle_repo.latest_timestamp_by_contract(
+        #     "NQU6",
+        #     timeframe=1,
+        # )
+
+        # print("LATEST NQ:", latest)
+
+        # Create builder
+        builder = MinuteCandleBuilder(
+            on_candle=save_realtime_candle
+        )
+        htf_builder = HTFCandleBuilder(
+            candle_repo=projectx_candle_repo,
+            on_candle=save_realtime_candle,
+            history_loader=projectx_history_candle_loader,
         )
 
-        projectx_websocket.subscribe_trades(
-            "CON.F.US.EP.U26"
+        UTC_TZ = ZoneInfo("UTC")
+        # NY_TZ = ZoneInfo("America/New_York")
+
+        # tests = [
+        #     # ---------------------------------------------------------
+        #     # 7H completion boundaries
+        #     # ---------------------------------------------------------
+        #     ("7H", 420, "2026-09-09 01:00"),
+        #     ("7H", 420, "2026-09-09 08:00"),
+        #     ("7H", 420, "2026-09-09 15:00"),
+        #     ("7H", 420, "2026-09-09 17:00"),
+        #     ("7H", 420, "2026-09-09 18:00"),
+
+        #     # ---------------------------------------------------------
+        #     # 4H completion boundaries
+        #     # ---------------------------------------------------------
+        #     ("4H", 240, "2026-09-08 22:00"),
+        #     ("4H", 240, "2026-09-09 02:00"),
+        #     ("4H", 240, "2026-09-09 06:00"),
+        #     ("4H", 240, "2026-09-09 10:00"),
+        #     ("4H", 240, "2026-09-09 14:00"),
+        #     ("4H", 240, "2026-09-09 17:00"),
+        #     ("4H", 240, "2026-09-09 18:00"),
+        # ]
+
+        # for name, timeframe, ny_string in tests:
+
+        #     completion_ny = datetime.strptime(
+        #         ny_string,
+        #         "%Y-%m-%d %H:%M",
+        #     ).replace(tzinfo=NY_TZ)
+
+        #     completion_utc = completion_ny.astimezone(UTC_TZ)
+
+        #     definition = HTFDefinition(
+        #         timeframe=timeframe,
+        #         name=name,
+        #     )
+
+        #     start_utc, end_utc = htf_builder._get_completed_period(
+        #         completion_utc,
+        #         definition,
+        #     )
+
+        #     start_ny = start_utc.astimezone(NY_TZ)
+        #     end_ny = end_utc.astimezone(NY_TZ)
+
+        #     print(
+        #         f"{name}: "
+        #         f"completion={completion_ny.strftime('%m-%d %H:%M')} NY | "
+        #         f"period="
+        #         f"{start_ny.strftime('%m-%d %H:%M')} → "
+        #         f"{end_ny.strftime('%m-%d %H:%M')} NY | "
+        #         f"UTC="
+        #         f"{start_utc.strftime('%m-%d %H:%M')} → "
+        #         f"{end_utc.strftime('%m-%d %H:%M')}"
+        #     )
+        # start_utc = datetime(
+        #     2026,
+        #     9,
+        #     9,
+        #     5,
+        #     0,
+        #     tzinfo=ZoneInfo("UTC"),
+        # )
+
+        # end_utc = datetime(
+        #     2026,
+        #     9,
+        #     9,
+        #     12,
+        #     0,
+        #     tzinfo=ZoneInfo("UTC"),
+        # )
+
+        # candles = projectx_candle_repo.get_between(
+        #     contract="NQU6",
+        #     timeframe=1,
+        #     start=start_utc,
+        #     end=end_utc - timedelta(minutes=1),
+        # )
+
+        # print(f"Count: {len(candles)}")
+
+        # if candles:
+        #     print(f"First: {candles[0].timestamp}")
+        #     print(f"Last:  {candles[-1].timestamp}")
+
+        #     print(
+        #         "First NY:",
+        #         candles[0].timestamp.astimezone(HTF_NY_TZ),
+        #     )
+
+        #     print(
+        #         "Last NY:",
+        #         candles[-1].timestamp.astimezone(HTF_NY_TZ),
+        #     )
+
+        # definition = HTFDefinition(
+        #     timeframe=420,
+        #     name="7h",
+        # )
+
+        # candle = htf_builder.build_completed_candle(
+        #     instrument="NQ",
+        #     contract="NQU6",
+        #     end_utc=datetime(
+        #         2026,
+        #         9,
+        #         8,
+        #         12,
+        #         0,
+        #         tzinfo=ZoneInfo("UTC"),
+        #     ),
+        #     definition=definition,
+        # )
+
+        # print(candle)
+        
+        # candle = htf_builder.build_completed_candle(
+        #     instrument="NQ",
+        #     contract="NQU6",
+        #     end_utc=datetime(
+        #         2026,
+        #         9,
+        #         8,
+        #         14,
+        #         33,
+        #         tzinfo=ZoneInfo("UTC"),
+        #     ),
+        #     definition=HTFDefinition(
+        #         timeframe=3,
+        #         name="3m",
+        #     ),
+        # )
+
+        # print(candle)
+        # count = htf_builder.backfill_htf(
+        #     instrument="NQ",
+        #     contract="NQU6",
+        #     start_utc=datetime(
+        #         2026, 9, 7, 21, 0,
+        #         tzinfo=UTC_TZ,
+        #     ),
+        #     end_utc=datetime(
+        #         2026, 9, 9, 0, 0,
+        #         tzinfo=UTC_TZ,
+        #     ),
+        #     definition=HTFDefinition(
+        #         timeframe=240,
+        #         name="4h",
+        #     ),
+        # )
+
+        # print("Built:", count)
+        # count = htf_builder.backfill_contract_htf_history(
+        #     instrument="NQ",
+        #     contract="NQU6",
+        #     start_utc=datetime(
+        #         2026, 9, 9, 21, 0,
+        #         tzinfo=UTC_TZ,
+        #     ),
+        #     end_utc=datetime(
+        #         2026, 9, 11, 0, 0,
+        #         tzinfo=UTC_TZ,
+        #     ),
+        # )
+
+        # print(count)
+        
+        
+        # first_1m, last_1m = htf_builder._candle_repo.get_time_range(
+        #     contract="NQU6",
+        #     timeframe=1,
+        # )
+
+        # print("First 1m 2:", first_1m)
+        # print("Last 1m 2:", last_1m)
+        # print("First 1m 2:", first_1m.tzinfo)
+        # print("Last 1m 2:", last_1m.tzinfo)
+
+        # results = htf_builder.backfill_contract_htf_history(
+        #     instrument="ES",
+        #     contract="ESU6",
+        # )
+        # print(results)
+
+        # results = htf_builder.backfill_contract_htf_history(
+        #     instrument="NQ",
+        #     contract="NQU6",
+        # )
+        # print(results)
+
+
+        # candles = htf_builder._candle_repo.get_between(
+        #     contract="NQU6",
+        #     timeframe=420,
+        #     start=datetime(2026, 9, 8, 0, 0, tzinfo=UTC_TZ),
+        #     end=datetime(2026, 9, 9, 0, 0, tzinfo=UTC_TZ),
+        # )
+
+        # for candle in candles:
+        #     print(
+        #         f"timestamp={candle.timestamp}, "
+        #         f"tzinfo={candle.timestamp.tzinfo}, "
+        #         f"NY={candle.timestamp_ny}"
+        #     )
+        # for day in [
+        #     datetime(2026, 8, 10, tzinfo=UTC_TZ),
+        #     datetime(2026, 8, 11, tzinfo=UTC_TZ),
+        #     datetime(2026, 8, 12, tzinfo=UTC_TZ),
+        #     datetime(2026, 9, 1, tzinfo=UTC_TZ),
+        #     datetime(2026, 9, 2, tzinfo=UTC_TZ),
+        #     datetime(2026, 9, 3, tzinfo=UTC_TZ),
+        # ]:
+        #     next_day = day + timedelta(days=1)
+
+        #     candles = htf_builder._candle_repo.get_between(
+        #         contract="NQU6",
+        #         timeframe=1,
+        #         start=day,
+        #         end=next_day,
+        #     )
+
+        #     print(
+        #         day.date(),
+        #         "count=", len(candles),
+        #         "first=", candles[0].timestamp if candles else None,
+        #         "last=", candles[-1].timestamp if candles else None,
+        #     )
+
+        # start ping flow
+        ping_start_time = datetime.now(timezone.utc)
+        start_ping_flow(
+            start_time=ping_start_time,
+            contract_repo=contract_repo,
+            candle_repo=projectx_candle_repo,
         )
-        while True:
-            time.sleep(1)
+        # initialize state
+        ping_start_time = datetime.now(timezone.utc)
+
+        # ping_runtime = initialize_ping(
+        #     start_time=ping_start_time,
+        #     contract_repo=contract_repo,
+        #     candle_repo=projectx_candle_repo,
+        # )
+
+        # process ping loop
+        
+
+        # Create ProjectX WebSocket connection
+        # websocket_session = SessionLocal()
+
+        # websocket_contract_repo = SQLiteContractRepository(
+        #     websocket_session
+        # )
+        # projectx_websocket = ProjectXWebSocket(
+        #     token=projectx_rest.token,
+        #     contract_mapper=mapper,
+        #     contract_repo=websocket_contract_repo,
+        #     on_trade=builder.add_trade,
+        # )
+
+        # # Connect to ProjectX WebSocket and subscribe to trades for the current contracts
+        # projectx_websocket.connect()
+
+        # # Get the actual connection timestamp
+        # builder.set_realtime_start(
+        #     projectx_websocket.realtime_start
+        # )
+
+        # # Subscribe to trades for the current contracts
+        # projectx_websocket.subscribe_trades(
+        #     "CON.F.US.ENQ.U26"
+        # )
+
+        # projectx_websocket.subscribe_trades(
+        #     "CON.F.US.EP.U26"
+        # )
+        # # Give the realtime feed some time to run
+        # print("Waiting 10 seconds before reconciliation...")
+        # time.sleep(10)
+
+        # # Test REST reconciliation
+        # # reconciled = projectx_history_candle_loader.reconcile_recent_candles(
+        # #     "NQ",
+        # #     lookback_minutes=60,
+        # # )
+
+        # # print(f"Reconciled NQ candles: {reconciled}")
+
+        # # reconciled = projectx_history_candle_loader.reconcile_recent_candles(
+        # #     "ES",
+        # #     lookback_minutes=60,
+        # # )
+        
+        def process_3m(end):
+            print(">>> 3m processing started")
+
+            nq_count = htf_builder.process_realtime_htf(
+                instrument="NQ",
+                contract="NQU6",
+                boundary_utc=end,
+                definition=HTF_3M,
+            )
+
+            es_count = htf_builder.process_realtime_htf(
+                instrument="ES",
+                contract="ESU6",
+                boundary_utc=end,
+                definition=HTF_3M,
+            )
+
+            print(
+                f">>> 3m HTF processing complete: "
+                f"NQ={nq_count}, ES={es_count}"
+            )
+
+        def process_30m_htf(end):
+            print(">>> 30m HTF processing started")
+
+            nq_count = htf_builder.process_realtime_htf(
+                instrument="NQ",
+                contract="NQU6",
+                boundary_utc=end,
+                definition=HTF_30M,
+            )
+
+            es_count = htf_builder.process_realtime_htf(
+                instrument="ES",
+                contract="ESU6",
+                boundary_utc=end,
+                definition=HTF_30M,
+            )
+
+            print(
+                f">>> 30m HTF processing complete: "
+                f"NQ={nq_count}, ES={es_count}"
+            )
+
+        def process_4h():
+            print(">>> 4H processing started")
+
+            end = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+
+            nq_count = htf_builder.process_realtime_htf(
+                instrument="NQ",
+                contract="NQU6",
+                boundary_utc=end,
+                definition=HTF_4H,
+            )
+
+            es_count = htf_builder.process_realtime_htf(
+                instrument="ES",
+                contract="ESU6",
+                boundary_utc=end,
+                definition=HTF_4H,
+            )
+
+            print(
+                f">>> 4H HTF processing complete: "
+                f"NQ={nq_count}, ES={es_count}"
+            )
+
+        def process_7h():
+            print(">>> 7H processing started")
+
+            end = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+
+            nq_count = htf_builder.process_realtime_htf(
+                instrument="NQ",
+                contract="NQU6",
+                boundary_utc=end,
+                definition=HTF_7H,
+            )
+
+            es_count = htf_builder.process_realtime_htf(
+                instrument="ES",
+                contract="ESU6",
+                boundary_utc=end,
+                definition=HTF_7H,
+            )
+
+            print(
+                f">>> 7H HTF processing complete: "
+                f"NQ={nq_count}, ES={es_count}"
+            )
+
+        def process_daily():
+            print(">>> Daily processing started")
+
+            end = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+
+            nq_count = htf_builder.process_realtime_htf(
+                instrument="NQ",
+                contract="NQU6",
+                boundary_utc=end,
+                definition=HTF_D,
+            )
+
+            es_count = htf_builder.process_realtime_htf(
+                instrument="ES",
+                contract="ESU6",
+                boundary_utc=end,
+                definition=HTF_D,
+            )
+
+            print(
+                f">>> Daily HTF processing complete: "
+                f"NQ={nq_count}, ES={es_count}"
+            )
+        def process_ping():
+            print("processing ping...")
+
+        def process_30m():
+            print(">>> 30m processing started")
+            
+            # Use one boundary timestamp for the entire pipeline.
+            end = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+
+            # Step 1: Reconcile recent 1m candles
+            nq_reconciled = (
+                projectx_history_candle_loader.reconcile_recent_candles(
+                    "NQ",
+                    lookback_minutes=60,
+                )
+            )
+
+            es_reconciled = (
+                projectx_history_candle_loader.reconcile_recent_candles(
+                    "ES",
+                    lookback_minutes=60,
+                )
+            )
+            print(
+                f">>> 30m reconciliation complete: "
+                f"NQ={nq_reconciled}, ES={es_reconciled}"
+            )
+            # Rebuild 3m
+            process_3m(end)
+
+            # Build/rebuild 30m
+            process_30m_htf(end)
+
+            print(">>> 30m processing completed successfully")
+
+            
+
+        
+        def process_scheduler_tasks():
+            now_utc = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+
+            if htf_builder.is_htf_boundary(now_utc, HTF_3M):
+                process_3m()
+
+            if htf_builder.is_htf_boundary(now_utc, HTF_30M):
+
+                try:
+                    process_30m()
+
+                except Exception as e:
+                    print(f">>> 30m processing FAILED: {e}")
+                    print(">>> Ping skipped")
+
+                else:
+                    print(">>> 30m processing successful")
+                    print(">>> Starting Ping")
+                    process_ping(now_utc)
+                
+            if htf_builder.is_htf_boundary(now_utc, HTF_4H):
+                process_4h()
+
+            if htf_builder.is_htf_boundary(now_utc, HTF_7H):
+                process_7h()
+
+            if htf_builder.is_htf_boundary(now_utc, HTF_D):
+                process_daily()
+        # scheduler = Scheduler()
+
+        # scheduler.add_boundary_job(
+        #     name="30m_processing",
+        #     minutes=30,
+        #     callback=process_scheduler_tasks,
+        # )
+
+        # scheduler.start()
+
+        # # Keep the WebSocket process alive
+        # while True:
+        #     time.sleep(1)
 
         # print("1m:", len(candles_1m))
 
@@ -543,7 +982,7 @@ def main():
         # print("****")
         # print(r.status_code)
         # print(r.text)
-        # run_quick_backtest("2026-08-26")
+        # run_quick_backtest("2026-09-01")
         # run_quick_test("2026-04-21")
         return
     # token = os.getenv("BOT_TOKEN")

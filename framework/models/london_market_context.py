@@ -8,6 +8,16 @@ class LondonMarketContext:
         self.ib_1 = {}
         self.directional_mode = None
 
+        self.execution_state = {
+            "rocket_triggered": False,
+            "rocket_completed": False,
+            "flush_triggered": False,
+            "flush_completed": False,
+            "auction_direction": None,     # bullish | bearish
+            "auction_locked": False,
+            "delivery_complete": False,
+        }
+
 
         # -------- STRUCTURE --------
         self.structure = {

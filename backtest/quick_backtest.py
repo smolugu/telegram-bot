@@ -10,7 +10,7 @@ from framework.models.market_context import MarketContext
 from framework.models.nyam_market_context import NewYorkMarketContext
 from framework.models.sweep_validation import validate_sweeps
 from framework.models.weekly_profile import WeeklyContext
-from framework.models.weekly_state import build_weekly_state, initialize_weekly_state, update_weekly_1h_structure
+from framework.state.weekly_state import build_weekly_state, initialize_weekly_state, update_weekly_1h_structure
 from data.sqlite.db import DB_FILE
 
 
@@ -37,7 +37,8 @@ from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_le
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, find_swing_highs, find_swing_lows, update_sweep_info
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from alerts.alert_engine import send_telegram_alert_to_all
-from alerts.alert_payload import build_summary_alert, build_trade_alert
+from alerts.alert_payload import build_trade_alert
+from alerts.summary_alert import build_summary_alert
 
 
 
@@ -279,15 +280,16 @@ def run_quick_backtest(test_date: str):
         current_day_start,
         "NQ"
     )
+    
     es_weekly_state = build_weekly_state(
         es["1d"],
         es["1h"],
         current_day_start,
         "ES"
     )
-    for c in nq["4h"][:10]:
-        print(c["timestamp"])
-        print(c)
+    # for c in nq["4h"][:10]:
+    #     print(c["timestamp"])
+    #     print(c)
     converted_1m_nq = [candle_from_dict(c=c, timeframe="1m", instrument= "NQ", contract=nq_contract) for c in nq_1m]
     converted_3m_nq = [candle_from_dict(c=c, timeframe="1m", instrument= "NQ", contract=nq_contract) for c in nq_3m]
     converted_4h_nq = [candle_from_dict(c=c, timeframe="4h", instrument= "NQ", contract=nq_contract) for c in nq["4h"]]
@@ -307,13 +309,13 @@ def run_quick_backtest(test_date: str):
         candles = converted_7h_nq,
         timeframe = "7h",
     )
-    print("h7_swings_nq: ", h7_swings_nq)
+    # print("h7_swings_nq: ", h7_swings_nq)
 
     d_swings_nq = detect_swings(
         candles = converted_1d_nq,
         timeframe = "1d",
     )
-    print("d_swings_nq: ", d_swings_nq)
+    # print("d_swings_nq: ", d_swings_nq)
     h4_swings_es = detect_swings(
         candles = converted_4h_es,
         timeframe = "4h",
@@ -382,13 +384,6 @@ def run_quick_backtest(test_date: str):
             inside_1m_candles_nq = [c for c in nq_1m if c["timestamp"] >= last_closed_nq["timestamp"] and c["timestamp"] < last_closed_nq["timestamp"]]
             inside_1m_candles_es = [c for c in es_1m if c["timestamp"] >= last_closed_es["timestamp"] and c["timestamp"] < last_closed_es["timestamp"]]
             
-            # if dt.minute == 0:
-            # if i <= 3:
-                # nq_weekly_state, es_weekly_state = update_weekly_1h_structure_abs(nq_weekly_state, es_weekly_state, current_30m_start)
-            # if i == 1:
-            #     print("current start cc: ", current_30m_start)
-
-            # continue
             if i == 1:
                 print("resetting liquidity at : ", i, ts)
                 # TODO: IMP update only swept liquidity, for example keep NYPM unswept levels for next session or day
@@ -573,7 +568,7 @@ def run_quick_backtest(test_date: str):
                     nq_seven_hour_builder.update(nq_30m[0])
                     nq_seven_hour_builder.update(nq_30m[1])
                     nq_seven_hour_builder.update(nq_30m[2])
-                    print("nq 7h before: ", nq_seven_hour_builder.candles["6PM"].values())
+                    # print("nq 7h before: ", nq_seven_hour_builder.candles["6PM"].values())
                  
                     # nq_seven_hour_builder.candles["6PM"].ib_high = 29283.75
                     # nq_seven_hour_builder.candles["6PM"].ib_low = 29110
@@ -583,7 +578,7 @@ def run_quick_backtest(test_date: str):
                     es_seven_hour_builder.update(es_30m[0])
                     es_seven_hour_builder.update(es_30m[1])
                     es_seven_hour_builder.update(es_30m[2])
-                    print("es 7h before: ", es_seven_hour_builder.candles["6PM"].values())                   
+                    # print("es 7h before: ", es_seven_hour_builder.candles["6PM"].values())                   
                     # es_seven_hour_builder.candles["6PM"].ib_high = 7435
                     # es_seven_hour_builder.candles["6PM"].ib_low = 7408.5
                     # es_seven_hour_builder.candles["6PM"].ib_ce = (7408.5+7435)/2
@@ -600,10 +595,10 @@ def run_quick_backtest(test_date: str):
                     # nq_market_context.session_close = 29232.75
                     # es_market_context.session_open = 7410
                     # es_market_context.session_close = 7429
-                    print("session_open: ", nq_market_context.session_open)
-                    print("session_high: ", nq_market_context.session_high)
-                    print("session_low: ", nq_market_context.session_low)
-                    print("session_close: ", nq_market_context.session_close)
+                    # print("session_open: ", nq_market_context.session_open)
+                    # print("session_high: ", nq_market_context.session_high)
+                    # print("session_low: ", nq_market_context.session_low)
+                    # print("session_close: ", nq_market_context.session_close)
                 # print("nq 7h: ", nq_seven_hour_builder.candles["6PM"].values())                
                 # print("es 7h: ", es_seven_hour_builder.candles["6PM"].values())                    
                 
@@ -639,7 +634,7 @@ def run_quick_backtest(test_date: str):
                 # update 7hr candle through seven hour builder
                 # he 18:00 7hr candle is not complete with the first 3 30m candles
                 nq_seven_hour_builder.update(last_closed_nq)
-                print("nq 7h after ib ready: ", nq_seven_hour_builder.candles["6PM"].values())   
+                # print("nq 7h after ib ready: ", nq_seven_hour_builder.candles["6PM"].values())   
                 es_seven_hour_builder.update(last_closed_es)
 
                 # update weekly state
@@ -796,8 +791,8 @@ def run_quick_backtest(test_date: str):
                 # update atr_usage based on daily atr and session range
                 nq_market_context.update_atr_usage(current_30m_start, last_closed_nq["close"])
                 es_market_context.update_atr_usage(current_30m_start, last_closed_es["close"])
-                print("nq atr: ", nq_market_context.get_atr_info())
-                print("es atr: ", es_market_context.get_atr_info())
+                # print("nq atr: ", nq_market_context.get_atr_info())
+                # print("es atr: ", es_market_context.get_atr_info())
                 
                 if nq_market_context.ib_ready:
                     nq_market_context.update_ib_acceptance(last_closed_nq["close"])
@@ -843,7 +838,7 @@ def run_quick_backtest(test_date: str):
                 # sweep detection 30m Swing points
                 sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = nq_3m, inside_candles_1m = inside_1m_candles_nq, last_closed_candle = last_closed_nq, key_levels = liquidity_nq, current_30m_start = current_30m_start)
                 sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = es_3m, inside_candles_1m = inside_1m_candles_es, last_closed_candle = last_closed_es, key_levels = liquidity_es, current_30m_start = current_30m_start)
-                print("liquidity test in main: ", liquidity_nq["asia_high"])
+                
                 # sweep detection at key levels
                 sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = liquidity_nq, candles_3m = nq_3m, inside_candles_1m = inside_1m_candles_nq, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
                 sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = liquidity_es, candles_3m = es_3m, inside_candles_1m = inside_1m_candles_es, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
@@ -956,10 +951,9 @@ def run_quick_backtest(test_date: str):
                     print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
                     
                     # update compression state values. remaining updates to structure at end of 30m done above
-                    print("compression state nq before: ", )
-                
-                    print("nq_liquidity_rr: ", liquidity_nq)
-                    print("es_liquidity_rr: ", liquidity_es)
+                    
+                    # print("nq_liquidity_rr: ", liquidity_nq)
+                    # print("es_liquidity_rr: ", liquidity_es)
                     
                 is_post_1am_8am_ibs = is_post_8AM_IB or is_post_1AM_IB
 

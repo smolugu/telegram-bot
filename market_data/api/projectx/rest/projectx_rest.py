@@ -1,5 +1,5 @@
+import time
 import requests
-
 from datetime import datetime
 
 
@@ -61,29 +61,70 @@ class ProjectXREST:
         start: datetime,
         end: datetime,
     ):
-        print("contract_id: ", contract_id)
-        response = self._session.post(
-            f"{self._BASE_URL}/History/retrieveBars",
-            json={
-                "contractId": contract_id,
-                "live": False,
-                "startTime": start.isoformat(),
-                "endTime": end.isoformat(),
-                "unit": 2,
-                "unitNumber": 1,
-                "limit": 20000,
-                "includePartialBar": False,
-            },
-        )
+        print("contract_id:", contract_id)
 
-        response.raise_for_status()
+        url = f"{self._BASE_URL}/History/retrieveBars"
 
-        data = response.json()
+        payload = {
+            "contractId": contract_id,
+            "live": False,
+            "startTime": start.isoformat(),
+            "endTime": end.isoformat(),
+            "unit": 2,
+            "unitNumber": 1,
+            "limit": 20000,
+            "includePartialBar": False,
+        }
 
-        # print("ProjectX retrieveBars response:")
-        # print(data)
+        max_attempts = 3
 
-        return data
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = self._session.post(
+                    url,
+                    json=payload,
+                    timeout=15,
+                )
+
+                # ProjectX rate limit
+                if response.status_code == 429:
+                    retry_after = response.headers.get("Retry-After")
+
+                    if retry_after is not None:
+                        wait_seconds = int(retry_after)
+                    else:
+                        wait_seconds = 30
+
+                    print(
+                        f"ProjectX rate limit reached (429). "
+                        f"Waiting {wait_seconds} seconds "
+                        f"(attempt {attempt}/{max_attempts})..."
+                    )
+
+                    if attempt == max_attempts:
+                        response.raise_for_status()
+
+                    time.sleep(wait_seconds)
+                    continue
+
+                response.raise_for_status()
+
+                return response.json()
+
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+            ) as e:
+
+                print(
+                    f"ProjectX retrieveBars failed "
+                    f"(attempt {attempt}/{max_attempts}): {e}"
+                )
+
+                if attempt == max_attempts:
+                    raise
+
+                time.sleep(attempt)
 
     def search_contracts(
         self,

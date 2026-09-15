@@ -13,6 +13,21 @@ class CandleRepository(ABC):
     def save(self, candles: list[Candle]) -> None:
         pass
 
+    def get_time_range(
+        self,
+        contract: str,
+        timeframe: int,
+    ) -> tuple[datetime | None, datetime | None]:
+        pass
+    
+    def exists(
+        self,
+        contract: str,
+        timeframe: int,
+        timestamp: datetime,
+    ) -> bool:
+        pass
+    
     # @abstractmethod
     # def latest_timestamp(
     #     self,
@@ -45,6 +60,27 @@ class CandleRepository(ABC):
         limit: int,
     ) -> list[Candle]:
         pass
+
+    @abstractmethod
+    def get_at(
+        self,
+        contract: str,
+        timeframe: int,
+        timestamp: datetime,
+    ) -> Candle | None:
+        pass
+
+    @abstractmethod
+    def get_last_n(
+        self,
+        contract: str,
+        timeframe: int,
+        end: datetime,
+        n: int,
+    ) -> list[Candle]:
+        ...
+
+    
 
     @abstractmethod
     def get_between(

@@ -149,7 +149,7 @@ def get_session_high_low(
     session = []
 
     for c in candles:
-        dt = datetime.fromisoformat(c["timestamp"]).astimezone(tz)
+        dt = datetime.fromisoformat(c.timestamp).astimezone(tz)
 
         if session_start <= dt < session_end:
             session.append(c)
@@ -165,12 +165,12 @@ def get_session_high_low(
     # -------------------------
     # Get high + timestamp
     # -------------------------
-    high_candle = max(session, key=lambda c: c["high"])
-    low_candle = min(session, key=lambda c: c["low"])
+    high_candle = max(session, key=lambda c: c.high)
+    low_candle = min(session, key=lambda c: c.low)
 
     return {
-        "high": high_candle["high"],
-        "high_ts": high_candle["timestamp"],
-        "low": low_candle["low"],
-        "low_ts": low_candle["timestamp"]
+        "high": high_candle.high,
+        "high_ts": high_candle.timestamp,
+        "low": low_candle.low,
+        "low_ts": low_candle.timestamp
     }

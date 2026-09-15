@@ -67,9 +67,6 @@ class MarketContext:
         self.atr_daily_bias = "neutral"
         self.no_bearish_expansion_below_open = False
         self.no_bullish_expansion_above_open = False
-        
-
-        
 
         # compression
         self.compression_flags = {

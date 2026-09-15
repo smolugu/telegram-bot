@@ -470,7 +470,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
     ) / range_size
 
     points_tol = 3 if instrument == "NQ" else 1.5
-    print("valid swing highs: ", valid_swing_highs)
+    # print("valid swing highs: ", valid_swing_highs)
     for swing in valid_swing_highs:
         if high > swing["high"]:
             print("valid swing high: ", swing["high"])
@@ -693,7 +693,8 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
     points_tol = 3 if instrument == "NQ" else 1.5
     if candidate.side == "buy_side":
         print("checking breakout rejection for nq sell candidate")
-        if last_closed_candle["close"] < candidate.sweep_level:
+        # if last_closed_candle["close"] < candidate.sweep_level and strong_body_ce:
+        if last_closed_candle["close"] < candidate.sweep_level and last_closed_is_bearish:
             candidate.is_breakout_rejection = True
             candidate.sweep_type = "rejection"
             print("breakout sweep ob confirmed for nq sell candidate")
@@ -770,7 +771,8 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
 
     else:
         print(f"""checking breakout rejection for {candidate.instrument} buy candidate""")
-        if last_closed_candle["close"] > candidate.sweep_level:
+        # if last_closed_candle["close"] > candidate.sweep_level and strong_body_ce:
+        if last_closed_candle["close"] > candidate.sweep_level and last_closed_is_bullish:
             candidate.is_breakout_rejection = True
             candidate.sweep_type = "rejection"
             print(f"""breakout sweep ob confirmed for {candidate.instrument} sell candidate""")

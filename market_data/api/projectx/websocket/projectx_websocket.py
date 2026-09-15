@@ -21,16 +21,27 @@ class ProjectXWebSocket:
             contract_repo: ContractRepository,
             on_trade: Callable[[Trade], None] | None = None,
             on_connected: Callable[[datetime], None] | None = None,
+            
         ):
         self._token = token
         self._contract_mapper = contract_mapper
         self._contract_repo = contract_repo
         self._on_trade = on_trade
         self._on_connected = on_connected
+        self._realtime_start: datetime | None = None
 
         self._connection = None
         self._connected = threading.Event()
 
+    @property
+    def realtime_start(self) -> datetime:
+        if self._realtime_start is None:
+            raise RuntimeError(
+                "Realtime connection has not been established"
+            )
+
+        return self._realtime_start
+    
     def connect(self) -> None:
 
         print("Connecting to ProjectX market hub...")
@@ -82,13 +93,10 @@ class ProjectXWebSocket:
             )
 
     def _on_open(self):
-        realtime_start = datetime.now(timezone.utc)
+        self._realtime_start = datetime.now(timezone.utc)
 
         print("ProjectX market hub connected")
-        print(f"Realtime start: {realtime_start}")
-
-        if self._on_connected is not None:
-            self._on_connected(realtime_start)
+        print(f"Realtime start: {self._realtime_start}")
 
         self._connected.set()
 
