@@ -53,11 +53,11 @@ class SevenHourCandle:
 
     def update(self, candle):
 
-        o = candle["open"]
-        h = candle["high"]
-        l = candle["low"]
-        c = candle["close"]
-        t = candle["timestamp"]
+        o = candle.open
+        h = candle.high
+        l = candle.low
+        c = candle.close
+        t = candle.timestamp
         
         
         if self.open is None:

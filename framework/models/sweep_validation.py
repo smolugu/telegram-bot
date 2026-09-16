@@ -199,7 +199,7 @@ def validate_sweeps(
                 else sweep_highs_key_level["sweep_level"] if sweep_highs_key_level is not None
                 else None
             )
-            if swept_level < compression_range["high"] and last_closed["high"] < compression_range["high"]:
+            if swept_level < compression_range["high"] and last_closed.high < compression_range["high"]:
                 print("asset Sweep at highs rejected due to compression. invalidating sweep inside compression range")
                 print("1011:")
                 sweep_rejected_highs = True
@@ -220,7 +220,7 @@ def validate_sweeps(
                 # 3 points on ES
                 sweep_rejected_highs = False
                 tol_points = 10 if instrument == "NQ" else 3
-                if abs(last_closed["high"] - compression_range["high"]) < tol_points:
+                if abs(last_closed.high - compression_range["high"]) < tol_points:
                     print("1014:")
                     print("Asset sweep at highs accepted but price near compression range. exercise caution")
                     # add caution flag to sweep as the sweep is not deep and could be inducement
@@ -235,8 +235,8 @@ def validate_sweeps(
                 print("sweep rejected high but ib8 is a strong body and bearish. allowing sweep")
                 if (
                     ny_market_context.ib_8["is_strong_body"] 
-                    and last_closed["high"] > ny_market_context.structure["equilibrium_ce"]
-                    and last_closed["close"] < ny_market_context.structure["equilibrium_ce"]
+                    and last_closed.high > ny_market_context.structure["equilibrium_ce"]
+                    and last_closed.close < ny_market_context.structure["equilibrium_ce"]
                 ):
                     sweep_rejected_highs = False        
         
@@ -269,8 +269,8 @@ def validate_sweeps(
             )
             print("swept level 1: ", swept_level)
             print("com r low 2: ", compression_range["low"])
-            print("last closed low 3: ", last_closed["low"])
-            if swept_level > compression_range["low"] and last_closed["low"] > compression_range["low"]:
+            print("last closed low 3: ", last_closed.low)
+            if swept_level > compression_range["low"] and last_closed.low > compression_range["low"]:
                 print("Asset Sweep at lows rejected due to compression. invalidating sweep inside compression range")
                 print("section 44")
                 sweep_rejected_lows = True
@@ -288,11 +288,11 @@ def validate_sweeps(
                 print("section 6")
                 sweep_rejected_lows = False
                 print("compression_range: ", compression_range)
-                print("last_closed: ", last_closed["low"])
+                print("last_closed: ", last_closed.low)
                 tol_points = 10 if instrument == "NQ" else 3
-                if abs(last_closed["low"] - compression_range["low"]) < tol_points:
+                if abs(last_closed.low - compression_range["low"]) < tol_points:
                     print("section 7")
-                    print("Asset sweep at lows accepted but price near compression range. exercise caution: ", abs(last_closed["low"] - compression_range["low"]))
+                    print("Asset sweep at lows accepted but price near compression range. exercise caution: ", abs(last_closed.low - compression_range["low"]))
                     # add caution flag to sweep as the sweep is not deep and could be inducement
                     # dont invalidate the sweep but use extra confirmation at final trade filter
                     sweep_rejected_lows = False
@@ -306,8 +306,8 @@ def validate_sweeps(
                 print("sweep rejected lows but Ib8 is bullish with strong body. allowing sweep")
                 if (
                     ny_market_context.ib_8["is_strong_body"] 
-                    and last_closed["low"] < ny_market_context.structure["equilibrium_ce"]
-                    and last_closed["close"] > ny_market_context.structure["equilibrium_ce"]
+                    and last_closed.low < ny_market_context.structure["equilibrium_ce"]
+                    and last_closed.close > ny_market_context.structure["equilibrium_ce"]
                 ):
                     sweep_rejected_lows = False        
             if instrument == "NQ":
@@ -331,10 +331,10 @@ def validate_sweeps(
             
             if (sweep_lows or sweep_lows_key_level):
                 
-                if ny_market_context.structure["compression_low"] > last_closed["low"] > ny_market_context.structure["mitigation_level"]:
+                if ny_market_context.structure["compression_low"] > last_closed.low > ny_market_context.structure["mitigation_level"]:
                     print("sweep at lows accepted as valid reintegration sweep")
                     is_valid_sweep_low = True
-                elif last_closed["low"] < ny_market_context.structure["mitigation_level"] and last_closed["close"] > ny_market_context.structure["mitigation_level"]:
+                elif last_closed.low < ny_market_context.structure["mitigation_level"] and last_closed.close > ny_market_context.structure["mitigation_level"]:
                     print("sweep at lows accepted as valid reintegration sweep")
                     is_valid_sweep_low = True
                 else:
@@ -350,7 +350,7 @@ def validate_sweeps(
             # sweep highs block
             if (sweep_highs or sweep_highs_key_level):
             
-                if last_closed["high"] > ny_market_context.structure["compression_high"]:
+                if last_closed.high > ny_market_context.structure["compression_high"]:
                     # is valid sweep with additional confirmations
                     is_valid_sweep_high = True
                     if instrument == "NQ":
@@ -367,10 +367,10 @@ def validate_sweeps(
             # bullish reintegration
             # sweep highs block - compression high, compression high - mitigaltion level zone, mitigation level
             if (sweep_highs or sweep_highs_key_level):
-                if ny_market_context.structure["compression_high"] < last_closed["high"] < ny_market_context.structure["mitigation_level"]:
+                if ny_market_context.structure["compression_high"] < last_closed.high < ny_market_context.structure["mitigation_level"]:
                     print("sweep at compression highs accepted as valid reintegration sweep")
                     is_valid_sweep_high = True
-                elif last_closed["high"] > ny_market_context.structure["mitigation_level"] and last_closed["close"] < ny_market_context.structure["mitigation_level"]:
+                elif last_closed.high > ny_market_context.structure["mitigation_level"] and last_closed.close < ny_market_context.structure["mitigation_level"]:
                     print("sweep at highs, mitigation level accepted as valid reintegration sweep")
                     is_valid_sweep_high = True
                 else:
@@ -384,7 +384,7 @@ def validate_sweeps(
                     es_validation["highs"]["caution"] = caution_highs
             # sweep lows block
             if (sweep_lows or sweep_lows_key_level):            
-                if last_closed["low"] < ny_market_context.structure["compression_low"]:
+                if last_closed.low < ny_market_context.structure["compression_low"]:
                     # is valid sweep with additional confirmations
                     is_valid_sweep_low = True
                     if instrument == "NQ":
@@ -404,9 +404,9 @@ def validate_sweeps(
             # sweep lows
             if (sweep_lows or sweep_lows_key_level):
                 if (
-                    last_closed["low"] < ny_market_context.ib_8["low"]
-                    or last_closed["low"] < ny_market_context.structure["mitigation_level"]
-                    or (last_closed["low"] < ny_market_context.ib_8["ce"] and ny_market_context.ib_8["is_strong_body"])
+                    last_closed.low < ny_market_context.ib_8["low"]
+                    or last_closed.low < ny_market_context.structure["mitigation_level"]
+                    or (last_closed.low < ny_market_context.ib_8["ce"] and ny_market_context.ib_8["is_strong_body"])
                 ):
                     is_valid_sweep_low = True
                     if instrument == "NQ":
@@ -417,7 +417,7 @@ def validate_sweeps(
                         es_validation["lows"]["caution"] = False
             
             if (sweep_highs or sweep_highs_key_level):
-                if last_closed["high"] > ny_market_context.ib_8["high"]:
+                if last_closed.high > ny_market_context.ib_8["high"]:
                     is_valid_sweep_high = True
                     if instrument == "NQ":
                         nq_validation["highs"]["is_valid"] = is_valid_sweep_high
@@ -428,9 +428,9 @@ def validate_sweeps(
         elif "bearish" in structure_name:
             # sweep highs
             if (sweep_highs or sweep_highs_key_level):
-                if (last_closed["high"] > ny_market_context.ib_8["high"]
-                    or last_closed["high"] > ny_market_context.structure["mitigation_level"]
-                    or (last_closed["high"] > ny_market_context.ib_8["ce"] and ny_market_context.ib_8["is_strong_body"])
+                if (last_closed.high > ny_market_context.ib_8["high"]
+                    or last_closed.high > ny_market_context.structure["mitigation_level"]
+                    or (last_closed.high > ny_market_context.ib_8["ce"] and ny_market_context.ib_8["is_strong_body"])
                 ):
                     is_valid_sweep_high = True
                     if instrument == "NQ":
@@ -441,7 +441,7 @@ def validate_sweeps(
                         es_validation["highs"]["caution"] = False
             
             if (sweep_lows or sweep_lows_key_level):
-                if last_closed["low"] < ny_market_context.ib_8["low"]:
+                if last_closed.low < ny_market_context.ib_8["low"]:
                     is_valid_sweep_low = True
                     if instrument == "NQ":
                         nq_validation["lows"]["is_valid"] = is_valid_sweep_high
@@ -458,7 +458,7 @@ def validate_sweeps(
         if "bullish" in structure_name:
             # sweep lows
             if (sweep_lows or sweep_lows_key_level):
-                if last_closed["low"] < ny_market_context.structure["compression_low"] or last_closed["low"] < ny_market_context.structure["mitigation_level"]:
+                if last_closed.low < ny_market_context.structure["compression_low"] or last_closed.low < ny_market_context.structure["mitigation_level"]:
                     is_valid_sweep_low = True
                     if instrument == "NQ":
                         nq_validation["lows"]["is_valid"] = is_valid_sweep_low
@@ -468,7 +468,7 @@ def validate_sweeps(
                         es_validation["lows"]["caution"] = False
             
             if (sweep_highs or sweep_highs_key_level):
-                if last_closed["high"] > ny_market_context.ib_8["high"]:
+                if last_closed.high > ny_market_context.ib_8["high"]:
                     is_valid_sweep_high = True
                     if instrument == "NQ":
                         nq_validation["highs"]["is_valid"] = is_valid_sweep_high
@@ -479,7 +479,7 @@ def validate_sweeps(
         elif "bearish" in structure_name:
             # sweep highs
             if (sweep_highs or sweep_highs_key_level):
-                if last_closed["high"] > ny_market_context.structure["compression_high"] or last_closed["high"] > ny_market_context.structure["mitigation_level"]:
+                if last_closed.high > ny_market_context.structure["compression_high"] or last_closed.high > ny_market_context.structure["mitigation_level"]:
                     is_valid_sweep_high = True
                     if instrument == "NQ":
                         nq_validation["highs"]["is_valid"] = is_valid_sweep_high
@@ -489,7 +489,7 @@ def validate_sweeps(
                         es_validation["highs"]["caution"] = False
             
             if (sweep_lows or sweep_lows_key_level):
-                if last_closed["low"] < ny_market_context.ib_8["low"]:
+                if last_closed.low < ny_market_context.ib_8["low"]:
                     is_valid_sweep_low = True
                     if instrument == "NQ":
                         nq_validation["lows"]["is_valid"] = is_valid_sweep_high
@@ -512,9 +512,9 @@ def validate_sweeps(
             # longs
             if (sweep_lows or sweep_lows_key_level):
                 if (
-                    (last_closed["low"] < ny_market_context.ib_8["low"] and last_closed["close"] > ny_market_context.ib_8["low"]) 
-                    or (last_closed["low"] < ny_market_context.structure["mitigation_level"] and last_closed["close"] >  ny_market_context.structure["mitigation_level"])
-                    or (last_closed["low"] < ny_market_context.ib_8["ce"] and last_closed["close"] > ny_market_context.ib_8["ce"])
+                    (last_closed.low < ny_market_context.ib_8["low"] and last_closed.close > ny_market_context.ib_8["low"]) 
+                    or (last_closed.low < ny_market_context.structure["mitigation_level"] and last_closed.close >  ny_market_context.structure["mitigation_level"])
+                    or (last_closed.low < ny_market_context.ib_8["ce"] and last_closed.close > ny_market_context.ib_8["ce"])
                 ):
                     is_valid_sweep_low = True                
                 if instrument == "NQ":
@@ -529,7 +529,7 @@ def validate_sweeps(
                 # sweep should be above ib_8 high and atr exhaustion. allow sweeps which are above and 
                 # let atr filter decide the trade
                 if (
-                    last_closed["high"] > ny_market_context.ib_8["high"]
+                    last_closed.high > ny_market_context.ib_8["high"]
                 ):
                     is_valid_sweep_high = True
                 if instrument == "NQ":
@@ -550,7 +550,7 @@ def validate_sweeps(
                 # sweep should be below ib_8 low and atr exhaustion. allow sweeps which are below and 
                 # let atr filter decide the trade
                 if (
-                    last_closed["low"] < ny_market_context.ib_8["low"]
+                    last_closed.low < ny_market_context.ib_8["low"]
                 ):
                     is_valid_sweep_low = True
                 
@@ -565,9 +565,9 @@ def validate_sweeps(
             # shorts
             if (sweep_highs or sweep_highs_key_level):
                 if (
-                    (last_closed["high"] > ny_market_context.ib_8["high"] and last_closed["close"] < ny_market_context.ib_8["high"]) 
-                    or (last_closed["high"] > ny_market_context.structure["mitigation_level"] and last_closed["close"] <  ny_market_context.structure["mitigation_level"])
-                    or (last_closed["high"] > ny_market_context.ib_8["ce"] and last_closed["close"] < ny_market_context.ib_8["ce"])
+                    (last_closed.high > ny_market_context.ib_8["high"] and last_closed.close < ny_market_context.ib_8["high"]) 
+                    or (last_closed.high > ny_market_context.structure["mitigation_level"] and last_closed.close <  ny_market_context.structure["mitigation_level"])
+                    or (last_closed.high > ny_market_context.ib_8["ce"] and last_closed.close < ny_market_context.ib_8["ce"])
                 ):
                     is_valid_sweep_high = True
                 
@@ -669,10 +669,10 @@ def validate_sweeps(
             # longs
             # sweep lows block - ib8 low, ib8 low - mitigaltion level zone, mitigation level
             if (sweep_lows or sweep_lows_key_level):
-                if last_closed["low"] < ny_market_context.ib_8["low"] and last_closed["close"] > ny_market_context.ib_8["low"]:
+                if last_closed.low < ny_market_context.ib_8["low"] and last_closed.close > ny_market_context.ib_8["low"]:
                     print("sweep at lows, ib8 low accepted as valid value flip sweep")
                     is_valid_sweep_low = True
-                elif last_closed["low"] < ny_market_context.structure["mitigation_level"] and last_closed["close"] > ny_market_context.structure["mitigation_level"]:
+                elif last_closed.low < ny_market_context.structure["mitigation_level"] and last_closed.close > ny_market_context.structure["mitigation_level"]:
                     print("sweep at lows, mitigation level accepted as valid value flip sweep")
                     is_valid_sweep_low = True
                 else:
@@ -686,7 +686,7 @@ def validate_sweeps(
             # shorts
             # sweep highs block - above ib8 high, PDH and at atr exhaustion (atr exhaustion at final check)
             if (sweep_highs or sweep_highs_key_level):
-                if last_closed["high"] > ny_market_context.ib_8["high"]:
+                if last_closed.high > ny_market_context.ib_8["high"]:
                     print("sweep at highs, ib8 high accepted as valid value flip sweep")
                     is_valid_sweep_high = True
                 else:
@@ -708,10 +708,10 @@ def validate_sweeps(
             # shorts
             # sweep highs block - ib8 high, ib8 high - mitigaltion level zone, mitigation level
             if (sweep_highs or sweep_highs_key_level):
-                if last_closed["high"] > ny_market_context.ib_8["high"] and last_closed["close"] < ny_market_context.ib_8["high"]:
+                if last_closed.high > ny_market_context.ib_8["high"] and last_closed.close < ny_market_context.ib_8["high"]:
                     print("sweep at highs, ib8 high accepted as valid value flip sweep")
                     is_valid_sweep_high = True
-                elif last_closed["high"] > ny_market_context.structure["mitigation_level"] and last_closed["close"] < ny_market_context.structure["mitigation_level"]:
+                elif last_closed.high > ny_market_context.structure["mitigation_level"] and last_closed.close < ny_market_context.structure["mitigation_level"]:
                     print("sweep at highs, mitigation level accepted as valid value flip sweep")
                     is_valid_sweep_high = True
                 else:
@@ -725,7 +725,7 @@ def validate_sweeps(
             # longs
             # sweep lows block - above ib8 low, PDL and at atr exhaustion (atr exhaustion at final check)
             if (sweep_lows or sweep_lows_key_level):
-                if last_closed["low"] < ny_market_context.ib_8["low"]:
+                if last_closed.low < ny_market_context.ib_8["low"]:
                     print("sweep at lows, ib8 low accepted as valid value flip sweep")
                     is_valid_sweep_low = True
                 else:

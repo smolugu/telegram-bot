@@ -6,6 +6,7 @@ from framework.models.auction.models.auction_engine import AuctionEngine
 from framework.models.london_market_context import LondonMarketContext
 from framework.models.market_context import MarketContext
 from framework.models.nyam_market_context import NewYorkMarketContext
+from framework.models.setup_candidate import SetupCandidate
 from framework.state.weekly_state import build_weekly_state, initialize_weekly_state
 from engine.helpers.atr import calculate_daily_atr
 from helpers.atr import calculate_atr
@@ -160,6 +161,12 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         
         runtime.nq_daily_atr = calculate_daily_atr(nq_atr_candles)
         runtime.es_daily_atr = calculate_daily_atr(es_atr_candles)
+
+        # Initialize setup candidates
+        runtime.nq_sell_candidate = SetupCandidate("buy_side", "NQ")
+        runtime.nq_buy_candidate = SetupCandidate("sell_side", "NQ")
+        runtime.es_sell_candidate = SetupCandidate("buy_side", "ES")
+        runtime.es_buy_candidate = SetupCandidate("sell_side", "ES")
         
         # Initialize market and session contexts
         runtime.nq_market_context = MarketContext("NQ")

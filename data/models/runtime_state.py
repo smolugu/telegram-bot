@@ -1,3 +1,6 @@
+from framework.models.nyam_market_context import NewYorkMarketContext
+
+
 class PingRuntime:
     def __init__(self):
         # Persistent daily/session state
@@ -5,14 +8,14 @@ class PingRuntime:
         self.start_time = None
         self.nq_contract = None
         self.es_contract = None
-        
+
         self.nq_market_context = None
         self.es_market_context = None
 
         self.nq_london_market_context = None
         self.es_london_market_context = None
 
-        self.nq_ny_market_context = None
+        self.nq_ny_market_context = NewYorkMarketContext()
         self.es_ny_market_context = None
 
         # Weekly state

@@ -112,12 +112,12 @@ class LondonMarketContext:
         self.update_ib_relationships()
     
     def set_2am_ib(self, last_closed):
-        self.ib_2["high"] = last_closed["high"]
-        self.ib_2["low"] = last_closed["low"]
-        self.ib_2["ce"] = (last_closed["high"] + last_closed["low"]) / 2
-        self.ib_2["open"] = last_closed["open"]
-        self.ib_2["close"] = last_closed["close"]
-        self.ib_2["direction"] = "bullish" if last_closed["open"] < last_closed["close"] else "bearish"
+        self.ib_2["high"] = last_closed.high
+        self.ib_2["low"] = last_closed.low
+        self.ib_2["ce"] = (last_closed.high + last_closed.low) / 2
+        self.ib_2["open"] = last_closed.open
+        self.ib_2["close"] = last_closed.close
+        self.ib_2["direction"] = "bullish" if last_closed.open < last_closed.close else "bearish"
 
     def update_ib_relationships(self):
         ib18_high = self.ib_18["high"]
@@ -209,7 +209,7 @@ class LondonMarketContext:
     # 2. POSITION RELATIVE TO IB
     # =========================================
     def update_position(self, candle):
-        close = candle["close"]
+        close = candle.close
         print("ib_18 xyz: ", self.instrument, "|",  self.ib_18)
         if close > self.ib_18["high"]:
             self.structure["position_vs_18"] = "above"
@@ -229,8 +229,8 @@ class LondonMarketContext:
             "asia_high": value, "asia_low": value }
         """
 
-        high = candle["high"]
-        low = candle["low"]
+        high = candle.high
+        low = candle.low
 
         # -------------------------
         # SELL-SIDE SWEEP
@@ -299,7 +299,7 @@ class LondonMarketContext:
     # 4. ACCEPTANCE LOGIC
     # =========================================
     def update_acceptance(self, candle):
-        close = candle["close"]
+        close = candle.close
 
         if self.sweep["side"] == "sell_side":
             if close < self.structure["range_low"]:

@@ -210,7 +210,7 @@ class SQLiteCandleRepository(CandleRepository):
             select(CandleORM)
             .where(CandleORM.contract == contract)
             .where(CandleORM.timeframe == timeframe)
-            .where(CandleORM.timestamp <= end)
+            .where(CandleORM.timestamp < end)
             .order_by(CandleORM.timestamp.desc())
             .limit(n)
         )

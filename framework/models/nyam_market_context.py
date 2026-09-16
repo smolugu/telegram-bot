@@ -565,8 +565,8 @@ class NewYorkMarketContext:
             "asia_high": value, "asia_low": value }
         """
 
-        high = candle["high"]
-        low = candle["low"]
+        high = candle.high
+        low = candle.low
 
         # -------------------------
         # SELL-SIDE SWEEP
@@ -576,7 +576,7 @@ class NewYorkMarketContext:
         if low < tradable_range_low:
             self.sweep["side"] = "sell_side"
             self.range_low_swept = True
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_low'] == 0:
                 self.sweep["count_low"] += 1
                 self.sweep["count"] += 1
@@ -609,7 +609,7 @@ class NewYorkMarketContext:
         elif high > tradable_range_high:
             self.sweep["side"] = "buy_side"
             self.range_high_swept = True
-            self.sweep["time"] = candle["timestamp"]
+            self.sweep["time"] = candle.timestamp
             if self.sweep['count_high'] == 0:
                 self.sweep["count_high"] += 1
                 self.sweep["count"] += 1
@@ -639,10 +639,10 @@ class NewYorkMarketContext:
     # 4. ACCEPTANCE LOGIC
     # =========================================
     def update_acceptance(self, candle):
-        close = candle["close"]
-        low = candle["low"]
-        high = candle["high"]
-        open = candle["open"]
+        close = candle.close
+        low = candle.low
+        high = candle.high
+        open = candle.open
 
         if self.sweep["side"] == "sell_side":
             if close < self.structure["range_low"]:
