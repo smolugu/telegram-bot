@@ -90,6 +90,7 @@ def  start_ping_flow(start_time, contract_repo, candle_repo):
             start=start_of_day_utc,
             end=start_time_utc,
         )
+
         es_30m_by_timestamp = {
             candle.timestamp: candle
             for candle in prev_es_30m

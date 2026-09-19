@@ -1,5 +1,8 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, time as dt_time
 
+import time
+
+from data.models.candle import NY_TZ
 from market_data.providers.futures_provider import FuturesProvider
 from market_data.repository.candle_repository import CandleRepository
 from market_data.repository.contract_repository import ContractRepository
@@ -163,6 +166,58 @@ class ProjectxCandlesHistoryLoader:
 
         return len(candles)
     
+    def sync_30m_range(
+        self,
+        instrument: str,
+        contract: str,
+        start_utc: datetime,
+        end_utc: datetime,
+    ) -> int:
+
+        if start_utc >= end_utc:
+            return 0
+
+        print(
+            f"Syncing 30m range: "
+            f"{instrument} {contract} "
+            f"{start_utc} → {end_utc}"
+        )
+
+        candles = self.provider.get_history(
+            instrument=instrument,
+            contract=contract,
+            timeframe=30,
+            start=start_utc,
+            end=end_utc,
+        )
+
+        if not candles:
+            print(
+                f"No 30m candles returned for "
+                f"{instrument} {contract}"
+            )
+            return 0
+
+        # ProjectX uses an exclusive end.
+        # Keep only candles inside [start_utc, end_utc).
+        candles = [
+            candle
+            for candle in candles
+            if start_utc <= candle.timestamp < end_utc
+        ]
+
+        if not candles:
+            return 0
+
+        self.candle_repo.save(candles)
+
+        print(
+            f"Synced {len(candles)} 30m candles for "
+            f"{instrument} {contract}"
+        )
+
+        return len(candles)
+
     def sync_candle_range(
         self,
         instrument: str,
@@ -201,6 +256,10 @@ class ProjectxCandlesHistoryLoader:
             for candle in candles
             if start_utc <= candle.timestamp < end_utc
         ]
+        print("===========")
+        for candle in candles:
+            print(candle)
+        print("===========")
 
         if not candles:
             return 0
@@ -213,6 +272,56 @@ class ProjectxCandlesHistoryLoader:
         )
 
         return len(candles)
+
+
+    def _sync_contract_range(
+        self,
+        instrument: str,
+        contract: str,
+        start: datetime,
+        end: datetime,
+    ) -> int:
+
+        if start >= end:
+            return 0
+
+        print(
+            f"Retrieving {instrument} {contract}: "
+            f"{start} → {end}"
+        )
+
+        candles = self.provider.get_history(
+            instrument=instrument,
+            contract=contract,
+            timeframe=1,
+            start=start,
+            end=end,
+        )
+
+        # Safety filter
+        candles = [
+            candle
+            for candle in candles
+            if candle.timestamp >= start
+            and candle.timestamp <= end
+        ]
+        
+        if not candles:
+            print(
+                f"No new candles received for "
+                f"{instrument} {contract}"
+            )
+            return 0
+
+        self.candle_repo.save(candles)
+
+        print(
+            f"Saved {len(candles)} new "
+            f"{instrument} {contract} 1m candles"
+        )
+
+        return len(candles)
+
 
     def sync_candles(
         self,
@@ -255,10 +364,10 @@ class ProjectxCandlesHistoryLoader:
         )
 
         # ----------------------------------------------------------
-        # 3. Get latest candle in our DB
+        # 3. Get latest candle for current contract
         # ----------------------------------------------------------
 
-        latest = (
+        latest_current = (
             self.candle_repo.latest_timestamp_by_contract(
                 contract=current_contract.contract,
                 timeframe=1,
@@ -266,79 +375,152 @@ class ProjectxCandlesHistoryLoader:
         )
 
         # ----------------------------------------------------------
-        # 4. Determine retrieval window
+        # 4. Get latest candle for instrument
+        #    regardless of contract
         # ----------------------------------------------------------
 
-        if latest is None:
-            raise RuntimeError(
-                f"No existing 1m candles found for "
-                f"{current_contract.contract}"
+        latest_instrument = (
+            self.candle_repo.latest_candle_by_instrument(
+                instrument=instrument,
+                timeframe=1,
             )
+        )
 
-        start = latest + timedelta(minutes=1)
-        # latest = datetime(
-        #             2026, 9, 10, 7, 0,
-        #             tzinfo=timezone.utc,
-        #         ) 
-        # start = datetime(
-        #             2026, 9, 10, 7, 0,
-        #             tzinfo=timezone.utc,
-        #         )
-        # end = datetime(
-        #             2026, 9, 10, 8, 0,
-        #             tzinfo=timezone.utc,
-        #         )
         end = datetime.now(timezone.utc)
 
-        print(
-            f"Retrieving {instrument} {current_contract.contract}: "
-            f"{start} → {end}"
-        )
+        total_synced = 0
 
         # ----------------------------------------------------------
-        # 5. Nothing to retrieve
+        # 5. Current contract already exists in DB
         # ----------------------------------------------------------
 
-        if start >= end:
-            print("Database is already up to date")
-            return 0
+        if latest_current is not None:
+
+            start = latest_current + timedelta(minutes=1)
+
+            print(
+                f"{instrument} {current_contract.contract} "
+                f"normal sync: {start} → {end}"
+            )
+
+            total_synced += self._sync_contract_range(
+                instrument=instrument,
+                contract=current_contract.contract,
+                start=start,
+                end=end,
+            )
+
+            return total_synced
 
         # ----------------------------------------------------------
-        # 6. Retrieve missing candles from ProjectX
+        # 6. Current contract doesn't exist
         # ----------------------------------------------------------
 
-        candles = self.provider.get_history(
+        if latest_instrument is None:
+            raise RuntimeError(
+                f"No existing 1m candles found for {instrument}"
+            )
+
+        # ----------------------------------------------------------
+        # 7. Contract rollover detected
+        # ----------------------------------------------------------
+
+        previous_contract = self.contract_repo.get_previous_contract(
             instrument=instrument,
             contract=current_contract.contract,
-            timeframe=1,
-            start=start,
-            end=end,
         )
 
-        # ----------------------------------------------------------
-        # 7. Safety filter
-        # ----------------------------------------------------------
-
-        candles = [
-            candle
-            for candle in candles
-            if candle.timestamp > latest
-            and candle.timestamp <= end
-        ]
-
-        # ----------------------------------------------------------
-        # 8. Save
-        # ----------------------------------------------------------
-
-        if not candles:
-            print("No new candles received")
-            return 0
-
-        self.candle_repo.save(candles)
+        if previous_contract is None:
+            raise RuntimeError(
+                f"Could not resolve previous contract "
+                f"{latest_instrument.contract}"
+            )
 
         print(
-            f"Saved {len(candles)} new "
-            f"{instrument} 1m candles"
+            f"{instrument} contract rollover detected: "
+            f"{previous_contract.contract} → "
+            f"{current_contract.contract}"
         )
 
-        return len(candles)
+        latest_previous = (
+            self.candle_repo.latest_timestamp_by_contract(
+                contract=previous_contract.contract,
+                timeframe=1,
+            )
+        )
+
+        if latest_previous is None:
+            raise RuntimeError(
+                f"No 1m candles found for previous contract "
+                f"{previous_contract.contract}"
+            )
+
+        # ----------------------------------------------------------
+        # Contract rollover timestamp
+        # ----------------------------------------------------------
+
+        rollover_start_ny = datetime.combine(
+            current_contract.rollover_date,
+            dt_time(18, 0),
+            tzinfo=NY_TZ,
+        )
+
+        rollover_start_utc = rollover_start_ny.astimezone(
+            timezone.utc
+        )
+
+        print(
+            f"Rollover: {previous_contract.contract} → "
+            f"{current_contract.contract} at "
+            f"{rollover_start_ny}"
+        )
+
+        # ----------------------------------------------------------
+        # Sync missing candles for previous contract
+        # ----------------------------------------------------------
+
+        previous_start = latest_previous + timedelta(minutes=1)
+
+        # Last 1m candle belonging to previous contract
+        previous_end = rollover_start_utc - timedelta(minutes=1)
+
+        if previous_start <= previous_end:
+
+            print(
+                f"Filling {previous_contract.contract}: "
+                f"{previous_start} → {previous_end}"
+            )
+
+            total_synced += self._sync_contract_range(
+                instrument=instrument,
+                contract=previous_contract.contract,
+                start=previous_start,
+                end=previous_end,
+            )
+
+        else:
+            print(
+                f"No missing {previous_contract.contract} "
+                f"candles before rollover"
+            )
+        # ----------------------------------------------------------
+        # Sync current contract from rollover
+        # ----------------------------------------------------------
+
+        new_start = rollover_start_utc
+
+        if new_start < end:
+
+            print(
+                f"Starting {current_contract.contract}: "
+                f"{new_start} → {end}"
+            )
+
+            total_synced += self._sync_contract_range(
+                instrument=instrument,
+                contract=current_contract.contract,
+                start=new_start,
+                end=end,
+            )
+
+        return total_synced

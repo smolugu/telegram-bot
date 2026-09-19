@@ -59,6 +59,27 @@ class SQLiteCandleRepository(CandleRepository):
         print("Rows after commit:", count)
         print("Save finished")
 
+    
+    def latest_candle_by_instrument(
+        self,
+        instrument: str,
+        timeframe: int,
+    ) -> Candle | None:
+
+        row = (
+            self.session.query(CandleORM)
+            .filter(
+                CandleORM.instrument == instrument,
+                CandleORM.timeframe == timeframe,
+            )
+            .order_by(CandleORM.timestamp.desc())
+            .first()
+        )
+
+        if row is None:
+            return None
+
+        return self._to_domain(row)
     def latest_timestamp_by_contract(
         self,
         contract: str,

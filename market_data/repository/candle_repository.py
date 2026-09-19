@@ -35,6 +35,15 @@ class CandleRepository(ABC):
     #     timeframe: int,
     # ) -> datetime | None:
     #     pass
+    
+
+    @abstractmethod
+    def latest_candle_by_instrument(
+        self,
+        instrument: str,
+        timeframe: int,
+    ) -> Candle | None:
+        pass
 
     @abstractmethod
     def latest_timestamp_by_instrument(

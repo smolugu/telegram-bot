@@ -75,10 +75,10 @@ def track_asia_context(
 
     for i, c in enumerate(candles_1h):
 
-        high = c["high"]
-        low = c["low"]
-        close = c["close"]
-        open_ = c["open"]
+        high = c.high
+        low = c.low
+        close = c.close
+        open_ = c.open
 
         # -------------------------
         # Track Asia High/Low
@@ -115,7 +115,7 @@ def track_asia_context(
             # Bullish CISD
             if (
                 context["swept_pdl"]
-                and close > prev_candle["high"]
+                and close > prev_candle.high
             ):
                 context["cisd"] = "bullish"
                 context["cisd_candle"] = c
@@ -123,7 +123,7 @@ def track_asia_context(
             # Bearish CISD
             if (
                 context["swept_pdh"]
-                and close < prev_candle["low"]
+                and close < prev_candle.low
             ):
                 context["cisd"] = "bearish"
                 context["cisd_candle"] = c
@@ -134,21 +134,21 @@ def track_asia_context(
         if prev_prev_candle and prev_candle:
 
             # Bullish FVG
-            if prev_prev_candle["high"] < c["low"]:
+            if prev_prev_candle.high < c.low:
                 context["fvg"] = {
                     "type": "bullish",
-                    "low": prev_prev_candle["high"],
-                    "high": c["low"],
-                    "created_at": c["timestamp"]
+                    "low": prev_prev_candle.high,
+                    "high": c.low,
+                    "created_at": c.timestamp
                 }
 
             # Bearish FVG
-            if prev_prev_candle["low"] > c["high"]:
+            if prev_prev_candle.low > c.high:
                 context["fvg"] = {
                     "type": "bearish",
-                    "low": c["high"],
-                    "high": prev_prev_candle["low"],
-                    "created_at": c["timestamp"]
+                    "low": c.high,
+                    "high": prev_prev_candle.low,
+                    "created_at": c.timestamp
                 }
 
         prev_prev_candle = prev_candle
@@ -198,9 +198,9 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     seven_hour_candle_8am = seven_hour_builder_candles["8AM"].values()
     
     window_name = get_active_window(current_30m_start)
-    close = last_closed_candle["close"]
-    high = last_closed_candle["high"]
-    low = last_closed_candle["low"]
+    close = last_closed_candle.close
+    high = last_closed_candle.high
+    low = last_closed_candle.low
     
 
     # direction of trade
@@ -445,13 +445,13 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         return bias
     # sweep candle in totally below ib
     def below_ib(last_closed_candle, ib_low):
-        if last_closed_candle["high"] < ib_low:
+        if last_closed_candle.high < ib_low:
             return True
         return False
     
     # sweep candle is totally above ib
     def above_ib(last_closed_candle, ib_high):
-        if last_closed_candle["low"] > ib_high:
+        if last_closed_candle.low > ib_high:
             return True
         return False
 
@@ -872,14 +872,14 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
             # should reject IB_18 amd IB_2. no deep retracement covers rejection of IB_18
             rejection_of_ib_2 = False
             if look_for_shorts:
-                if london_context.ib_2["direction"] == "bullish" and last_closed_candle["close"] < london_context.ib_2["open"]:
+                if london_context.ib_2["direction"] == "bullish" and last_closed_candle.close < london_context.ib_2["open"]:
                     rejection_of_ib_2 = True
-                elif london_context.ib_2["direction"] == "bearish" and not last_closed_candle["close"] > london_context.ib_2["open"]:
+                elif london_context.ib_2["direction"] == "bearish" and not last_closed_candle.close > london_context.ib_2["open"]:
                     rejection_of_ib_2 = True
             elif look_for_longs:
-                if london_context.ib_2["direction"] == "bearish" and last_closed_candle["close"] > london_context.ib_2["open"]:
+                if london_context.ib_2["direction"] == "bearish" and last_closed_candle.close > london_context.ib_2["open"]:
                     rejection_of_ib_2 = True
-                elif london_context.ib_2["direction"] == "bullish" and not last_closed_candle["close"] < london_context.ib_2["open"]:
+                elif london_context.ib_2["direction"] == "bullish" and not last_closed_candle.close < london_context.ib_2["open"]:
                     rejection_of_ib_2 = True
                 
             if continue_with_candidate and allow_trade and rejection_of_ib_2 and london_context.structure["is_strong_body"]\
@@ -4172,7 +4172,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         is_smt
                         and is_rejection
                         and newyork_context.ib_8["is_strong_body"]
-                        and last_closed_candle["low"] < newyork_context.structure["equilibrium_ce"]
+                        and last_closed_candle.low < newyork_context.structure["equilibrium_ce"]
                     ):
                         print("rocket - rejecting from IB8 Ce")
                         reversal_confirmation = True
@@ -4444,7 +4444,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     is_smt
                     and is_rejection
                     and newyork_context.ib_8["is_strong_body"]
-                    and last_closed_candle["high"] > newyork_context.structure["equilibrium_ce"]
+                    and last_closed_candle.high > newyork_context.structure["equilibrium_ce"]
                 ):
                     print("flush - rejecting from IB8 Ce")
                     reversal_confirmation = True
@@ -4710,7 +4710,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     is_smt
                     and is_rejection
                     and newyork_context.ib_8["is_strong_body"]
-                    and last_closed_candle["low"] < newyork_context.structure["equilibrium_ce"]
+                    and last_closed_candle.low < newyork_context.structure["equilibrium_ce"]
                 ):
                     print("rocket - rejecting from IB8 Ce")
                     reversal_confirmation = True
@@ -4913,7 +4913,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     is_smt
                     and is_rejection
                     and newyork_context.ib_8["is_strong_body"]
-                    and last_closed_candle["high"] > newyork_context.structure["equilibrium_ce"]
+                    and last_closed_candle.high > newyork_context.structure["equilibrium_ce"]
                 ):
                     print("flush - rejecting from IB8 Ce")
                     reversal_confirmation = True
@@ -5263,7 +5263,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 if not co_asset["newyork_context"].structure["compression"]:
                     mini = True
             reversal_confirmation = True
-            if last_closed_candle["open"] > newyork_context.structure["range_high"] or last_closed_candle["open"] < newyork_context.structure["range_low"]:
+            if last_closed_candle.open > newyork_context.structure["range_high"] or last_closed_candle.open < newyork_context.structure["range_low"]:
                 # sweep is not at compression range extremes
                 mini = False
             if mini:

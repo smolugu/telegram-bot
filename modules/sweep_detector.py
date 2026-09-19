@@ -51,91 +51,7 @@ def find_sweep_time_1m(inside_candles, swing_level, direction, tolerance=0.25):
 # -------------------------------------------------------
 # Session-based liquidity levels
 # -------------------------------------------------------
-def detect_key_liquidity_sweep_old(last_candle, liquidity, tolerance=0):
 
-    sweep_at_key_level = False
-    swept_levels = []
-
-    high = last_candle["high"]
-    low = last_candle["low"]
-    close = last_candle["close"]
-    
-
-    for level_type, level_data in liquidity.items():
-
-        price = level_data["price"]
-        swept = level_data["swept"]
-
-        if price is None or swept:
-            continue
-
-        # Buy-side liquidity (price above level)
-        if level_type.endswith("high") or level_type == "pdh":
-            # Check if high touches or exceeds the level (potential sweep) and set swept to True
-            # if high >= price - tolerance:
-            # --------------------------------
-            # IMPORTANT: updated high >= price to high > price, as the same candle forming the low or high
-            # of the session can trigger sweep as the session high/ low == candle high/ low
-            # remove equality for sweep across this function
-            # --------------------------------
-            if high > price:
-                liquidity[level_type]["swept"] = True
-            # check for valid sweep (rejection off level)
-            # if high >= price - tolerance and close < price:
-            if high > price and close < price:
-
-                sweep_at_key_level = True
-                liquidity[level_type]["swept"] = True
-
-                swept_levels.append({
-                    "level_name": level_type,
-                    "price": price,
-                    "side": "buy_side",
-                    "type": "rejection"
-                })
-            # elif high >= price - tolerance and close >= price:
-            elif high > price and close > price:
-                # potential sweep but no rejection, still mark as swept
-                liquidity[level_type]["swept"] = True
-                swept_levels.append({
-                    "level_name": level_type,
-                    "price": price,
-                    "side": "buy_side",
-                    "type": "breakout"
-                })
-
-
-        # Sell-side liquidity (price below level)
-        elif level_type.endswith("low") or level_type == "pdl":
-            # Check if low touches or goes below the level (potential sweep) and set swept to True
-            # if low <= price + tolerance:
-            if low < price:
-                liquidity[level_type]["swept"] = True
-            #  check for valid sweep (rejection off level)
-            # if low <= price + tolerance and close > price:
-            if low < price and close > price:
-
-                sweep_at_key_level = True
-                liquidity[level_type]["swept"] = True
-
-                swept_levels.append({
-                    "level_name": level_type,
-                    "price": price,
-                    "side": "sell_side",
-                    "type": "rejection"
-                })
-            # elif low <= price + tolerance and close <= price:
-            elif low < price and close < price:
-                # potential sweep but no rejection, still mark as swept
-                liquidity[level_type]["swept"] = True
-                swept_levels.append({
-                    "level_name": level_type,
-                    "price": price,
-                    "side": "sell_side",
-                    "type": "breakout"
-                })
-
-    return sweep_at_key_level, swept_levels
 
 def detect_key_liquidity_sweep_highs(last_candle, liquidity, inside_3m_candles, tolerance=0):
 
@@ -218,7 +134,6 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, inside_candles_3m, t
     sweep_type = None
     sweep_max_level = None
 
-    # high = last_candle["high"]
     low = last_candle.low
     close = last_candle.close
     
@@ -466,10 +381,10 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
     points_tol = 3 if instrument == "NQ" else 1.5
     # print("valid swing highs: ", valid_swing_highs)
     for swing in valid_swing_highs:
-        if high > swing["high"]:
-            print("valid swing high: ", swing["high"])
+        if high > swing.high:
+            print("valid swing high: ", swing.high)
             sweep_type = None
-            sweep_type = "rejection" if close < swing["high"] else "breakout"
+            sweep_type = "rejection" if close < swing.high else "breakout"
             # last candle high and low
             sweep_candle_start = last_closed_candle.timestamp
             sweep_candle_end = sweep_candle_start + timedelta(minutes=30)
@@ -481,7 +396,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_confirmation_timestamp = None
             
             inside_3m_candles = [c for c in candles_3m if c.timestamp >= sweep_candle_start and c.timestamp < sweep_candle_end]
-            sweep_time = find_sweep_time_3m(inside_3m_candles, swing["high"], "buy_side")
+            sweep_time = find_sweep_time_3m(inside_3m_candles, swing.high, "buy_side")
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels, inside_3m_candles)
             print("detect_key_liquidity_sweep_highs return")
             print(key_levels["asia_high"])
@@ -510,9 +425,9 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                     nq_sweep_and_ob_ce_confirmed = True
                 ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
                 is_level_rejection = (
-                            upper_wick_ratio > 0.25
-                            and body_ratio < 0.2
-                        )
+                    upper_wick_ratio > 0.25
+                    and body_ratio < 0.2
+                )
                 rejection_ob_level = ob_level if is_level_rejection else None
 
             else:
@@ -529,9 +444,9 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                     nq_sweep_and_ob_ce_confirmed = True
                 ob_level = open if nq_sweep_and_ob_confirmed else None
                 is_level_rejection = (
-                            upper_wick_ratio > 0.45
-                            and body_ratio < 0.4
-                        )
+                    upper_wick_ratio > 0.45
+                    and body_ratio < 0.4
+                )
                 rejection_ob_level = open if is_level_rejection else None
 
             # ny_am bias = bullish
@@ -545,7 +460,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_candle_extreme": high,
                 "sweep_candle": {"open": open, "close": close, "high": high, "low": low, "is_bearish": open > close, "is_bullish": open < close},
                 "sweep_time": sweep_time,
-                "sweep_level": max(swing["high"], max_swl) if max_swl else swing["high"],
+                "sweep_level": max(swing.high, max_swl) if max_swl else swing.high,
                 "sweep_key_level": sweep,
                 "swept_levels": levels,
                 "sweep_type": sweep_type,
@@ -564,10 +479,10 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             break
 
     for swing in valid_swing_lows:
-        if low < swing["low"]:
+        if low < swing.low:
             # print("swept low: ", swing["low"], " last candle low: ", last_closed_candle.low)
             sweep_type = None
-            sweep_type =  "rejection" if close > swing["low"] else "breakout"
+            sweep_type =  "rejection" if close > swing.low else "breakout"
             sweep_candle_start = last_closed_candle.timestamp
             sweep_candle_end = sweep_candle_start + timedelta(minutes=30)
             nq_sweep_and_ob_confirmed = False
@@ -577,7 +492,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             nq_sweep_and_ob_confirmation_timestamp = None
 
             inside_3m_candles = [c for c in candles_3m if c.timestamp >= sweep_candle_start and c.timestamp < sweep_candle_end]
-            sweep_time = find_sweep_time_3m(inside_3m_candles, swing["low"], "sell_side")
+            sweep_time = find_sweep_time_3m(inside_3m_candles, swing.low, "sell_side")
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels, inside_3m_candles)
             # print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
             wick_ratio = abs(close - low) / abs(high - low)
@@ -633,7 +548,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 "sweep_candle_extreme": low,
                 "sweep_candle": {"open": open, "close": close, "high": high, "low": low, "is_bearish": open > close, "is_bullish": open < close},
                 "sweep_time": sweep_time,
-                "sweep_level": min(swing["low"], max_swl) if max_swl else swing["low"],
+                "sweep_level": min(swing.low, max_swl) if max_swl else swing.low,
                 "sweep_key_level": sweep,
                 "swept_levels": levels,
                 "sweep_type": sweep_type,
@@ -889,10 +804,10 @@ def detect_30m_swing_sweep(candles, windows, instrument):
     valid_swings_low = filter_valid_swing_lows(raw_swings_low)
     print("{instrument} valid swing highs")
     for swing in valid_swings_high:
-        print(swing["high"], end=", ")
+        print(swing.high, end=", ")
     print("\n{instrument} valid swing lows")
     for swing in valid_swings_low:
-        print(swing["low"], end=", ")
+        print(swing.low, end=", ")
     
     # Last closed 30m candle (just completed)
     last_closed = candles[-1]
@@ -919,7 +834,7 @@ def detect_30m_swing_sweep(candles, windows, instrument):
 
     for swing in valid_swings_high:
         print(f"Comparing last closed high {last_closed['high']} with swing high {swing['high']}")
-        if last_closed["high"] > swing["high"]:
+        if last_closed.high > swing.high:
             swept_levels.append(swing)
     print(f"Swept levels: {swept_levels}")
     # print("---------------------------")
@@ -943,7 +858,7 @@ def detect_30m_swing_sweep(candles, windows, instrument):
         return _no_sweep()
     swept_levels_low = []
     for swing in valid_swings_low:
-        if last_closed["low"] < swing["low"]:
+        if last_closed.low < swing.low:
             swept_levels_low.append(swing)
 
     if swept_levels_low:

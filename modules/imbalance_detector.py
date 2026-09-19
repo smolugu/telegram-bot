@@ -103,14 +103,14 @@ def detect_3m_imbalance_inside_ob_candle(
         ob_low = ob["ob_low"]
         ce_ob = (ob_high + ob_low) / 2
     else:
-        ob_high = last_closed_candle["high"]
-        ob_low = last_closed_candle["low"]
-        confirmation_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
+        ob_high = last_closed_candle.high
+        ob_low = last_closed_candle.low
+        confirmation_ts = datetime.fromisoformat(last_closed_candle.timestamp)
         ce_ob = (ob_high + ob_low) / 2
     print("ob_low: ", ob_low)
 
     # we are detecting imbalances in the current candle which created the OB
-    last_closed_candle_ts = datetime.fromisoformat(last_closed_candle["timestamp"])
+    last_closed_candle_ts = datetime.fromisoformat(last_closed_candle.timestamp)
     # confirmation_ts = datetime.fromisoformat(ob["confirmation_timestamp"])
     
     if last_closed_candle_ts > confirmation_ts:
@@ -118,10 +118,12 @@ def detect_3m_imbalance_inside_ob_candle(
     ob_candle_start = confirmation_ts
     ob_candle_end = confirmation_ts + timedelta(minutes=30)  # look for imbalances in the 30m window after OB confirmation, not just before
     sweep_time = None
-    if candidate.sweep_3m_timestamp == None:
-        sweep_time = datetime.fromisoformat(last_closed_candle["timestamp"])
+    if candidate.sweep_3m_timestamp is None:
+        # sweep_time = datetime.fromisoformat(last_closed_candle.timestamp)
+        sweep_time = last_closed_candle.timestamp
     else:
-        sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
+        # sweep_time = datetime.fromisoformat(candidate.sweep_3m_timestamp)
+        sweep_time = candidate.sweep_3m_timestamp
     print("sweep time: ", sweep_time)
     # ob_high = ob["ob_high"]
     # ob_low = ob["ob_low"]
@@ -135,7 +137,8 @@ def detect_3m_imbalance_inside_ob_candle(
     # 1️⃣ Extract 3m candles inside OB candle
     inside = [
         c for c in candles_3m
-        if sweep_time <= datetime.fromisoformat(c["timestamp"]) < ob_candle_end
+        if sweep_time <= c.timestamp < ob_candle_end
+        # if sweep_time <= datetime.fromisoformat(c.timestamp) < ob_candle_end
     ]
     # print("inside candles:", inside)
 
@@ -145,10 +148,10 @@ def detect_3m_imbalance_inside_ob_candle(
 
     direction = candidate.side
     if direction == "buy_side" and sweep_extreme_price == None:
-        sweep_extreme_price = last_closed_candle["high"]
+        sweep_extreme_price = last_closed_candle.high
         candidate.sweep_candle_extreme = sweep_extreme_price
     if direction == "sell_side" and sweep_extreme_price == None:
-        sweep_extreme_price = last_closed_candle["low"]
+        sweep_extreme_price = last_closed_candle.low
         candidate.sweep_candle_extreme = sweep_extreme_price
     candidates = []
 
@@ -156,8 +159,8 @@ def detect_3m_imbalance_inside_ob_candle(
     for i in range(1, len(inside)):
         prev = inside[i - 1]
         curr = inside[i]
-        prev_close = prev["close"]
-        curr_open = curr["open"]
+        prev_close = prev.close
+        curr_open = curr.open
         
         # ==========================================================
         # 🔴 BEARISH SETUP (buy_side sweep → looking for short)
@@ -167,10 +170,10 @@ def detect_3m_imbalance_inside_ob_candle(
             # ---------------------------
             # 1️⃣ Bearish Volume Imbalance (strict)
             # ---------------------------
-            prev_open = prev["open"]
-            prev_close = prev["close"]
-            curr_open = curr["open"]
-            curr_close = curr["close"]
+            prev_open = prev.open
+            prev_close = prev.close
+            curr_open = curr.open
+            curr_close = curr.close
             
             if (
                 prev_open > prev_close and      # previous bearish
@@ -188,7 +191,7 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     candidates.append({
                         "entry": vi_low,
-                        "timestamp": curr["timestamp"],
+                        "timestamp": curr.timestamp,
                         "distance": distance,
                         "type": "bearish_vi",
                         "instrument": instrument,
@@ -203,10 +206,10 @@ def detect_3m_imbalance_inside_ob_candle(
                 c1 = inside[i - 2]
                 c3 = inside[i]
 
-                if c1["low"] > c3["high"]:
+                if c1.low > c3.high:
 
-                    fvg_high = c1["low"]
-                    fvg_low = c3["high"]
+                    fvg_high = c1.low
+                    fvg_low = c3.high
                     # print(f"Found bearish FVG candidate - FVG High: {fvg_high}, FVG Low: {fvg_low}")
                     # if fvg_high <= ob_high and fvg_low >= ob_low:
                     if fvg_high <= ob_high or candidate.sweep_key_level:
@@ -216,7 +219,7 @@ def detect_3m_imbalance_inside_ob_candle(
 
                         candidates.append({
                             "entry": fvg_low,
-                            "timestamp": c3["timestamp"],
+                            "timestamp": c3.timestamp,
                             "distance": distance,
                             "type": "bearish_fvg",
                             "instrument": instrument,
@@ -232,10 +235,10 @@ def detect_3m_imbalance_inside_ob_candle(
             # ---------------------------
             # 1️⃣ Bullish Volume Imbalance (strict)
             # ---------------------------
-            prev_open = prev["open"]
-            prev_close = prev["close"]
-            curr_open = curr["open"]
-            curr_close = curr["close"]
+            prev_open = prev.open
+            prev_close = prev.close
+            curr_open = curr.open
+            curr_close = curr.close
 
             if (
                 prev_open < prev_close and      # previous bullish
@@ -253,7 +256,7 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     candidates.append({
                         "entry": vi_high,
-                        "timestamp": curr["timestamp"],
+                        "timestamp": curr.timestamp,
                         "distance": distance,
                         "type": "bullish_vi",
                         "instrument": instrument,
@@ -267,10 +270,10 @@ def detect_3m_imbalance_inside_ob_candle(
                 c1 = inside[i - 2]
                 c3 = inside[i]
                 
-                if c1["high"] < c3["low"]:
+                if c1.high < c3.low:
                 
-                    fvg_low = c1["high"]
-                    fvg_high = c3["low"]
+                    fvg_low = c1.high
+                    fvg_high = c3.low
                     if fvg_low >= ob_low or candidate.sweep_key_level:
 
                         # distance = abs(ob_low - fvg_high)
@@ -278,7 +281,7 @@ def detect_3m_imbalance_inside_ob_candle(
 
                         candidates.append({
                             "entry": fvg_high,
-                            "timestamp": c3["timestamp"],
+                            "timestamp": c3.timestamp,
                             "distance": distance,
                             "type": "bullish_fvg",
                             "instrument": instrument,

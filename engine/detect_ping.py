@@ -2,20 +2,25 @@
 from datetime import datetime, timedelta, timezone
 import time
 
-from alerts.execute import send_newyork_summary
+from alerts.alert_payload import build_trade_alert
+from alerts.execute import execute_trade_and_log, send_newyork_summary
 from alerts.summary_alert import build_summary_alert
+from data.market_data import filter_daily_candles
 from data.models.candle import NY_TZ
 from engine.initialization import get_previous_trading_day, initialize_ping
 from framework.models.auction.engine.auction_engine import refresh_auction
 from framework.models.compression import detect_compression
+from framework.models.reversal_setup import check_for_reversal_setup_confirmation
 from framework.models.sweep_validation import validate_sweeps
 from framework.state.weekly_state import update_weekly_1h_structure
+from helpers.date_time_helpers import to_ny_datetime
 from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ob_mitigation_levels, add_ib_ce_key_level, add_post_8am_mitigation_levels, get_liquidity_values, refresh_liquidity, reset_liquidity, update_compression_range_levels
 from helpers.sessions import in_session
 from helpers.swing_points import get_valid_swings
-from helpers.time_windows import get_active_window
+from helpers.time_windows import get_active_window, is_blocked_time
+from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle
 from modules.ob_detector import detect_30m_order_block
-from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels
+from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, summary_smt
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, update_sweep_info
 
 def update_weekly_1h_structure_abs(nq_weekly_state, nq_1h_candles, es_weekly_state, es_1h_candles, current_30m_start_utc):
@@ -137,6 +142,8 @@ def detect_ping(
     # continue
     # if i == 2:
     # update weekly state a the end of new 1h candle
+    nq_1h_candles = None
+    es_1h_candles = None
     if dt_current.hour==0 and dt_current.hour !=18:
         nq_1h_candles = candle_repo.get_last_n(
             contract=runtime.nq_contract,
@@ -150,7 +157,7 @@ def detect_ping(
             end=current_30m_start_utc,
             n=40,
         )
-        update_weekly_1h_structure_abs(nq_weekly_state = runtime.nq_weekly_state, nq_1h_candles=nq_1h_candles, es_weekly_state= runtime.es_weekly_state, es_1h_candles=es_1h_candles, current_30m_start_utc=current_30m_start_utc)
+        update_weekly_1h_structure_abs(nq_weekly_state = runtime.nq_weekly_state, nq_1h_candles=nq_1h_candles, es_weekly_state=runtime.es_weekly_state, es_1h_candles=es_1h_candles, current_30m_start_utc=current_30m_start_utc)
 
     # if i >= 3:
     
@@ -187,7 +194,7 @@ def detect_ping(
 
     print("current 30m boundary at: ", current_30m_start)
     print("NQ Last closed:", last_closed_nq.timestamp, "| Open: ", last_closed_nq.open, "| Low: ", last_closed_nq.low, "| High: ", last_closed_nq.high, "| Close: ", last_closed_nq.close)
-    print("ES Last closed:", last_closed_es["timestamp"], "| Open: ", last_closed_es["open"], "| Low: ", last_closed_es.low, "| High: ", last_closed_es.high, "| Close: ", last_closed_es["close"])
+    print("ES Last closed:", last_closed_es.timestamp, "| Open: ", last_closed_es.open, "| Low: ", last_closed_es.low, "| High: ", last_closed_es.high, "| Close: ", last_closed_es.close)
     # print("current 30m boundary at:", current_30m_start)
 
     is_post_1AM_IB = in_session(current_30m_start, 2, 0, 8, 0)
@@ -196,14 +203,14 @@ def detect_ping(
     # section to update context after the end of prev candle to current last closed candles
     if dt.hour == 9 and dt.minute == 00:
         # add 8am IB CE as key level for migration structures
-        add_ib_ce_key_level(structure_data=runtime.nq_ny_market_context, liquidity_levels=liquidity_nq)
-        add_ib_ce_key_level(structure_data=runtime.es_ny_market_context, liquidity_levels=liquidity_es)
+        add_ib_ce_key_level(structure_data=runtime.nq_ny_market_context, liquidity_levels=runtime.liquidity_nq)
+        add_ib_ce_key_level(structure_data=runtime.es_ny_market_context, liquidity_levels=runtime.liquidity_es)
         # add mitigation level from ny am structure
-        add_post_8am_mitigation_levels(structure_data=runtime.nq_ny_market_context, liquidity_levels=liquidity_nq)
-        add_post_8am_mitigation_levels(structure_data=runtime.es_ny_market_context, liquidity_levels=liquidity_es)
+        add_post_8am_mitigation_levels(structure_data=runtime.nq_ny_market_context, liquidity_levels=runtime.liquidity_nq)
+        add_post_8am_mitigation_levels(structure_data=runtime.es_ny_market_context, liquidity_levels=runtime.liquidity_es)
         # add compression levels from nyam structure to liquidity objects
-        update_compression_range_levels(liquidity_nq, compression_range_nq, "8AM")
-        update_compression_range_levels(liquidity_es, compression_range_es, "8AM")
+        update_compression_range_levels(runtime.liquidity_nq, compression_range_nq, "8AM")
+        update_compression_range_levels(runtime.liquidity_es, compression_range_es, "8AM")
         
     
     # update currest_session for i=0, 1, 2 
@@ -255,18 +262,20 @@ def detect_ping(
     # at the start of each new candle check if there is a sweep candidate with type = breakout and if the current candle closes above the sweep_candle open, then confirm the breakout sweep and update the type to rejection
     # changing breakout to rejection if the next candle closes above or below the sweep level
 
-    last_40_candles_3_nq = candle_repo.get_last_n(
-                                contract=runtime.nq_contract,
-                                timeframe=3,
-                                end=current_30m_start_utc,
-                                n=40,
-                            )
-    last_40_candles_3_es = candle_repo.get_last_n(
-                                contract=runtime.es_contract,
-                                timeframe=3,
-                                end=current_30m_start_utc,
-                                n=40,
-                            )
+    # last_40_candles_3_nq = candle_repo.get_last_n(
+    #                             contract=runtime.nq_contract,
+    #                             timeframe=3,
+    #                             end=current_30m_start_utc,
+    #                             n=40,
+    #                         )
+    # last_40_candles_3_es = candle_repo.get_last_n(
+    #                             contract=runtime.es_contract,
+    #                             timeframe=3,
+    #                             end=current_30m_start_utc,
+    #                             n=40,
+    #                         )
+    last_40_candles_3_nq=nq_candles_3m_for_auction
+    last_40_candles_3_es=es_candles_3m_for_auction
     if runtime.nq_buy_candidate.active and runtime.nq_buy_candidate.check_breakout_rejection:
         update_sweep_info(runtime.nq_buy_candidate, last_40_candles_3_nq, last_closed_nq)
     if runtime.nq_sell_candidate.active and runtime.nq_sell_candidate.check_breakout_rejection:
@@ -457,8 +466,8 @@ def detect_ping(
         print("ib18: ",  runtime.es_seven_hour_builder.candles["6PM"].values())
         runtime.nq_ny_market_context.set_10am_ib(last_closed_nq)
         runtime.es_ny_market_context.set_10am_ib(last_closed_es)
-        print("nq 10am IB: ", runtime.nq_ny_market_context. ib_10)
-        print("es 10am IB: ", runtime.es_ny_market_context. ib_10)
+        print("nq 10am IB: ", runtime.nq_ny_market_context.ib_10)
+        print("es 10am IB: ", runtime.es_ny_market_context.ib_10)
     
     # update market context for NQ and ES
     runtime.nq_market_context.update_session_range(last_closed_nq.high, last_closed_nq.low, last_closed_nq.open, last_closed_nq.close, dt.hour, dt.minute, last_closed_candle_timestamp)
@@ -1182,14 +1191,38 @@ def detect_ping(
         print("key_level_bearish_smt_result: ", key_level_bearish_smt_result)
     # detect smt at key level
     # print("nq keys: ", nq.keys())
-    nq_1h_filtered = filter_htf_candles(nq["1h"], current_30m_start)
+    # nq_1h_filtered = filter_htf_candles(nq["1h"], current_30m_start)
     # print("nq_1h_filtered: ", nq_1h_filtered)
+    nq_1h_filtered = nq_1h_candles
+    es_1h_filtered = es_1h_candles
+    nq_4h_filtered = candle_repo.get_last_n(
+        contract=runtime.nq_contract,
+        timeframe=240,
+        end=current_30m_start_utc,
+        n=40,
+    )
+    es_4h_filtered = candle_repo.get_last_n(
+        contract=runtime.es_contract,
+        timeframe=240,
+        end=current_30m_start_utc,
+        n=40,
+    )
+    nq_7h_filtered = candle_repo.get_last_n(
+        contract=runtime.nq_contract,
+        timeframe=420,
+        end=current_30m_start_utc,
+        n=40,
+    )
+    es_7h_filtered = candle_repo.get_last_n(
+        contract=runtime.es_contract,
+        timeframe=420,
+        end=current_30m_start_utc,
+        n=40,
+    )
     
-    es_1h_filtered = filter_htf_candles(es["1h"], current_30m_start)
-    nq_4h_filtered = filter_htf_candles(nq["4h"], current_30m_start)
-    es_4h_filtered = filter_htf_candles(es["4h"], current_30m_start)
-    nq_7h_filtered = filter_htf_candles(nq["7h"], current_30m_start)
-    es_7h_filtered = filter_htf_candles(es["7h"], current_30m_start)
+    # nq_7h_filtered = filter_htf_candles(nq["7h"], current_30m_start)
+    # es_7h_filtered = filter_htf_candles(es["7h"], current_30m_start)
+    
     # print("es_1h_filtered: ", es_1h_filtered)
     print("pre detect smt")
     print("bullish_smt_1h: ", runtime.nq_market_context.bullish_smt_1h)
@@ -1214,11 +1247,24 @@ def detect_ping(
         runtime.nq_market_context.update_1h_smt_liquidity(h1_bullish_smt_liquidity, h1_bearish_smt_liquidity)
     
     # detect daily smt at current session high and low
-    nq_1d_filtered = filter_daily_candles(nq["1d"], current_30m_start)
+    # nq_1d_filtered = filter_daily_candles(nq["1d"], current_30m_start)
     # print("nq_1h_filtered: ", nq_1h_filtered)
     
-    es_1d_filtered = filter_daily_candles(es["1d"], current_30m_start)
+    # es_1d_filtered = filter_daily_candles(es["1d"], current_30m_start)
     # print("es_1h_filtered: ", es_1h_filtered)
+    nq_1d_filtered = candle_repo.get_last_n(
+        contract=runtime.nq_contract,
+        timeframe=1440,
+        end=current_30m_start_utc,
+        n=30,
+    )
+    es_1d_filtered = candle_repo.get_last_n(
+        contract=runtime.es_contract,
+        timeframe=1440,
+        end=current_30m_start_utc,
+        n=30,
+    )
+    
     d1_bullish_smt, d1_bearish_smt = detect_daily_smt_precise(nq_1d_filtered, es_1d_filtered, {"session_high": runtime.nq_market_context.session_high, "session_low": runtime.nq_market_context.session_low}, {"session_high": runtime.es_market_context.session_high, "session_low": runtime.es_market_context.session_low})
 
     # smt summary
@@ -1244,7 +1290,8 @@ def detect_ping(
         #  imbalance should be present between sweep time and Ob time
 
         fvg = detect_3m_imbalance_inside_ob_candle(
-            nq_3m,
+            # nq_3m,
+            last_40_candles_3_nq,
             runtime.nq_buy_candidate,
             "NQ",
             last_closed_nq
@@ -1257,7 +1304,8 @@ def detect_ping(
         print("Processing FVG for NQ Sell candidate")
 
         fvg = detect_3m_imbalance_inside_ob_candle(
-            nq_3m,
+            # nq_3m,
+            last_40_candles_3_nq,
             runtime.nq_sell_candidate,
             "NQ",
             last_closed_nq
@@ -1271,7 +1319,8 @@ def detect_ping(
         print("Processing FVG for ES Buy candidate")
 
         fvg = detect_3m_imbalance_inside_ob_candle(
-            es_3m,
+            # es_3m,
+            last_40_candles_3_es,
             runtime.es_buy_candidate,
             "ES",
             last_closed_es
@@ -1284,7 +1333,8 @@ def detect_ping(
         print("Processing FVG for ES Sell candidate")
 
         fvg = detect_3m_imbalance_inside_ob_candle(
-            es_3m,
+            # es_3m,
+            last_40_candles_3_es,
             runtime.es_sell_candidate,
             "ES",
             last_closed_es
@@ -1345,13 +1395,13 @@ def detect_ping(
     if (runtime.nq_sell_candidate.fvg_confirmed and runtime.nq_sell_candidate.final_ob_confirmed) and not runtime.nq_sell_candidate.alert_sent:
         # filter using market context
         send = False
-        if (nq_market_context.day_type == "reversal" or nq_market_context.day_type is None) and nq_market_context.bias == "bearish":
+        if (runtime.nq_market_context.day_type == "reversal" or runtime.nq_market_context.day_type is None) and runtime.nq_market_context.bias == "bearish":
             send = True
         # filter based on SMT and other market context
         # if nq_market_context.atr_usage > 0.8:
         #     send = True
-        send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_sell_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, es_sell_candidate, nq_auction_engine)
-        print("nq rocket triggered: ", nq_ny_market_context.execution_state["rocket_triggered"])
+        send = check_for_reversal_setup_confirmation(runtime.nq_weekly_state, runtime.nq_market_context, runtime.nq_london_market_context, runtime.nq_ny_market_context, runtime.nq_seven_hour_builder.candles, runtime.liquidity_nq, runtime.nq_sell_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, runtime.es_sell_candidate, runtime.nq_auction_engine)
+        print("nq rocket triggered: ", runtime.nq_ny_market_context.execution_state["rocket_triggered"])
         # check for alert at 9:30
         if send:
             # check for blocked time
@@ -1373,10 +1423,10 @@ def detect_ping(
             #     send = False
         print("send === ", send, "trade confirmation time: ", runtime.nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq.timestamp)
         if send:
-            print("Market Context: ", nq_market_context.values())
-            message = build_trade_alert(candidate = nq_sell_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr, current_time = current_30m_start)
+            print("Market Context: ", runtime.nq_market_context.values())
+            message = build_trade_alert(candidate = runtime.nq_sell_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(nq_sell_candidate, message)
+                execute_trade_and_log(runtime.nq_sell_candidate, message)
                 # send_telegram_alert_to_all(message)
                 # runtime.nq_sell_candidate.alert_sent = True
                 # insert_trade(nq_sell_candidate)
@@ -1388,13 +1438,13 @@ def detect_ping(
                 # print("Total trades:", cursor.fetchone())
 
                 # conn.close()
-    if (nq_buy_candidate.fvg_confirmed and runtime.nq_buy_candidate.final_ob_confirmed) and not runtime.nq_buy_candidate.alert_sent:
+    if (runtime.nq_buy_candidate.fvg_confirmed and runtime.nq_buy_candidate.final_ob_confirmed) and not runtime.nq_buy_candidate.alert_sent:
         send = False
-        if (nq_market_context.day_type == "reversal" or nq_market_context.day_type is None) and (nq_market_context.bias == "bullish" or nq_market_context.bias == "neutral"):
+        if (runtime.nq_market_context.day_type == "reversal" or runtime.nq_market_context.day_type is None) and (runtime.nq_market_context.bias == "bullish" or runtime.nq_market_context.bias == "neutral"):
             send = True
         # if nq_market_context.atr_usage > 0.8:
         #     send = True
-        send = check_for_reversal_setup_confirmation(nq_weekly_state, nq_market_context, nq_london_market_context, nq_ny_market_context, nq_seven_hour_builder.candles, liquidity_nq, nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, es_buy_candidate, nq_auction_engine)
+        send = check_for_reversal_setup_confirmation(runtime.nq_weekly_state, runtime.nq_market_context, runtime.nq_london_market_context, runtime.nq_ny_market_context, runtime.nq_seven_hour_builder.candles, runtime.liquidity_nq, runtime.nq_buy_candidate, last_closed_nq, current_30m_start, summary_bullish_smt, summary_bearish_smt, es_context, runtime.es_buy_candidate, runtime.nq_auction_engine)
         print("send from check nq buy candidate: ", send)
         # check for alert at 9:30
         if send:
@@ -1415,11 +1465,11 @@ def detect_ping(
             # if runtime.nq_sell_candidate.alert_sent or runtime.es_sell_candidate.alert_sent:
             #     send = False
         if send:
-            print("Market Context: ", nq_market_context.values())
+            print("Market Context: ", runtime.nq_market_context.values())
             # send alert for NQ buy candidate
-            message = build_trade_alert(candidate = nq_buy_candidate, liquidity_map = liquidity_nq, daily_atr = nq_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candidate = runtime.nq_buy_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(nq_buy_candidate, message)
+                execute_trade_and_log(runtime.nq_buy_candidate, message)
                 # send_telegram_alert_to_all(message)
                 # runtime.nq_buy_candidate.alert_sent = True
                 # insert_trade(nq_buy_candidate)
@@ -1431,7 +1481,7 @@ def detect_ping(
         # rejection of IB at asia session sweep
         # atr for move
         send = False                    
-        send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context, es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_sell_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, nq_sell_candidate, es_auction_engine)
+        send = check_for_reversal_setup_confirmation(runtime.es_weekly_state, runtime.es_market_context, runtime.es_london_market_context, runtime.es_ny_market_context, runtime.es_seven_hour_builder.candles, runtime.liquidity_es, runtime.es_sell_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, runtime.nq_sell_candidate, runtime.es_auction_engine)
         print("send 1: ", send)
         # if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and nq_market_context.bias == "bearish":
         #     send = True
@@ -1471,22 +1521,22 @@ def detect_ping(
             #     send = False
         print("send 2: ", send)
         if send:
-            print("ES Market Context: ", es_market_context.values())
+            print("ES Market Context: ", runtime.es_market_context.values())
             # send alert for ES sell candidate
-            message = build_trade_alert(candidate = es_sell_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candidate = runtime.es_sell_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(es_sell_candidate, message)
+                execute_trade_and_log(runtime.es_sell_candidate, message)
                 # send_telegram_alert_to_all(message)
                 # runtime.es_sell_candidate.alert_sent = True
                 # insert_trade(es_sell_candidate)
     
     if (runtime.es_buy_candidate.fvg_confirmed and runtime.es_buy_candidate.final_ob_confirmed) and not runtime.es_buy_candidate.alert_sent:
         send = False
-        if (es_market_context.day_type == "reversal" or es_market_context.day_type is None) and (es_market_context.bias == "bullish" or es_market_context.bias == "neutral"):
+        if (runtime.es_market_context.day_type == "reversal" or runtime.es_market_context.day_type is None) and (runtime.es_market_context.bias == "bullish" or runtime.es_market_context.bias == "neutral"):
             send = True
         # if es_market_context.atr_usage > 0.8:
         #     send = True
-        send = check_for_reversal_setup_confirmation(es_weekly_state, es_market_context, es_london_market_context,  es_ny_market_context, es_seven_hour_builder.candles, liquidity_es, es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, nq_buy_candidate, es_auction_engine)
+        send = check_for_reversal_setup_confirmation(runtime.es_weekly_state, runtime.es_market_context, runtime.es_london_market_context, runtime.es_ny_market_context, runtime.es_seven_hour_builder.candles, runtime.liquidity_es, runtime.es_buy_candidate, last_closed_es, current_30m_start, summary_bullish_smt, summary_bearish_smt, nq_context, runtime.nq_buy_candidate, runtime.es_auction_engine)
         print("send 3: ", send)
         # check for alert at 9:30
         if send:
@@ -1509,11 +1559,11 @@ def detect_ping(
                 
         print("send 4: ", send)
         if send:
-            print("ES Market Context: ", es_market_context.values())
+            print("ES Market Context: ", runtime.es_market_context.values())
             # send alert for ES buy candidate
-            message = build_trade_alert(candidate = es_buy_candidate, liquidity_map = liquidity_es, daily_atr = es_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candidate = runtime.es_buy_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(es_buy_candidate, message)
+                execute_trade_and_log(runtime.es_buy_candidate, message)
                 # send_telegram_alert_to_all(message)
                 # runtime.es_buy_candidate.alert_sent = True
                 # insert_trade(es_buy_candidate)

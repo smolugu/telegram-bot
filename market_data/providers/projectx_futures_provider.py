@@ -49,6 +49,7 @@ class ProjectXFuturesProvider(FuturesProvider):
             contract_id=projectx_contract_id,
             start=start,
             end=end,
+            timeframe=timeframe,
         )
         
 

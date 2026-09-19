@@ -151,7 +151,7 @@ class SevenHourBuilder:
 
     def update(self, candle):
 
-        label = get_7h_label(candle["timestamp"])
+        label = get_7h_label(candle.timestamp)
         print("label: ", label)
 
         if label is None:

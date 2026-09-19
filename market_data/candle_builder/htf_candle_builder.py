@@ -578,10 +578,10 @@ class HTFCandleBuilder:
         start_utc = first_1m
         end_utc = last_1m + timedelta(minutes=1)
         
-        # start_utc=datetime(
-        #     2026, 9, 9, 21, 0,
-        #     tzinfo=UTC_TZ,
-        # )
+        start_utc=datetime(
+            2026, 9, 15, 21, 0,
+            tzinfo=UTC_TZ,
+        )
         # end_utc=datetime(
         #     2026, 9, 11, 0, 0,
         #     tzinfo=UTC_TZ,
@@ -593,12 +593,12 @@ class HTFCandleBuilder:
         )
         
         definitions = [
-            HTFDefinition(timeframe=3, name="3m"),
+            # HTFDefinition(timeframe=3, name="3m"),
             HTFDefinition(timeframe=30, name="30m"),
-            HTFDefinition(timeframe=60, name="1h"),
-            HTFDefinition(timeframe=240, name="4h"),
-            HTFDefinition(timeframe=420, name="7h"),
-            HTFDefinition(timeframe=1440, name="D"),
+            # HTFDefinition(timeframe=60, name="1h"),
+            # HTFDefinition(timeframe=240, name="4h"),
+            # HTFDefinition(timeframe=420, name="7h"),
+            # HTFDefinition(timeframe=1440, name="D"),
         ]
 
         results: dict[str, int] = {}
@@ -718,6 +718,11 @@ class HTFCandleBuilder:
                 current,
                 definition,
             )
+            print(
+                f"HTF LOOP {definition.name}: "
+                f"current={current} "
+                f"period={start_period} → {end_period}"
+            )
 
             # If this period starts before our requested range,
             # move directly to the next period.
@@ -734,6 +739,10 @@ class HTFCandleBuilder:
                 timeframe=definition.timeframe,
                 timestamp=start_period,
             ):
+                print(
+                    f"HTF EXISTS: "
+                    f"{definition.name} {start_period}"
+                )
                 current = end_period
                 # print("candle exists: not merging")
                 continue
@@ -833,7 +842,11 @@ class HTFCandleBuilder:
 
             first = candles_1m[0]
             last = candles_1m[-1]
-
+            print(
+                f"HTF BUILD CANDIDATE: "
+                f"{definition.name} "
+                f"{start_period} → {end_period}"
+            )
             htf_candle = Candle(
                 instrument=instrument,
                 timeframe=definition.timeframe,
@@ -860,6 +873,699 @@ class HTFCandleBuilder:
         )
 
         return built
+
+    def backfill_contract_htf_history_v2(
+        self,
+        instrument: str,
+        contract: str,
+    ) -> dict[str, int]:
+
+        first_1m, last_1m = self._candle_repo.get_time_range(
+            contract=contract,
+            timeframe=1,
+        )
+
+        if first_1m is None or last_1m is None:
+            print(
+                f"No 1m history found for "
+                f"{instrument} {contract}"
+            )
+            return {}
+
+        start_utc = first_1m
+        end_utc = last_1m + timedelta(minutes=1)
+        start_utc = last_1m - timedelta(hours=12)
+        # start_utc=datetime(
+        #     2026, 9, 17, 21, 0,
+        #     tzinfo=UTC_TZ,
+        # )
+
+        print(
+            f"Starting HTF backfill v2: "
+            f"{instrument} {contract}"
+        )
+        print(
+            f"Range: {start_utc} → {end_utc}"
+        )
+
+        definitions = [
+            HTFDefinition(3, "3m"),
+            HTFDefinition(30, "30m"),
+            HTFDefinition(60, "1h"),
+            HTFDefinition(240, "4h"),
+            HTFDefinition(420, "7h"),
+            HTFDefinition(1440, "D"),
+        ]
+
+        results = {}
+
+        for definition in definitions:
+
+            count = self.backfill_htf_v2(
+                instrument=instrument,
+                contract=contract,
+                definition=definition,
+                start_utc=start_utc,
+                end_utc=end_utc,
+            )
+
+            results[definition.name] = count
+
+        print(
+            f"HTF backfill v2 complete: "
+            f"{instrument} {contract}"
+        )
+
+        return results
+    
+    def backfill_contract_4h_htf_history_v3(
+        self,
+        instrument: str,
+        contract: str,
+    ) -> dict[str, int]:
+
+        first_1m, last_1m = self._candle_repo.get_time_range(
+            contract=contract,
+            timeframe=1,
+        )
+
+        if first_1m is None or last_1m is None:
+            print(
+                f"No 1m history found for "
+                f"{instrument} {contract}"
+            )
+            return {}
+
+        start_utc = first_1m
+        end_utc = last_1m + timedelta(minutes=1)
+        start_utc = last_1m - timedelta(hours=12)
+        # start_utc=datetime(
+        #     2026, 9, 17, 21, 0,
+        #     tzinfo=UTC_TZ,
+        # )
+
+        print(
+            f"Starting HTF backfill v2: "
+            f"{instrument} {contract}"
+        )
+        print(
+            f"Range: {start_utc} → {end_utc}"
+        )
+
+        definitions = [
+            HTFDefinition(3, "3m"),
+            HTFDefinition(30, "30m"),
+            HTFDefinition(60, "1h"),
+            HTFDefinition(240, "4h"),
+            HTFDefinition(420, "7h"),
+            HTFDefinition(1440, "D"),
+        ]
+
+        results = {}
+
+        for definition in definitions:
+
+            count = self.backfill_htf_v2(
+                instrument=instrument,
+                contract=contract,
+                definition=definition,
+                start_utc=start_utc,
+                end_utc=end_utc,
+            )
+
+            results[definition.name] = count
+
+        print(
+            f"HTF backfill v2 complete: "
+            f"{instrument} {contract}"
+        )
+
+        return results
+
+    def backfill_htf_v2(
+        self,
+        instrument: str,
+        contract: str,
+        definition: HTFDefinition,
+        start_utc: datetime,
+        end_utc: datetime,
+    ) -> int:
+
+        # ---------------------------------------------------------
+        # 30m: retrieve directly from ProjectX
+        # ---------------------------------------------------------
+        if definition.timeframe == 3:
+
+            print(
+                f"Backfilling 3m from ProjectX: "
+                f"{instrument} {contract}"
+            )
+
+            candles = self.history_loader.provider.get_history(
+                instrument=instrument,
+                contract=contract,
+                timeframe=3,
+                start=start_utc,
+                end=end_utc,
+            )
+
+            if not candles:
+                print("No 3m candles returned from ProjectX")
+                return 0
+
+            # Safety: only save candles inside requested range.
+            candles = [
+                candle
+                for candle in candles
+                if start_utc <= candle.timestamp < end_utc
+            ]
+
+            if not candles:
+                return 0
+
+            self._candle_repo.save(candles)
+
+            print(
+                f"3m backfill complete: "
+                f"{instrument} {contract} → "
+                f"{len(candles)} candles saved"
+            )
+
+            return len(candles)
+        if definition.timeframe == 30:
+
+            print(
+                f"Backfilling 30m directly from ProjectX: "
+                f"{instrument} {contract}"
+            )
+
+            candles = self.history_loader.provider.get_history(
+                instrument=instrument,
+                contract=contract,
+                timeframe=30,
+                start=start_utc,
+                end=end_utc,
+            )
+
+            if not candles:
+                print(
+                    f"No 30m candles returned for "
+                    f"{instrument} {contract}"
+                )
+                return 0
+
+            # ProjectX uses an exclusive end.
+            candles = [
+                candle
+                for candle in candles
+                if start_utc <= candle.timestamp < end_utc
+            ]
+
+            if not candles:
+                return 0
+
+            self._candle_repo.save(candles)
+
+            print(
+                f"Saved {len(candles)} 30m candles for "
+                f"{instrument} {contract}"
+            )
+
+            return len(candles)
+
+        if definition.timeframe == 60:
+
+            print(
+                f"Backfilling 1H from 30m candles: "
+                f"{instrument} {contract}"
+            )
+
+            current = start_utc.replace(
+                second=0,
+                microsecond=0,
+            )
+
+            built = 0
+            skipped = 0
+
+            while current < end_utc:
+
+                start_period, end_period = (
+                    self._get_period_boundaries(
+                        current,
+                        definition,
+                    )
+                )
+
+                # Period must be completely inside requested range.
+                if start_period < start_utc:
+                    current = end_period
+                    continue
+
+                if end_period > end_utc:
+                    break
+
+                # Already exists
+                if self._candle_repo.exists(
+                    contract=contract,
+                    timeframe=60,
+                    timestamp=start_period,
+                ):
+                    current = end_period
+                    continue
+
+                # Get the underlying 30m candles.
+                candles_30m = self._candle_repo.get_between(
+                    contract=contract,
+                    timeframe=30,
+                    start=start_period,
+                    end=end_period - timedelta(minutes=30),
+                )
+
+                expected_count = 2
+
+                if len(candles_30m) != expected_count:
+
+                    print(
+                        f"Skipping 1H {start_period} → {end_period}: "
+                        f"{len(candles_30m)}/{expected_count} 30m candles"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                # Verify 30m continuity.
+                continuous = all(
+                    candles_30m[i].timestamp
+                    == candles_30m[i - 1].timestamp
+                    + timedelta(minutes=30)
+                    for i in range(1, len(candles_30m))
+                )
+
+                if not continuous:
+
+                    print(
+                        f"Skipping 1H {start_period} → {end_period}: "
+                        f"30m candles are not continuous"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                first = candles_30m[0]
+                last = candles_30m[-1]
+
+                htf_candle = Candle(
+                    instrument=instrument,
+                    timeframe=60,
+                    timestamp=start_period,
+                    contract=contract,
+                    open=first.open,
+                    high=max(c.high for c in candles_30m),
+                    low=min(c.low for c in candles_30m),
+                    close=last.close,
+                    volume=sum(c.volume for c in candles_30m),
+                )
+
+                self._candle_repo.save([htf_candle])
+
+                built += 1
+
+                current = end_period
+
+            print(
+                f"1H backfill complete: "
+                f"{instrument} {contract} → "
+                f"{built} candles built, "
+                f"{skipped} skipped"
+            )
+
+            return built
+        
+        
+        if definition.timeframe == 240:
+
+            print(
+                f"Backfilling 4H from 30m candles: "
+                f"{instrument} {contract}"
+            )
+
+            current = start_utc.replace(
+                second=0,
+                microsecond=0,
+            )
+
+            built = 0
+            skipped = 0
+
+            while current < end_utc:
+                try:
+                    start_period, end_period = (
+                        self._get_period_boundaries(
+                            current,
+                            definition,
+                        )
+                    )
+                except ValueError:
+                    # Timestamp is inside a gap between defined HTF periods
+                    current = current + timedelta(minutes=30)
+                    continue
+
+                if start_period < start_utc:
+                    current = end_period
+                    continue
+
+                if end_period > end_utc:
+                    break
+
+                if self._candle_repo.exists(
+                    contract=contract,
+                    timeframe=240,
+                    timestamp=start_period,
+                ):
+                    current = end_period
+                    continue
+
+                candles_30m = self._candle_repo.get_between(
+                    contract=contract,
+                    timeframe=30,
+                    start=start_period,
+                    end=end_period - timedelta(minutes=30),
+                )
+
+                expected_count = int(
+                    (end_period - start_period).total_seconds()
+                    / (30 * 60)
+                )
+
+                if len(candles_30m) != expected_count:
+
+                    print(
+                        f"Skipping 4H {start_period} → {end_period}: "
+                        f"{len(candles_30m)}/{expected_count} 30m candles"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                continuous = all(
+                    candles_30m[i].timestamp
+                    == candles_30m[i - 1].timestamp
+                    + timedelta(minutes=30)
+                    for i in range(1, len(candles_30m))
+                )
+
+                if not continuous:
+
+                    print(
+                        f"Skipping 4H {start_period} → {end_period}: "
+                        f"30m candles are not continuous"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                first = candles_30m[0]
+                last = candles_30m[-1]
+
+                htf_candle = Candle(
+                    instrument=instrument,
+                    timeframe=240,
+                    timestamp=start_period,
+                    contract=contract,
+                    open=first.open,
+                    high=max(c.high for c in candles_30m),
+                    low=min(c.low for c in candles_30m),
+                    close=last.close,
+                    volume=sum(c.volume for c in candles_30m),
+                )
+
+                self._candle_repo.save([htf_candle])
+
+                built += 1
+                current = end_period
+
+            print(
+                f"4H backfill complete: "
+                f"{instrument} {contract} → "
+                f"{built} candles built, "
+                f"{skipped} skipped"
+            )
+
+            return built
+
+        if definition.timeframe == 420:
+
+            print(
+                f"Backfilling 7H from 30m candles: "
+                f"{instrument} {contract}"
+            )
+
+            current = start_utc.replace(
+                second=0,
+                microsecond=0,
+            )
+
+            built = 0
+            skipped = 0
+
+            while current < end_utc:
+
+                try:
+                    start_period, end_period = (
+                        self._get_period_boundaries(
+                            current,
+                            definition,
+                        )
+                    )
+                except ValueError:
+                    # Maintenance gap, e.g. 17:00–18:00 NY
+                    current += timedelta(minutes=30)
+                    continue
+
+                if start_period < start_utc:
+                    current = end_period
+                    continue
+
+                if end_period > end_utc:
+                    break
+
+                if self._candle_repo.exists(
+                    contract=contract,
+                    timeframe=420,
+                    timestamp=start_period,
+                ):
+                    current = end_period
+                    continue
+
+                candles_30m = self._candle_repo.get_between(
+                    contract=contract,
+                    timeframe=30,
+                    start=start_period,
+                    end=end_period - timedelta(minutes=30),
+                )
+
+                expected_count = int(
+                    (end_period - start_period).total_seconds()
+                    / (30 * 60)
+                )
+
+                if len(candles_30m) != expected_count:
+
+                    print(
+                        f"Skipping 7H {start_period} → {end_period}: "
+                        f"{len(candles_30m)}/{expected_count} 30m candles"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                continuous = all(
+                    candles_30m[i].timestamp
+                    == candles_30m[i - 1].timestamp
+                    + timedelta(minutes=30)
+                    for i in range(1, len(candles_30m))
+                )
+
+                if not continuous:
+
+                    print(
+                        f"Skipping 7H {start_period} → {end_period}: "
+                        f"30m candles are not continuous"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                first = candles_30m[0]
+                last = candles_30m[-1]
+
+                htf_candle = Candle(
+                    instrument=instrument,
+                    timeframe=420,
+                    timestamp=start_period,
+                    contract=contract,
+                    open=first.open,
+                    high=max(c.high for c in candles_30m),
+                    low=min(c.low for c in candles_30m),
+                    close=last.close,
+                    volume=sum(c.volume for c in candles_30m),
+                )
+
+                self._candle_repo.save([htf_candle])
+
+                built += 1
+                current = end_period
+
+            print(
+                f"7H backfill complete: "
+                f"{instrument} {contract} → "
+                f"{built} candles built, "
+                f"{skipped} skipped"
+            )
+
+            return built
+        
+        if definition.timeframe == 1440:
+
+            print(
+                f"Backfilling Daily from 30m candles: "
+                f"{instrument} {contract}"
+            )
+
+            current = start_utc.replace(
+                second=0,
+                microsecond=0,
+            )
+
+            built = 0
+            skipped = 0
+
+            while current < end_utc:
+
+                try:
+                    start_period, end_period = (
+                        self._get_period_boundaries(
+                            current,
+                            definition,
+                        )
+                    )
+                except ValueError:
+                    # Timestamp is inside a gap between defined periods.
+                    current += timedelta(minutes=30)
+                    continue
+
+                if start_period < start_utc:
+                    current = end_period
+                    continue
+
+                if end_period > end_utc:
+                    break
+
+                if self._candle_repo.exists(
+                    contract=contract,
+                    timeframe=1440,
+                    timestamp=start_period,
+                ):
+                    current = end_period
+                    continue
+
+                candles_30m = self._candle_repo.get_between(
+                    contract=contract,
+                    timeframe=30,
+                    start=start_period,
+                    end=end_period - timedelta(minutes=30),
+                )
+
+                # expected_count = int(
+                #     (end_period - start_period).total_seconds()
+                #     / (30 * 60)
+                # )
+
+                # if len(candles_30m) != expected_count:
+
+                #     print(
+                #         f"Skipping Daily {start_period} → {end_period}: "
+                #         f"{len(candles_30m)}/{expected_count} 30m candles"
+                #     )
+
+                #     skipped += 1
+                #     current = end_period
+                #     continue
+
+                # continuous = all(
+                #     candles_30m[i].timestamp
+                #     == candles_30m[i - 1].timestamp
+                #     + timedelta(minutes=30)
+                #     for i in range(1, len(candles_30m))
+                # )
+
+                # if not continuous:
+
+                #     print(
+                #         f"Skipping Daily {start_period} → {end_period}: "
+                #         f"30m candles are not continuous"
+                #     )
+
+                #     skipped += 1
+                #     current = end_period
+                #     continue
+                if not candles_30m:
+                    print(
+                        f"Skipping Daily {start_period} → {end_period}: "
+                        f"no 30m candles"
+                    )
+
+                    skipped += 1
+                    current = end_period
+                    continue
+
+                first = candles_30m[0]
+                last = candles_30m[-1]
+
+                htf_candle = Candle(
+                    instrument=instrument,
+                    timeframe=1440,
+                    timestamp=start_period,
+                    contract=contract,
+                    open=first.open,
+                    high=max(c.high for c in candles_30m),
+                    low=min(c.low for c in candles_30m),
+                    close=last.close,
+                    volume=sum(c.volume for c in candles_30m),
+                )
+
+                self._candle_repo.save([htf_candle])
+
+                built += 1
+                current = end_period
+
+            print(
+                f"Daily backfill complete: "
+                f"{instrument} {contract} → "
+                f"{built} candles built, "
+                f"{skipped} skipped"
+            )
+
+            return built
+        # ---------------------------------------------------------
+        # Everything else:
+        # temporarily use the existing backfill implementation
+        # ---------------------------------------------------------
+
+        return self.backfill_htf(
+            instrument=instrument,
+            contract=contract,
+            definition=definition,
+            start_utc=start_utc,
+            end_utc=end_utc,
+        )
 
     def backfill_3m(
         self,
@@ -1037,59 +1743,158 @@ class HTFCandleBuilder:
 
         return htf_candle
 
-    # def process_realtime_htf(
-    #     self,
-    #     instrument: str,
-    #     contract: str,
-    #     boundary_utc: datetime,
-    #     definition: HTFDefinition,
-    # ) -> int:
-    #     """
-    #     Rebuild the current and previous completed HTF candles
-    #     at a realtime boundary.
+    def build_latest_3m_from_1m_v3(
+        self,
+        instrument: str,
+        contract: str,
+        end_utc: datetime,
+    ) -> Candle | None:
 
-    #     This intentionally rebuilds existing candles so that any
-    #     corrections made by REST reconciliation are reflected.
-    #     """
+        start_utc = end_utc - timedelta(minutes=3)
 
-    #     built = 0
+        candles_1m = self._candle_repo.get_between(
+            contract=contract,
+            timeframe=1,
+            start=start_utc,
+            end=end_utc - timedelta(minutes=1),
+        )
 
-    #     # Find the HTF period that has just completed.
-    #     current_start, current_end = self._get_completed_period(
-    #         boundary_utc,
-    #         definition,
-    #     )
+        if not candles_1m:
+            print(
+                f"No 1m candles available for 3m period: "
+                f"{start_utc} → {end_utc}"
+            )
+            return None
 
-    #     periods = [
-    #         (current_start, current_end),
-    #     ]
+        first = candles_1m[0]
+        last = candles_1m[-1]
 
-    #     # Find the immediately previous HTF period.
-    #     previous_start, previous_end = self._get_completed_period(
-    #         current_start - timedelta(microseconds=1),
-    #         definition,
-    #     )
+        htf_candle = Candle(
+            instrument=instrument,
+            timeframe=3,
+            timestamp=start_utc,
+            contract=contract,
+            open=first.open,
+            high=max(c.high for c in candles_1m),
+            low=min(c.low for c in candles_1m),
+            close=last.close,
+            volume=sum(c.volume for c in candles_1m),
+        )
+        print("htf candle:", htf_candle)
 
-    #     periods.insert(
-    #         0,
-    #         (previous_start, previous_end),
-    #     )
+        self._candle_repo.save([htf_candle])
 
-    #     for start_period, end_period in periods:
+        return htf_candle
 
-    #         candle = self._build_candle_for_period(
-    #             instrument=instrument,
-    #             contract=contract,
-    #             start_utc=start_period,
-    #             end_utc=end_period,
-    #             definition=definition,
-    #         )
+    def build_latest_30m_from_3m_v3(
+        self,
+        instrument: str,
+        contract: str,
+        end_utc: datetime,
+    ) -> Candle | None:
 
-    #         if candle is not None:
-    #             built += 1
+        start_utc = end_utc - timedelta(minutes=30)
 
-    #     return built
+        candles_3m = self._candle_repo.get_between(
+            contract=contract,
+            timeframe=3,
+            start=start_utc,
+            end=end_utc-timedelta(minutes=3),
+        )
 
+        if not candles_3m:
+            print(
+                f"No 3m candles available for 30m period: "
+                f"{start_utc} → {end_utc}"
+            )
+            return None
+
+        first = candles_3m[0]
+        last = candles_3m[-1]
+
+        htf_candle = Candle(
+            instrument=instrument,
+            timeframe=30,
+            timestamp=start_utc,
+            contract=contract,
+            open=first.open,
+            high=max(c.high for c in candles_3m),
+            low=min(c.low for c in candles_3m),
+            close=last.close,
+            volume=sum(c.volume for c in candles_3m),
+        )
+
+        self._candle_repo.save([htf_candle])
+
+        return htf_candle
+    
+    def _build_candle_for_period_with_3m(
+        self,
+        instrument: str,
+        contract: str,
+        start_utc: datetime,
+        end_utc: datetime,
+        definition: HTFDefinition,
+    ) -> Candle | None:
+
+        candles_3m = self._candle_repo.get_between(
+            contract=contract,
+            timeframe=3,
+            start=start_utc,
+            end=end_utc - timedelta(minutes=3),
+            # end=end_utc
+        )
+
+        candles_3m = [
+            c for c in candles_3m
+            if start_utc <= c.timestamp < end_utc
+        ]
+
+        
+        if len(candles_3m) != 10:
+
+            print(
+                f"{definition.name} incomplete: "
+                f"{start_utc} → {end_utc} "
+                f"({len(candles_3m)}/{10} 3m candles)"
+            )
+            return None
+
+            
+
+        for previous, current in zip(
+            candles_3m,
+            candles_3m[1:],
+        ):
+            if current.timestamp != (
+                previous.timestamp + timedelta(minutes=3)
+            ):
+                print(
+                    f"Gap in {definition.name} candle: "
+                    f"{start_utc} → {end_utc}"
+                )
+                return None
+
+        first = candles_3m[0]
+        last = candles_3m[-1]
+
+        htf_candle = Candle(
+            instrument=instrument,
+            timeframe=definition.timeframe,
+            timestamp=start_utc,
+            contract=contract,
+            open=first.open,
+            high=max(c.high for c in candles_3m),
+            low=min(c.low for c in candles_3m),
+            close=last.close,
+            volume=sum(c.volume for c in candles_3m),
+        )
+
+        self._candle_repo.save([htf_candle])
+
+        return htf_candle
+
+    
     def get_realtime_htf_periods(
         self,
         instrument: str,
@@ -1200,6 +2005,430 @@ class HTFCandleBuilder:
 
         return built
 
+    def process_realtime_htf_with_3m(
+        self,
+        instrument: str,
+        contract: str,
+        boundary_utc: datetime,
+        definition: HTFDefinition,
+    ) -> int:
+
+        periods = self.get_realtime_htf_periods(
+            instrument=instrument,
+            contract=contract,
+            boundary_utc=boundary_utc,
+            definition=definition,
+        )
+
+        print(
+            f"{definition.name} realtime processing: "
+            f"{len(periods)} period(s)"
+        )
+
+        built = 0
+
+        for start_period, end_period in periods:
+
+            print(
+                f"Processing {definition.name}: "
+                f"{start_period} → {end_period}"
+            )
+
+            candle = self._build_candle_for_period_with_3m(
+                instrument=instrument,
+                contract=contract,
+                start_period=start_period,
+                end_period=end_period,
+                definition=definition,
+            )
+
+            if candle is not None:
+                built += 1
+
+        return candle
+    
+    def process_1h_v2(self,
+        nq_contract: str,
+        es_contract: str,
+        boundary_utc: datetime
+    ):
+        print(">>> 1H processing started")
+
+        # The 1H boundary containing end_utc.
+        # Example:
+        #   11:00 -> completed 1H is 10:00–11:00
+        #   11:30 -> completed 1H is still 10:00–11:00
+        current_hour_start = boundary_utc.replace(
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        completed_1h_start = current_hour_start - timedelta(hours=1)
+        completed_1h_end = current_hour_start
+
+        print(
+            f">>> Completed 1H period: "
+            f"{completed_1h_start} → {completed_1h_end}"
+        )
+
+        for instrument, contract in [
+            ("NQ", nq_contract),
+            ("ES", es_contract),
+        ]:
+
+            # ---------------------------------------------------------
+            # Get the two 30m candles inside the completed 1H
+            # ---------------------------------------------------------
+            candles_30m = self._candle_repo.get_between(
+                contract=contract,
+                timeframe=HTF_30M.timeframe,
+                start=completed_1h_start,
+                end=completed_1h_end - timedelta(minutes=30),
+            )
+
+            print(
+                f">>> {instrument}: "
+                f"{len(candles_30m)} x 30m candles"
+            )
+
+            if len(candles_30m) != 2:
+                print(
+                    f">>> {instrument}: expected 2 x 30m candles, "
+                    f"found {len(candles_30m)}"
+                )
+                continue
+
+            # ---------------------------------------------------------
+            # Build 1H
+            # ---------------------------------------------------------
+            candle_1h = Candle(
+                instrument=instrument,
+                timeframe=HTF_1H.timeframe,
+                timestamp=completed_1h_start,
+                contract=contract,
+                open=candles_30m[0].open,
+                high=max(c.high for c in candles_30m),
+                low=min(c.low for c in candles_30m),
+                close=candles_30m[-1].close,
+                volume=sum(c.volume for c in candles_30m),
+            )
+
+            # ---------------------------------------------------------
+            # Save / update
+            # ---------------------------------------------------------
+            self._candle_repo.save([candle_1h])
+
+            print(
+                f">>> {instrument} 1H saved: "
+                f"{candle_1h.timestamp} "
+                f"O={candle_1h.open} "
+                f"H={candle_1h.high} "
+                f"L={candle_1h.low} "
+                f"C={candle_1h.close}"
+            )
+
+        print(">>> 1H processing completed")
+    
+    def process_4h_v2(self,
+        nq_contract: str,
+        es_contract: str,
+        boundary_utc: datetime,
+    ):
+        print(">>> 4H processing started")
+
+        end_utc = datetime.now(timezone.utc).replace(
+            second=0,
+            microsecond=0,
+        )
+
+        for instrument, contract in [
+            ("NQ", nq_contract),
+            ("ES", es_contract),
+        ]:
+
+            # ---------------------------------------------------------
+            # 1. Find the currently active 4H period
+            # ---------------------------------------------------------
+            current_start_utc, current_end_utc = (
+                self._get_period_boundaries(
+                    end_utc,
+                    HTF_4H,
+                )
+            )
+
+            # The current 4H period has not completed yet.
+            # Therefore its start is the end of the previous 4H period.
+            previous_period_end_utc = current_start_utc
+
+            # ---------------------------------------------------------
+            # 2. Get the previous / just-closed 4H period
+            # ---------------------------------------------------------
+            previous_period_start_utc, _ = (
+                self._get_period_boundaries(
+                    previous_period_end_utc - timedelta(minutes=1),
+                    HTF_4H,
+                )
+            )
+
+            print(
+                f">>> {instrument} 4H period: "
+                f"{previous_period_start_utc} → "
+                f"{previous_period_end_utc}"
+            )
+
+            # ---------------------------------------------------------
+            # 3. Get the 30m candles belonging to that 4H period
+            # ---------------------------------------------------------
+            candles_30m = self._candle_repo.get_between(
+                contract=contract,
+                timeframe=HTF_30M.timeframe,
+                start=previous_period_start_utc,
+                end=previous_period_end_utc - timedelta(minutes=30),
+            )
+
+            print(
+                f">>> {instrument}: "
+                f"{len(candles_30m)} x 30m candles"
+            )
+
+            if not candles_30m:
+                print(
+                    f">>> {instrument}: "
+                    f"no 30m candles found"
+                )
+                continue
+
+            # ---------------------------------------------------------
+            # 4. Build the 4H candle
+            # ---------------------------------------------------------
+            candle_4h = Candle(
+                instrument=instrument,
+                timeframe=HTF_4H.timeframe,
+                timestamp=previous_period_start_utc,
+                contract=contract,
+                open=candles_30m[0].open,
+                high=max(c.high for c in candles_30m),
+                low=min(c.low for c in candles_30m),
+                close=candles_30m[-1].close,
+                volume=sum(c.volume for c in candles_30m),
+            )
+
+            # ---------------------------------------------------------
+            # 5. Save / update
+            # ---------------------------------------------------------
+            self._candle_repo.save([candle_4h])
+
+            print(
+                f">>> {instrument} 4H saved: "
+                f"{candle_4h.timestamp} "
+                f"O={candle_4h.open} "
+                f"H={candle_4h.high} "
+                f"L={candle_4h.low} "
+                f"C={candle_4h.close}"
+            )
+
+        print(">>> 4H processing completed")
+
+    def process_7h_v2(self,
+        nq_contract: str,
+        es_contract: str,
+        boundary_utc: datetime,
+    ):
+        print(">>> 7H processing started")
+
+        end_utc = datetime.now(timezone.utc).replace(
+            second=0,
+            microsecond=0,
+        )
+
+        for instrument, contract in [
+            ("NQ", nq_contract),
+            ("ES", es_contract),
+        ]:
+
+            # ---------------------------------------------------------
+            # 1. Find the currently active 4H period
+            # ---------------------------------------------------------
+            current_start_utc, current_end_utc = (
+                self._get_period_boundaries(
+                    end_utc,
+                    HTF_7H,
+                )
+            )
+
+            # The current 7H period has not completed yet.
+            # Therefore its start is the end of the previous 7H period.
+            previous_period_end_utc = current_start_utc
+
+            # ---------------------------------------------------------
+            # 2. Get the previous / just-closed 4H period
+            # ---------------------------------------------------------
+            previous_period_start_utc, _ = (
+                self._get_period_boundaries(
+                    previous_period_end_utc - timedelta(minutes=1),
+                    HTF_7H,
+                )
+            )
+
+            print(
+                f">>> {instrument} 7H period: "
+                f"{previous_period_start_utc} → "
+                f"{previous_period_end_utc}"
+            )
+
+            # ---------------------------------------------------------
+            # 3. Get the 30m candles belonging to that 4H period
+            # ---------------------------------------------------------
+            candles_30m = self._candle_repo.get_between(
+                contract=contract,
+                timeframe=HTF_30M.timeframe,
+                start=previous_period_start_utc,
+                end=previous_period_end_utc - timedelta(minutes=30),
+            )
+
+            print(
+                f">>> {instrument}: "
+                f"{len(candles_30m)} x 30m candles"
+            )
+
+            if not candles_30m:
+                print(
+                    f">>> {instrument}: "
+                    f"no 30m candles found"
+                )
+                continue
+
+            # ---------------------------------------------------------
+            # 4. Build the 7H candle
+            # ---------------------------------------------------------
+            candle_7h = Candle(
+                instrument=instrument,
+                timeframe=HTF_7H.timeframe,
+                timestamp=previous_period_start_utc,
+                contract=contract,
+                open=candles_30m[0].open,
+                high=max(c.high for c in candles_30m),
+                low=min(c.low for c in candles_30m),
+                close=candles_30m[-1].close,
+                volume=sum(c.volume for c in candles_30m),
+            )
+
+            # ---------------------------------------------------------
+            # 5. Save / update
+            # ---------------------------------------------------------
+            self._candle_repo.save([candle_7h])
+
+            print(
+                f">>> {instrument} 7H saved: "
+                f"{candle_7h.timestamp} "
+                f"O={candle_7h.open} "
+                f"H={candle_7h.high} "
+                f"L={candle_7h.low} "
+                f"C={candle_7h.close}"
+            )
+
+        print(">>> 7H processing completed")
+
+    def process_daily_v2(self, 
+            nq_contract: str,
+            es_contract: str,
+            boundary_utc: datetime,):
+        print(">>> Daily processing started")
+
+        end_utc = datetime.now(timezone.utc).replace(
+            second=0,
+            microsecond=0,
+        )
+
+        for instrument, contract in [
+            ("NQ", nq_contract),
+            ("ES", es_contract),
+        ]:
+
+            # ---------------------------------------------------------
+            # 1. Find the currently active daily period
+            # ---------------------------------------------------------
+            current_start_utc, current_end_utc = (
+                self._get_period_boundaries(
+                    end_utc,
+                    HTF_D,
+                )
+            )
+
+            # The start of the current daily period is the
+            # end of the previous / just-closed daily period.
+            previous_period_end_utc = current_start_utc
+
+            # ---------------------------------------------------------
+            # 2. Get the previous / just-closed daily period
+            # ---------------------------------------------------------
+            previous_period_start_utc, _ = (
+                self._get_period_boundaries(
+                    previous_period_end_utc - timedelta(minutes=1),
+                    HTF_D,
+                )
+            )
+
+            print(
+                f">>> {instrument} Daily period: "
+                f"{previous_period_start_utc} → "
+                f"{previous_period_end_utc}"
+            )
+
+            # ---------------------------------------------------------
+            # 3. Get 30m candles for the daily period
+            # ---------------------------------------------------------
+            candles_30m = self._candle_repo.get_between(
+                contract=contract,
+                timeframe=HTF_30M.timeframe,
+                start=previous_period_start_utc,
+                end=previous_period_end_utc - timedelta(minutes=30),
+            )
+
+            print(
+                f">>> {instrument}: "
+                f"{len(candles_30m)} x 30m candles"
+            )
+
+            if not candles_30m:
+                print(
+                    f">>> {instrument}: "
+                    f"no 30m candles found for daily period"
+                )
+                continue
+
+            # ---------------------------------------------------------
+            # 4. Build the Daily candle
+            # ---------------------------------------------------------
+            candle_daily = Candle(
+                instrument=instrument,
+                timeframe=HTF_D.timeframe,
+                timestamp=previous_period_start_utc,
+                contract=contract,
+                open=candles_30m[0].open,
+                high=max(c.high for c in candles_30m),
+                low=min(c.low for c in candles_30m),
+                close=candles_30m[-1].close,
+                volume=sum(c.volume for c in candles_30m),
+            )
+
+            # ---------------------------------------------------------
+            # 5. Save / update the Daily candle
+            # ---------------------------------------------------------
+            self._candle_repo.save([candle_daily])
+
+            print(
+                f">>> {instrument} Daily saved: "
+                f"{candle_daily.timestamp} "
+                f"O={candle_daily.open} "
+                f"H={candle_daily.high} "
+                f"L={candle_daily.low} "
+                f"C={candle_daily.close}"
+            )
+
+        print(">>> Daily processing completed")
+
     def is_htf_boundary(
         self,
         timestamp_utc: datetime,
@@ -1210,7 +2439,7 @@ class HTFCandleBuilder:
         """
 
         timestamp_ny = timestamp_utc.astimezone(NY_TZ)
-
+        
         if definition.timeframe == 3:
             return timestamp_ny.minute % 3 == 0
 
@@ -1224,11 +2453,17 @@ class HTFCandleBuilder:
             return (
                 timestamp_ny.minute == 0
                 and timestamp_ny.hour in (2, 6, 10, 14, 18, 22)
+            ) or (
+                timestamp_ny.minute == 30
+                and timestamp_ny.hour in (2, 6, 10, 14, 18, 22)
             )
 
         if definition.timeframe == 420:
             return (
                 timestamp_ny.minute == 0
+                and timestamp_ny.hour in (1, 8, 15, 17)
+            ) or (
+                timestamp_ny.minute == 30
                 and timestamp_ny.hour in (1, 8, 15, 17)
             )
 

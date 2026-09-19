@@ -801,7 +801,8 @@ def run_quick_backtest(test_date: str):
                     es_market_context.compute_expansion_metrics(last_closed_es["timestamp"])
                     nq_market_context.update_relative_expansion(es_market_context.expansion_ratio)
                     es_market_context.update_relative_expansion(nq_market_context.expansion_ratio)
-                    # ideally detect_day_type() function should run only when needed at 10:00, 10:30, 11:00 and 11:30
+                    # ideally 
+                    # () function should run only when needed at 10:00, 10:30, 11:00 and 11:30
                     # which reduces unnecessary checks
                     nq_day_type = nq_market_context.detect_day_type(last_closed_nq["timestamp"], current_30m_start, last_closed_nq["close"])
                     es_day_type = es_market_context.detect_day_type(last_closed_es["timestamp"], current_30m_start, last_closed_nq["close"])

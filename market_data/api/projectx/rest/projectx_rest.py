@@ -60,6 +60,7 @@ class ProjectXREST:
         contract_id: str,
         start: datetime,
         end: datetime,
+        timeframe: int,
     ):
         print("contract_id:", contract_id)
 
@@ -69,12 +70,35 @@ class ProjectXREST:
             "contractId": contract_id,
             "live": False,
             "startTime": start.isoformat(),
+            # "startTime": "2026-08-18T20:30:00+00:00",
+            # "endTime": "2026-08-18T20:30:00+00:00",
+
             "endTime": end.isoformat(),
             "unit": 2,
-            "unitNumber": 1,
+            "unitNumber": timeframe,
             "limit": 20000,
             "includePartialBar": False,
         }
+        # payload = {
+        #     "contractId": contract_id,
+        #     "live": False,
+        #     "startTime": "2026-09-17T20:30:00+00:00",
+        #     "endTime": "2026-09-17T21:00:00+00:00",
+        #     "unit": 2,
+        #     "unitNumber": 3,
+        #     "limit": 20000,
+        #     "includePartialBar": False,
+        # }
+        # payload = {
+        #     "contractId": "CON.F.US.ENQ.U26",
+        #     "live": False,
+        #     "startTime": "2026-09-17T20:30:00+00:00",
+        #     "endTime": "2026-09-17T21:00:00+00:00",
+        #     "unit": 2,
+        #     "unitNumber": 30,
+        #     "limit": 20000,
+        #     "includePartialBar": False,
+        # }
 
         max_attempts = 3
 
@@ -108,8 +132,21 @@ class ProjectXREST:
                     continue
 
                 response.raise_for_status()
+                data = response.json()
 
-                return response.json()
+                print(
+                    f"ProjectX retrieveBars: "
+                    f"{start} → {end}, "
+                    f"timeframe={timeframe}m"
+                )
+
+                print("RAW ProjectX bars:")
+                for bar in data.get("bars", []):
+                    print(bar["t"])
+
+                return data
+
+                # return response.json()
 
             except (
                 requests.exceptions.ConnectionError,

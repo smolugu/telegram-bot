@@ -13,14 +13,14 @@ def in_session(ts, start_h, start_m, end_h, end_m):
 
 def get_max_high_low_with_time(candles):
 
-    high_candle = max(candles, key=lambda c: c["high"])
-    low_candle = min(candles, key=lambda c: c["low"])
+    high_candle = max(candles, key=lambda c: c.high)
+    low_candle = min(candles, key=lambda c: c.low)
 
     return {
-        "high": high_candle["high"],
-        "high_ts": high_candle["timestamp"],
-        "low": low_candle["low"],
-        "low_ts": low_candle["timestamp"]
+        "high": high_candle.high,
+        "high_ts": high_candle.timestamp,
+        "low": low_candle.low,
+        "low_ts": low_candle.timestamp
     }
 
 
@@ -34,7 +34,7 @@ def get_futures_session(candles, test_date):
     # print("candles all: ", candles)
 
     for c in candles:
-        ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+        ts = datetime.fromisoformat(c.timestamp).replace(tzinfo=None)
         # print("ts before: ", ts)
         if session_start <= ts <= session_end:
             # print("ts session: ", ts)
@@ -55,7 +55,7 @@ def get_htf_historical_candles(candles, test_date):
     # print("candles all: ", candles)
 
     for c in candles:
-        ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+        ts = datetime.fromisoformat(c.timestamp).replace(tzinfo=None)
         # print("ts before: ", ts)
         if ts < session_start:
             # print("ts session: ", ts)
@@ -71,7 +71,7 @@ def get_daily_historical_candles(candles, test_date):
     filtered = []
     
     for c in candles:
-        ts = datetime.fromisoformat(c["timestamp"]).replace(tzinfo=None)
+        ts = datetime.fromisoformat(c.timestamp).replace(tzinfo=None)
         # print("ts before: ", ts)
         if ts < session_start:
             # print("ts session: ", ts)

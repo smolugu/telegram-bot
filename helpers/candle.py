@@ -18,3 +18,4 @@ def candle_from_dict(c, instrument, contract, timeframe):
         contract=contract,
         volume=c.get("volume", 0)
     )
+

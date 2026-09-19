@@ -49,8 +49,40 @@ class SQLiteContractRepository(ContractRepository):
             select(ContractORM)
             .where(ContractORM.instrument == instrument)
             .where(ContractORM.contract_type == "single")
-            .where(ContractORM.last_trade_date >= as_of_date)
+            .where(ContractORM.last_trade_date > as_of_date)
             .order_by(ContractORM.last_trade_date)
+            .limit(1)
+        )
+
+        row = self.session.scalar(stmt)
+
+        if row is None:
+            return None
+
+        return self._to_domain(row)
+
+    def get_previous_contract(
+        self,
+        instrument: str,
+        contract: str,
+    ) -> Contract | None:
+
+        current = self.get(contract)
+
+        if current is None:
+            return None
+
+        stmt = (
+            select(ContractORM)
+            .where(
+                ContractORM.instrument == instrument
+            )
+            .where(
+                ContractORM.contract_type == "single"
+            )
+            .where(
+                ContractORM.last_trade_date == current.rollover_date
+            )
             .limit(1)
         )
 

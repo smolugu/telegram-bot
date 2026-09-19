@@ -3,6 +3,8 @@ import time
 
 from framework.models.auction.engine.auction_engine import initialize_auction
 from framework.models.auction.models.auction_engine import AuctionEngine
+from framework.models.candle_7h import SevenHourBuilder
+from framework.models.ib_continuation_candidate import IBContinuationCandidate
 from framework.models.london_market_context import LondonMarketContext
 from framework.models.market_context import MarketContext
 from framework.models.nyam_market_context import NewYorkMarketContext
@@ -29,9 +31,13 @@ def get_previous_trading_day(start_time_ny: datetime) -> date:
 
 def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         print(">>> Initializing Ping")
+        # update current day state from start of day to start of ping
+        # update auction engine state till start of day
+        # update weekly state till start of day
         print(">>> Ping start time:", runtime.start_time)
         
         start_time_ny = runtime.start_time.astimezone(NY_TZ)
+
 
         # ===========================
         # get contracts
@@ -94,10 +100,12 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             timeframe=1440,
             timestamp=candle_time_utc,
         )
-        print("nq pdh: ", previous_day_nq_candle.high)
-        print("nq pdl: ", previous_day_nq_candle.low)
-        print("es pdh: ", previous_day_es_candle.high)
-        print("es pdl: ", previous_day_es_candle.low)
+        if previous_day_nq_candle is not None:
+            print("nq pdh: ", previous_day_nq_candle.high)
+            print("nq pdl: ", previous_day_nq_candle.low)
+        if previous_day_es_candle is not None:
+            print("es pdh: ", previous_day_es_candle.high)
+            print("es pdl: ", previous_day_es_candle.low)
         runtime.nq_pdh=previous_day_nq_candle.high if previous_day_nq_candle else None
         runtime.nq_pdl=previous_day_nq_candle.low if previous_day_nq_candle else None
         runtime.es_pdh=previous_day_es_candle.high if previous_day_es_candle else None
@@ -167,6 +175,10 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         runtime.nq_buy_candidate = SetupCandidate("sell_side", "NQ")
         runtime.es_sell_candidate = SetupCandidate("buy_side", "ES")
         runtime.es_buy_candidate = SetupCandidate("sell_side", "ES")
+
+        # IB candidates 
+        nq_ib_candidate = IBContinuationCandidate("NQ")
+        es_ib_candidate = IBContinuationCandidate("ES")
         
         # Initialize market and session contexts
         runtime.nq_market_context = MarketContext("NQ")
@@ -175,6 +187,10 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         runtime.es_london_market_context = LondonMarketContext("ES")
         runtime.nq_ny_market_context = NewYorkMarketContext("NQ")
         runtime.es_ny_market_context = NewYorkMarketContext("ES")
+
+        # sever hour builder candles
+        nq_seven_hour_builder = SevenHourBuilder("NQ")
+        es_seven_hour_builder = SevenHourBuilder("ES")
 
         runtime.nq_market_context.set_daily_atr(runtime.nq_daily_atr)
         runtime.es_market_context.set_daily_atr(runtime.es_daily_atr)
@@ -185,118 +201,127 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         prev_liquidity_nq = reset_liquidity()
         prev_liquidity_es = reset_liquidity()
         if prev_day_nq_contract == nq_contract:
-            # get prev_day_pdh and pdl
-            prev_trading_date = get_previous_trading_day(start_time_ny)
-            candle_time_ny = datetime.combine(
-                prev_trading_date,
-                datetime.min.time(),
-                tzinfo=NY_TZ,
-            ).replace(hour=18)
-            candle_end_time_ny = candle_time_ny + timedelta(days=1)
-    
-            candle_time_utc = candle_time_ny.astimezone(timezone.utc)
-            candle_end_time_utc = candle_end_time_ny.astimezone(timezone.utc)
-            nq_candle_result = candle_repo.get_at(
-                contract=nq_contract,
-                timeframe=1440,
-                timestamp=candle_time_utc,
-            )
-    
-            es_candle_result = candle_repo.get_at(
-                contract=es_contract,
-                timeframe=1440,
-                timestamp=candle_time_utc,
-            )
-            prev_nq_pdh = nq_candle_result.high if nq_candle_result else None
-            prev_nq_pdl = nq_candle_result.low if nq_candle_result else None
-            prev_es_pdh = es_candle_result.high if es_candle_result else None
-            prev_es_pdl = es_candle_result.low if es_candle_result else None    
-            print("NQ prev PDh, prev PDl:", prev_nq_pdh, prev_nq_pdl)
-            print("ES prev PDh, prev PDl:", prev_es_pdh, prev_es_pdl)
-            
-            # prev_nq_30m = get_futures_session(nq["30m"], prev_test_date)
-            
-            prev_nq_30m = candle_repo.get_between(
-                contract=nq_contract,
-                timeframe=30,
-                start=candle_time_utc,
-                end=candle_end_time_utc,
-            )
-            # prev_nq_3m = get_futures_session(nq["3m"], prev_test_date)
-            prev_nq_3m=candle_repo.get_between(
-                contract=nq_contract,
-                timeframe=3,
-                start=candle_time_utc,
-                end=candle_end_time_utc,
-            )
-            
-            prev_es_30m = candle_repo.get_between(
-                contract=es_contract,
-                timeframe=30,
-                start=candle_time_utc,
-                end=candle_end_time_utc,
-            )
-            
-            # prev_es_3m=candle_repo.get_between(
-            #     contract=es_contract,
-            #     timeframe=3,
-            #     start=candle_time_utc,
-            #     end=candle_end_time_utc,
-            # )
-            
-    
-            if not prev_nq_30m or not prev_es_30m:
-                print("No data available.")
-                return
-            
-            prev_nq_30m_closes = {
-                prev_nq_30m[i]["timestamp"]: i
-                for i in range(len(prev_nq_30m))
-            }
-            for candle_3m in prev_nq_3m:
-                    
-                ts = candle_3m["timestamp"]
-                if ts in prev_nq_30m_closes:
-                    i = prev_nq_30m_closes[ts]
-                    print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
-                    prev_current_30m_start = prev_nq_30m[i]["timestamp"]
-                    prev_last_closed_nq = prev_nq_30m[i - 1]
-                    prev_last_closed_es = prev_es_30m[i - 1]
-                    if i == 1:
-                        print("resetting liquidity at : ", i, ts)
-                        # TODO: IMP update only swept liquidity, for example keep NYPM unswept levels for next session or day
-                        prev_liquidity_nq = reset_liquidity()
-                        prev_liquidity_es = reset_liquidity()
-                    prev_historical_nq = prev_nq_30m[:i]
-                    prev_historical_es = prev_es_30m[:i]
-                    prev_last_closed_nq = prev_nq_30m[i - 1]
-                    prev_last_closed_es = prev_es_30m[i - 1]
-                    #  gather session liquidity
-                    prev_liquidity_nq = get_liquidity_values(symbol= prev_day_nq_contract, candles_30m = prev_historical_nq, liquidity_levels=prev_liquidity_nq, current_start = prev_current_30m_start, pdh = prev_nq_pdh, pdl = prev_nq_pdl)
-                    prev_liquidity_es = get_liquidity_values(symbol= prev_day_es_contract, candles_30m = prev_historical_es, liquidity_levels=prev_liquidity_es, current_start = prev_current_30m_start, pdh = prev_es_pdh, pdl = prev_es_pdl)
-                    for key, level in prev_liquidity_nq.items():
-                        if level["side"] == "buy_side" and level["price"] is not None:
-                            if prev_last_closed_nq["high"] > level["price"]:
-                                level["swept"] = True
-                        if level["side"] == "sell_side" and level["price"] is not None:
-                            if prev_last_closed_nq["low"] < level["price"]:
-                                level["swept"] = True
-                    for key, level in prev_liquidity_es.items():
-                        if level["side"] == "buy_side" and level["price"] is not None:
-                            if prev_last_closed_es["high"] > level["price"]:
-                                level["swept"] = True
-                        if level["side"] == "sell_side" and level["price"] is not None:
-                            if prev_last_closed_es["low"] < level["price"]:
-                                level["swept"] = True
-                    print("prev_liq_nq: ", prev_liquidity_nq)
-                    print("prev_liq_es: ", prev_liquidity_es)
-
+            # if runtime.liquidity is None then populate runtime with previous day
+            # liquidity
+            if runtime.liquidity_nq is None:
+                # get prev_day_pdh and pdl
+                prev_trading_date = get_previous_trading_day(start_time_ny)
+                candle_time_ny = datetime.combine(
+                    prev_trading_date,
+                    datetime.min.time(),
+                    tzinfo=NY_TZ,
+                ).replace(hour=18)
+                candle_end_time_ny = candle_time_ny + timedelta(days=1)
+        
+                candle_time_utc = candle_time_ny.astimezone(timezone.utc)
+                candle_end_time_utc = candle_end_time_ny.astimezone(timezone.utc)
+                nq_candle_result = candle_repo.get_at(
+                    contract=nq_contract,
+                    timeframe=1440,
+                    timestamp=candle_time_utc,
+                )
+        
+                es_candle_result = candle_repo.get_at(
+                    contract=es_contract,
+                    timeframe=1440,
+                    timestamp=candle_time_utc,
+                )
+                prev_nq_pdh = nq_candle_result.high if nq_candle_result else None
+                prev_nq_pdl = nq_candle_result.low if nq_candle_result else None
+                prev_es_pdh = es_candle_result.high if es_candle_result else None
+                prev_es_pdl = es_candle_result.low if es_candle_result else None    
+                print("NQ prev PDh, prev PDl:", prev_nq_pdh, prev_nq_pdl)
+                print("ES prev PDh, prev PDl:", prev_es_pdh, prev_es_pdl)
+                
+                # prev_nq_30m = get_futures_session(nq["30m"], prev_test_date)
+                
+                prev_nq_30m = candle_repo.get_between(
+                    contract=nq_contract,
+                    timeframe=30,
+                    start=candle_time_utc,
+                    end=candle_end_time_utc,
+                )
+                # prev_nq_3m = get_futures_session(nq["3m"], prev_test_date)
+                prev_nq_3m=candle_repo.get_between(
+                    contract=nq_contract,
+                    timeframe=3,
+                    start=candle_time_utc,
+                    end=candle_end_time_utc,
+                )
+                
+                prev_es_30m = candle_repo.get_between(
+                    contract=es_contract,
+                    timeframe=30,
+                    start=candle_time_utc,
+                    end=candle_end_time_utc,
+                )
+                
+                # prev_es_3m=candle_repo.get_between(
+                #     contract=es_contract,
+                #     timeframe=3,
+                #     start=candle_time_utc,
+                #     end=candle_end_time_utc,
+                # )
+                
+        
+                if not prev_nq_30m or not prev_es_30m:
+                    print("No data available.")
+                    return
+                
+                prev_nq_30m_closes = {
+                    prev_nq_30m[i]["timestamp"]: i
+                    for i in range(len(prev_nq_30m))
+                }
+                for candle_3m in prev_nq_3m:
+                        
+                    ts = candle_3m["timestamp"]
+                    if ts in prev_nq_30m_closes:
+                        i = prev_nq_30m_closes[ts]
+                        print("Matching 30m candle found for 3m timestamp:", ts, "at index", i)
+                        prev_current_30m_start = prev_nq_30m[i]["timestamp"]
+                        prev_last_closed_nq = prev_nq_30m[i - 1]
+                        prev_last_closed_es = prev_es_30m[i - 1]
+                        if i == 1:
+                            print("resetting liquidity at : ", i, ts)
+                            # TODO: IMP update only swept liquidity, for example keep NYPM unswept levels for next session or day
+                            prev_liquidity_nq = reset_liquidity()
+                            prev_liquidity_es = reset_liquidity()
+                        prev_historical_nq = prev_nq_30m[:i]
+                        prev_historical_es = prev_es_30m[:i]
+                        prev_last_closed_nq = prev_nq_30m[i - 1]
+                        prev_last_closed_es = prev_es_30m[i - 1]
+                        #  gather session liquidity
+                        prev_liquidity_nq = get_liquidity_values(symbol= prev_day_nq_contract, candles_30m = prev_historical_nq, liquidity_levels=prev_liquidity_nq, current_start = prev_current_30m_start, pdh = prev_nq_pdh, pdl = prev_nq_pdl)
+                        prev_liquidity_es = get_liquidity_values(symbol= prev_day_es_contract, candles_30m = prev_historical_es, liquidity_levels=prev_liquidity_es, current_start = prev_current_30m_start, pdh = prev_es_pdh, pdl = prev_es_pdl)
+                        for key, level in prev_liquidity_nq.items():
+                            if level["side"] == "buy_side" and level["price"] is not None:
+                                if prev_last_closed_nq["high"] > level["price"]:
+                                    level["swept"] = True
+                            if level["side"] == "sell_side" and level["price"] is not None:
+                                if prev_last_closed_nq["low"] < level["price"]:
+                                    level["swept"] = True
+                        for key, level in prev_liquidity_es.items():
+                            if level["side"] == "buy_side" and level["price"] is not None:
+                                if prev_last_closed_es["high"] > level["price"]:
+                                    level["swept"] = True
+                            if level["side"] == "sell_side" and level["price"] is not None:
+                                if prev_last_closed_es["low"] < level["price"]:
+                                    level["swept"] = True
+                        print("prev_liq_nq: ", prev_liquidity_nq)
+                        print("prev_liq_es: ", prev_liquidity_es)
+                runtime.liquidity_nq = prev_liquidity_nq
+                runtime.liquidity_es = prev_liquidity_es
+                
             runtime.liquidity_nq = refresh_liquidity(liquidity_nq, runtime.liquidity_nq)
             runtime.liquidity_es = refresh_liquidity(liquidity_es, runtime.liquidity_es)
         else:
             print("No previous day liquidity available for current contracts.")
             runtime.liquidity_nq = reset_liquidity()
             runtime.liquidity_es = reset_liquidity()
+            runtime.nq_auction_engine = None
+            runtime.es_auction_engine = None
+            runtime.nq_weekly_state = None
+            runtime.es_weekly_state = None
 
         # ---------------------------------------------------------
         # Initialize Auction Engine
@@ -308,7 +333,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
 
         # if runtime auction engine is None or prev_day_nq_contract != nq_contract,
         # reset auction engine and update
-        if runtime.nq_auction_engine is None or prev_day_nq_contract != day_nq_contract:
+        if runtime.nq_auction_engine is None:
             runtime.nq_auction_engine = AuctionEngine()
             runtime.es_auction_engine = AuctionEngine()
             current_trading_date = start_time_ny.date()
@@ -444,40 +469,40 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             # initial ping start
             runtime.nq_weekly_state = initialize_weekly_state("NQ")
             runtime.es_weekly_state = initialize_weekly_state("ES")
-            # build weekly state till start_time_ny date till 18:00
-            if start_time_ny.hour >= 18:
-                session_date = start_time_ny.date()
-            else:
-                session_date = start_time_ny.date() - timedelta(days=1)
-    
-            futures_session_start = datetime.combine(
-                session_date,
-                datetime.min.time(),
-                tzinfo=NY_TZ,
-            ).replace(hour=18)
-    
-            runtime.nq_weekly_state = build_weekly_state(
-                nq_1d_auction,
-                nq_1h_candles,
-                futures_session_start,
-                "NQ"
-            )
-            runtime.es_weekly_state = build_weekly_state(
-                es_1d_auction,
-                es_1h_candles,
-                futures_session_start,
-                "ES"
-            )
+        # build weekly state till start_time_ny date till 18:00
+        if start_time_ny.hour >= 18:
+            session_date = start_time_ny.date()
+        else:
+            session_date = start_time_ny.date() - timedelta(days=1)
+
+        futures_session_start = datetime.combine(
+            session_date,
+            datetime.min.time(),
+            tzinfo=NY_TZ,
+        ).replace(hour=18)
+
+        runtime.nq_weekly_state = build_weekly_state(
+            nq_1d_auction,
+            nq_1h_candles,
+            futures_session_start,
+            "NQ"
+        )
+        runtime.es_weekly_state = build_weekly_state(
+            es_1d_auction,
+            es_1h_candles,
+            futures_session_start,
+            "ES"
+        )
 
         # 6. Initialize HTF builders
-        runtime.nq_d = []
-        runtime.es_d = []
-        runtime.nq_7h = []
-        runtime.es_7h = []
-        runtime.nq_4h = []
-        runtime.es_4h = []
-        runtime.nq_1h = []
-        runtime.es_1h = []
+        # runtime.nq_d = []
+        # runtime.es_d = []
+        # runtime.nq_7h = []
+        # runtime.es_7h = []
+        # runtime.nq_4h = []
+        # runtime.es_4h = []
+        # runtime.nq_1h = []
+        # runtime.es_1h = []
         
         # # 7. Replay today's 3m/30m candles up to start_time
         # # # 7.2 Initialize 7H builders / candidates
