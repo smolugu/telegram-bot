@@ -58,7 +58,7 @@ def get_tp2_from_liquidity(tp1, direction, liquidity_map):
 
     return tp2
 
-def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
+def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price, min_liquidity_distance):
 
     buy_levels = []
     sell_levels = []
@@ -97,23 +97,34 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
     if not candidates:
         return tp1, None
     print("candidates: ", candidates)
-    # -------------------------
-    # 3. Find closest liquidity
-    # -------------------------
-    closest = candidates[0]
-    print("closest: ", closest)
 
-    # -------------------------
-    # 4. Replace TP1 if needed
-    # -------------------------
-    # dont need to replace tp1
-    # if abs(entry_price - closest) < abs(entry_price - tp1):
-    #     print("level closest to entry")
-    #     new_tp1 = closest
-    # else:
-    #     print("tp1 is closest")
-    #     new_tp1 = tp1
-    new_tp1 = tp1
+     # ---------------------------------------------------------
+    # 3. Find KEY liquidity
+    #
+    #    Only liquidity >= minimum distance from entry
+    #    qualifies to replace TP1.
+    # ---------------------------------------------------------
+
+    key_candidates = [
+        p for p in candidates
+        if abs(entry_price - p) >= min_liquidity_distance
+    ]
+
+    # ---------------------------------------------------------
+    # 4. TP1
+    #
+    #    Prefer closest qualifying key liquidity.
+    #    Otherwise retain original TP1.
+    # ---------------------------------------------------------
+
+    if key_candidates:
+
+        # candidates are already ordered closest -> farthest
+        new_tp1 = key_candidates[0]
+
+    else:
+        new_tp1 = tp1
+    
     # -------------------------
     # 5. Find TP1 index PROPERLY
     # -------------------------
@@ -159,15 +170,27 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price):
 
     return new_tp1, tp2
 
-def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None):
+def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None, instrument=None):
 
     risk = abs(entry - stop)
 
     # # TP1: fixed RR
     # tp1 = entry - 1.5 * risk if direction == "bearish" else entry + 1.5 * risk
+    # ---------------------------------------------------------
+    # 2. Key liquidity threshold
+    # ---------------------------------------------------------
+
+    if instrument == "NQ":
+        min_liquidity_distance = 75
+
+    elif instrument == "ES":
+        min_liquidity_distance = 25
+
+    else:
+        min_liquidity_distance = 75
 
     # TP2: liquidity
-    tp1, tp2 = get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry)
+    tp1, tp2 = get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry, min_liquidity_distance)
     print("tp2 from function: ", tp2)
 
      # if no valid TP2 from liquidity, set TP2 to 2RR

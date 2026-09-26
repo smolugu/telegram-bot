@@ -2,6 +2,7 @@ import time as time_module
 
 from dotenv import load_dotenv
 
+from config.settings import ADMIN_CHAT_LIST
 from helpers.escape_char import escape_markdown_v2
 from state.state_cache import update_active_window, should_alert
 from bot.broadcast import broadcast_message, load_subscribers
@@ -58,7 +59,7 @@ def build_message(result):
 
 
 
-def send_telegram_alert_to_all(message):
+def send_telegram_alert_to_all(message, start_up, admin_only):
 
     subscribers = load_subscribers()
 
@@ -69,6 +70,9 @@ def send_telegram_alert_to_all(message):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
 
     active_subscribers = []
+    if start_up or admin_only:
+        subscribers = ADMIN_CHAT_LIST
+    
 
     for chat_id in subscribers:
 

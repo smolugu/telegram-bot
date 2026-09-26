@@ -13,6 +13,7 @@ ADMIN_CHAT_IDS = {
     5287590177,   # your personal Telegram chat ID
     # add more if needed
 }
+ADMIN_CHAT_LIST = [5287590177]
 LIVE_HISTORY_DAYS = 60
 SUPPORTED_TIMEFRAMES = [
     3,

@@ -6,6 +6,8 @@ class PingRuntime:
         # Persistent daily/session state
 
         self.start_time = None
+        self.week_start_ny = None
+        self.week_start_utc = None
         self.nq_contract = None
         self.es_contract = None
 

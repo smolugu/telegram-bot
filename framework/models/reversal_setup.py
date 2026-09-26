@@ -419,7 +419,8 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     def london_smt_check():
         is_bearish_smt = False
         is_bullish_smt = False
-        print("xx smt_summary: ", bullish_smt_summary, bearish_smt_summary)
+        print("xx smt_summary: ##")
+        # print("xx smt_summary: ", bullish_smt_summary, bearish_smt_summary)
         if bearish_smt_summary["bearish_smt_7h_liquidity"] is not None or bearish_smt_summary["bearish_smt_4h_liquidity"] is not None:
             is_bearish_smt = True
         if bullish_smt_summary["bullish_smt_7h_liquidity"] is not None or bullish_smt_summary["bullish_smt_4h_liquidity"] is not None:
@@ -527,7 +528,8 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     "| OB data:", candidate.ob_data, "| Final OB confirmed:", candidate.final_ob_confirmed)
     print("is_london_killzone: ", is_london_killzone, " | is_post_london_killzone:", is_post_london_killzone, " |  is_ny_am_killzone: ", is_ny_am_killzone, " | is_ny_lunch_time: ", is_ny_lunch_time, " | window_name: ", window_name)
     print("market context: ", market_context.values())
-    print("bullish 1h smt: ", market_context.bullish_smt_1h, "bearish 1h smt: ", market_context.bearish_smt_1h, "bullish 30m swing smt: ", market_context.bullish_smt_30m, "bearish 30m swing smt: ", market_context.bearish_smt_30m)
+    print("bullish 1h smt: ##")
+    # print("bullish 1h smt: ", market_context.bullish_smt_1h, "bearish 1h smt: ", market_context.bearish_smt_1h, "bullish 30m swing smt: ", market_context.bullish_smt_30m, "bearish 30m swing smt: ", market_context.bearish_smt_30m)
     
     session_direction = market_context.session_direction
     atr_usage = market_context.atr_usage
@@ -538,6 +540,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     is_recent_bearish_smt, is_recent_bullish_smt = london_smt_check()
     print("is_recent_bearish_smt: ", is_recent_bearish_smt)
     print("is_recent_bullish_smt: ", is_recent_bullish_smt)
+    print("weekly_context: ", weekly_context)
     is_atr_filter = atr_filter()
     is_bullish_atr_exhausted, is_bearish_atr_exhausted = direction_atr_exhaustion()
     co_asset_upside_exhausted, co_asset_down_exhausted = co_asset_atr_exhaustion()
@@ -556,7 +559,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     # daily bias
     daily_bias = determine_daily_bias()
     structure_bias = "bullish" if look_for_longs else "bearish"
-    htf_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
+    htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
 
     # -----------------------------------------------
     # disable or allow longs and shorts based on atr_usage and smt
@@ -984,13 +987,13 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         )
         
         structure_bias = "bullish" if look_for_longs else "bearish"
-        htf_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
-        print("xxHTF BIAS: ", htf_bias)
+        htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
+        print("HTF WEEKLY BIAS: ", htf_weekly_bias)
         direction_context = determine_ping_direction(
             cross_alignment,
             newyork_context.structure if candidate.instrument == "NQ" else co_asset["newyork_context"].structure,
             co_asset["newyork_context"].structure if candidate.instrument == "NQ" else newyork_context.structure,
-            htf_bias,
+            htf_weekly_bias,
         )
         # inducement asset needs extra confirmation - strong OB
         require_strong_ob = False
@@ -1089,6 +1092,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # final target is MITL for migrating structures when atr is exhausted
                     final_target_text = "ATR" if not is_bullish_atr_exhausted else "MITL"
                     candidate.final_target = "MINI" if is_atr_overextended else final_target_text
+                    
                     candidate.final_target_price = newyork_context.structure["mitigation_level"] if final_target_text == "MITL" else bearish_atr_target_price
                 
                     if candidate.ping_type == "Flush":

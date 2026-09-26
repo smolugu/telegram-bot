@@ -19,6 +19,9 @@
 # migration_strength - "very_strong", "strong", "moderate", "weak", "neutral". Used to anticipate retracement strength, shallow or deep
 # mitigation_level - Equilibrium of displacement or migration range. (Or) break of structure level. (Or) equilibrium of compression when compression exists. (Or) None when no clear mitigation level exists.
 
+from helpers.enums import AuctionPhaseEnums, GroupEnums, StructurePhaseEnums
+
+
 def classify_ib_structure(
     ib18,
     ib1,
@@ -138,7 +141,8 @@ def classify_ib_structure(
             "sandwich_neutral_recompression",
             
         }:
-            return "compression"
+            # return "compression"
+            return StructurePhaseEnums.COMPRESSION.value
 
         if structure_name in {
             "staircase_gap_bullish",
@@ -150,7 +154,8 @@ def classify_ib_structure(
             "staircase_late_overlap_bullish",
             "staircase_late_overlap_bearish",
         }:
-            return "migration"
+            # return "migration"
+            return StructurePhaseEnums.MIGRATION.value
 
         if structure_name in {
 
@@ -159,7 +164,8 @@ def classify_ib_structure(
             "bullish_early_compression",
             "bearish_early_compression",
         }:
-            return "migration"
+            # return "migration"
+            return StructurePhaseEnums.MIGRATION.value
 
         if structure_name in {
             "bullish_macro_decompression",
@@ -169,21 +175,26 @@ def classify_ib_structure(
             "bullish_mixed_decompression",
             "bearish_mixed_decompression",
         }:
-            return "early_expansion"
+            # return "early_expansion"
+            return StructurePhaseEnums.EARLY_EXPANSION.value
 
         if structure_name in {
             "bullish_reintegration",
             "bearish_reintegration",
         }:
-            return "migration"
+            # return "migration"
+            return StructurePhaseEnums.MIGRATION.value
 
         if structure_name in {
             "bullish_value_flip",
             "bearish_value_flip",
         }:
-            return "migration"
+            # return "migration"
+            return StructurePhaseEnums.MIGRATION.value
         
-        return "compression"
+        # return "compression"
+        return StructurePhaseEnums.COMPRESSION.value
+    
     
     def get_auction_phase(name):
         structure_name = name
@@ -215,7 +226,8 @@ def classify_ib_structure(
             "sandwich_neutral_recompression",
             
         }:
-            return "waiting"
+            # return "waiting"
+            return AuctionPhaseEnums.WAITING.value
 
         if structure_name in {
             "staircase_gap_bullish",
@@ -227,7 +239,8 @@ def classify_ib_structure(
             "staircase_late_overlap_bullish",
             "staircase_late_overlap_bearish",
         }:
-            return "mid expansion"
+            # return "mid expansion"
+            return AuctionPhaseEnums.MID_EXPANSION.value
         
         if structure_name in {
             "staircase_gap_bullish",
@@ -239,7 +252,8 @@ def classify_ib_structure(
             "staircase_late_overlap_bullish",
             "staircase_late_overlap_bearish",
         }:
-            return "mid expansion"
+            # return "mid expansion"
+            return AuctionPhaseEnums.MID_EXPANSION.value
 
         if structure_name in {
 
@@ -248,7 +262,9 @@ def classify_ib_structure(
             "bullish_early_compression",
             "bearish_early_compression",
         }:
-            return "mid expansion"
+            # return "mid expansion"
+            return AuctionPhaseEnums.MID_EXPANSION.value
+        
 
         if structure_name in {
             "bullish_macro_decompression",
@@ -258,21 +274,25 @@ def classify_ib_structure(
             "bullish_mixed_decompression",
             "bearish_mixed_decompression",
         }:
-            return "early expansion"
+            # return "early expansion"
+            return AuctionPhaseEnums.EARLY_EXPANSION.value
 
         if structure_name in {
             "bullish_reintegration",
             "bearish_reintegration",
         }:
-            return "mid expansion"
+            # return "mid expansion"
+            return AuctionPhaseEnums.MID_EXPANSION.value
 
         if structure_name in {
             "bullish_value_flip",
             "bearish_value_flip",
         }:
-            return "expansion mid"
+            # return "expansion mid"
+            return AuctionPhaseEnums.MID_EXPANSION.value
         
-        return "mid expansion"
+        # return "mid expansion"
+        return AuctionPhaseEnums.MID_EXPANSION.value
     
     def ib_range(ib):
         return ib["high"] - ib["low"]
@@ -391,7 +411,7 @@ def classify_ib_structure(
         )
     ):
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bullish_decompression"
         doji_text = "The market has transitioned into early expansion after a accepting higher prices but direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
         expected_delivery = "Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
@@ -406,12 +426,10 @@ def classify_ib_structure(
             "pqs": 89,
             "reaction_levels": {"Pre-market 30m Bullish OB", "Pre-market Lows", "Pre-market Gap"},
             "structure_name": name,
+
             "structure_phase": get_structure_phase(name),
             "auction_phase": get_auction_phase(name),
-            "structure_phase": get_structure_phase(name),
-            "auction_phase": get_auction_phase(name),
-            "structure_phase": get_structure_phase(name),
-            "auction_phase": get_auction_phase(name),
+            
             "structure_group": group,
             "execution_state": {
                 "rocket": "waiting",      # waiting | ready | completed
@@ -485,7 +503,7 @@ def classify_ib_structure(
             )
     ):
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bearish_decompression"
         doji_text = "The market has transitioned into early expansion after a accepting lower prices but direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
         expected_delivery = "Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
@@ -569,7 +587,7 @@ def classify_ib_structure(
         and ib18["high"] < ib1["high"]
     ):
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bullish_mixed_decompression"
         return {
             "execution_edge": 0,
@@ -644,7 +662,7 @@ def classify_ib_structure(
     if ib8_engulf_ib1 and ib18["low"] < ib1["high"] < ib18["high"] and ib18["low"] > ib1["low"]:
 
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bearish_mixed_decompression"
         return {
             "execution_edge": 0,
@@ -734,7 +752,7 @@ def classify_ib_structure(
         and ib1_above_ib18
     ):
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bullish_macro_decompression"
         doji_text = "The market has transitioned into expansion after a complete rebalance of the overnight range. Direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
         expected_delivery = "The market has transitioned into early expansion after a complete rebalance of the overnight range. Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
@@ -843,7 +861,7 @@ def classify_ib_structure(
     ):
 
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bearish_macro_decompression"
         doji_text = "The market has transitioned into expansion after a complete rebalance of the overnight range. Direction remains unconfirmed. Expect the first qualified pre-market structure to establish the direction of today's expansion."
         expected_delivery = "The market has transitioned into early expansion after a complete rebalance of the overnight range. Expect continuation in the direction of the pre-market displacement following a retracement into mitigation."
@@ -926,7 +944,7 @@ def classify_ib_structure(
     if ib8_engulf_ib18 and ib18["low"] < ib1["low"] < ib18["high"] and ib1["high"]> ib18["high"]:
         
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bullish_mixed_macro_decompression"
 
         return {
@@ -1002,7 +1020,7 @@ def classify_ib_structure(
     if ib8_engulf_ib18 and ib18["high"] > ib1["high"] > ib18["low"] and ib1["low"] < ib18["low"]:
         
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bearish_mixed_macro_decompression"
         return {
             "execution_edge": 100,
@@ -1091,7 +1109,7 @@ def classify_ib_structure(
         )
     ):
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bullish_early_decompression"
         return {
             "execution_edge": 92,
@@ -1171,7 +1189,7 @@ def classify_ib_structure(
         )
     ):
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "bearish_early_decompression"
         return {
             "execution_edge": 92,
@@ -1284,7 +1302,7 @@ def classify_ib_structure(
             },
         
         name = None
-        group = "decompression"
+        group = GroupEnums.DECOMPRESSION
         name = "mixed_early_decompression"
         return {
             # TODO: scores
@@ -1349,7 +1367,7 @@ def classify_ib_structure(
         and ib8_inside_ib1
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "dual_inside_compression"
         return {
             "execution_edge": 100,
@@ -1414,7 +1432,7 @@ def classify_ib_structure(
         and ib1["high"] < ib8["low"]
     ):
         name = None
-        group = "acceptance"
+        group = GroupEnums.ACCEPTANCE
         name = "staircase_gap_bullish"
         return {
             "execution_edge": 75,
@@ -1492,7 +1510,7 @@ def classify_ib_structure(
         and ib1["low"] > ib8["high"]
     ):
         name = None
-        group = "acceptance"
+        group = GroupEnums.ACCEPTANCE
         name = "staircase_gap_bearish"
         return {
             "execution_edge": 75,
@@ -1574,7 +1592,7 @@ def classify_ib_structure(
         )
     ):
         name = None
-        group = "acceptance"
+        group = GroupEnums.ACCEPTANCE
         name = "staircase_early_overlap_bullish"
         return {
             "execution_edge": 75,
@@ -1677,7 +1695,7 @@ def classify_ib_structure(
         
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "staircase_late_overlap_bullish"
         return {
             "execution_edge": 98,
@@ -1774,7 +1792,7 @@ def classify_ib_structure(
         )
     ):
         name = None
-        group = "acceptance"
+        group = GroupEnums.ACCEPTANCE
         name = "staircase_early_overlap_bearish"
         return {
             "execution_edge": 75,
@@ -1871,7 +1889,7 @@ def classify_ib_structure(
         and ib8["low"] < ib1["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "staircase_late_overlap_bearish"
         return {
             "execution_edge": 98,
@@ -1958,7 +1976,7 @@ def classify_ib_structure(
         and ib1["high"] < ib8["high"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "staircase_bullish"
         return {
             "execution_edge": 95,
@@ -2048,7 +2066,7 @@ def classify_ib_structure(
         and ib1["low"] > ib8["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "staircase_bearish"
         return {
             "execution_edge": 95,
@@ -2126,7 +2144,7 @@ def classify_ib_structure(
         and ib8["low"] > ib18["high"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "bullish_acceptance_compression"
         return {
             "execution_edge": 100,
@@ -2201,7 +2219,7 @@ def classify_ib_structure(
         and ib8_inside_ib1
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "bearish_acceptance_compression"
         return {
             "execution_edge": 100,
@@ -2275,7 +2293,7 @@ def classify_ib_structure(
         and ib8_inside_ib18
     ):
         name = None
-        group = "rebalance"
+        group = GroupEnums.REBALANCE
         name = "bullish_rebalance_compression"
         return {
             "execution_edge": 100,
@@ -2349,7 +2367,7 @@ def classify_ib_structure(
         and ib8_inside_ib18
     ):
         name = None
-        group = "rebalance"
+        group = GroupEnums.REBALANCE
         name = "bearish_rebalance_compression"
         return {
             "execution_edge": 100,
@@ -2427,7 +2445,7 @@ def classify_ib_structure(
         and ib8["low"] < ib18["low"]
     ):
         name = None
-        group = "reintegration"
+        group = GroupEnums.REINTEGRATION
         name = "bullish_reintegration"
         compression_range = {}
         range = {}
@@ -2531,7 +2549,7 @@ def classify_ib_structure(
         and ib8["high"] > ib18["high"]
     ):
         name = None
-        group = "reintegration"
+        group = GroupEnums.REINTEGRATION
         name = "bearish_reintegration"
         compression_range = {}
         range = {}
@@ -2636,7 +2654,7 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
-        group = "value_flip"
+        group = GroupEnums.VALUEFLIP
         name = "bullish_value_flip"
         return {
             "execution_edge": 95,
@@ -2713,7 +2731,7 @@ def classify_ib_structure(
         and ib8["high"] > ib18["high"]
     ):
         name = None
-        group = "value_flip"
+        group = GroupEnums.VALUEFLIP
         name = "bearish_value_flip"
         return {
             "execution_edge": 95,
@@ -2791,7 +2809,7 @@ def classify_ib_structure(
         and ib8_above_ib1
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "bullish_early_compression"
         return {
             "execution_edge": 92,
@@ -2867,7 +2885,7 @@ def classify_ib_structure(
         and ib8_below_ib1
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "bearish_early_compression"
         return {
             "execution_edge": 92,
@@ -2952,7 +2970,7 @@ def classify_ib_structure(
         and ib8["low"] > ib18["high"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_gap_bullish"
         return {
             "execution_edge": 90,
@@ -3028,7 +3046,7 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_gap_bearish"
         return {
             "execution_edge": 90,
@@ -3113,7 +3131,7 @@ def classify_ib_structure(
         
     ):  
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_partial_overlap_bullish"
         return {
             "execution_edge": 100,
@@ -3183,7 +3201,7 @@ def classify_ib_structure(
         and ib18["low"] < ib8["low"] <= ib18["high"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_partial_overlap_bullish"
         return {
             "execution_edge": 90,
@@ -3256,7 +3274,7 @@ def classify_ib_structure(
         and ib8["high"] < ib18["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_partial_overlap_bearish"
         return {
             "execution_edge": 100,
@@ -3325,7 +3343,7 @@ def classify_ib_structure(
         and ib18["low"] <= ib8["high"] < ib18["high"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_partial_overlap_bearish"
         return {
             "execution_edge": 90,
@@ -3398,7 +3416,7 @@ def classify_ib_structure(
         and ib18["high"] > ib8["low"] > ib18["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_overlap_bullish"
         return {
             "execution_edge": 100,
@@ -3470,7 +3488,7 @@ def classify_ib_structure(
         
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_overlap_bearish"
         return {
             "execution_edge": 100,
@@ -3546,7 +3564,7 @@ def classify_ib_structure(
         and ib8["low"] > ib18["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_bullish"
         return {
             "execution_edge": 100,
@@ -3624,7 +3642,7 @@ def classify_ib_structure(
         and ib8["low"] > ib1["low"]
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_bearish"
         return {
             "execution_edge": 100,
@@ -3698,7 +3716,7 @@ def classify_ib_structure(
         ib1_engulf_ib18 and ib8_inside_ib1
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "sandwich_neutral_recompression"
         return {
             "execution_edge": 100,
@@ -3781,7 +3799,7 @@ def classify_ib_structure(
         < 0.15 * ib_range(ib18)
     ):
         name = None
-        group = "compression"
+        group = GroupEnums.COMPRESSION
         name = "centered_compression"
         return {
             "execution_edge": 0,
@@ -3838,7 +3856,7 @@ def classify_ib_structure(
     # DEFAULT
     # =====================================================
     name = None
-    group = "compression"
+    group = GroupEnums.COMPRESSION
     name = "mixed_overlap"
     return {
         "execution_edge": 0,

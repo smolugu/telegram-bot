@@ -333,41 +333,41 @@ def detect_daily_smt_precise(
     for nq_high in nq_prev_highs:
 
         # NQ sweeps THIS specific high
-        if nq_current.high > nq_high.high:
+        if nq_current.high > nq_high["high"]:
 
-            es_high = find_match(nq_high.timestamp, es_prev_highs)
+            es_high = find_match(nq_high["timestamp"], es_prev_highs)
             if es_high is None:
                 continue
 
-            es_swept = es_current.high > es_high.high
+            es_swept = es_current.high > es_high["high"]
 
             if not es_swept:
                 bearish_smt = {
                     "type": "bearish_smt",
                     "sweeper": "nq",
-                    "nq_level_price": nq_high.high,
-                    "es_level_price": es_high.high,
-                    "level_ts": nq_high.timestamp
+                    "nq_level_price": nq_high["high"],
+                    "es_level_price": es_high["high"],
+                    "level_ts": nq_high["timestamp"]
                 }
 
     # Reverse: ES sweeps, NQ doesn't
     for es_high in es_prev_highs:
 
-        if es_current.high > es_high.high:
+        if es_current.high > es_high["high"]:
 
-            nq_high = find_match(es_high.timestamp, nq_prev_highs)
+            nq_high = find_match(es_high["timestamp"], nq_prev_highs)
             if nq_high is None:
                 continue
 
-            nq_swept = nq_current.high > nq_high.high
+            nq_swept = nq_current.high > nq_high["high"]
 
             if not nq_swept:
                 bearish_smt = {
                     "type": "bearish_smt",
                     "sweeper": "es",
-                    "nq_level_price": nq_high.high,
-                    "es_level_price": es_high.high,
-                    "level_ts": es_high.timestamp
+                    "nq_level_price": nq_high["high"],
+                    "es_level_price": es_high["high"],
+                    "level_ts": es_high["timestamp"]
                 }
 
     # -------------------------
@@ -375,40 +375,40 @@ def detect_daily_smt_precise(
     # -------------------------
     for nq_low in nq_prev_lows:
 
-        if nq_current.low < nq_low.low:
+        if nq_current.low < nq_low["low"]:
 
-            es_low = find_match(nq_low.timestamp, es_prev_lows)
+            es_low = find_match(nq_low["timestamp"], es_prev_lows)
             if es_low is None:
                 continue
 
-            es_swept = es_current.low < es_low.low
+            es_swept = es_current.low < es_low["low"]
 
             if not es_swept:
                 bullish_smt = {
                     "type": "bullish_smt",
                     "sweeper": "nq",
-                    "nq_level_price": nq_low.low,
-                    "es_level_price": es_low.low,
-                    "level_ts": nq_low.timestamp
+                    "nq_level_price": nq_low["low"],
+                    "es_level_price": es_low["low"],
+                    "level_ts": nq_low["timestamp"]
                 }
 
     for es_low in es_prev_lows:
 
-        if es_current.low < es_low.low:
+        if es_current.low < es_low["low"]:
 
-            nq_low = find_match(es_low.timestamp, nq_prev_lows)
+            nq_low = find_match(es_low["timestamp"], nq_prev_lows)
             if nq_low is None:
                 continue
 
-            nq_swept = nq_current.low < nq_low.low
+            nq_swept = nq_current.low < nq_low["low"]
 
             if not nq_swept:
                 bullish_smt = {
                     "type": "bullish_smt",
                     "sweeper": "es",
-                    "nq_level_price": nq_low.low,
-                    "es_level_price": es_low.low,
-                    "level_ts": es_low.timestamp
+                    "nq_level_price": nq_low["low"],
+                    "es_level_price": es_low["low"],
+                    "level_ts": es_low["timestamp"]
                 }
             
     return bullish_smt, bearish_smt

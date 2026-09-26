@@ -73,6 +73,43 @@ class SQLiteCandleRepository(CandleRepository):
     #     except Exception:
     #         self.session.rollback()
     #         raise
+    # def save(self, candles: list[Candle]) -> None:
+    #     print(f"Saving {len(candles)} candles")
+
+    #     for candle in candles:
+    #         orm_candle = self._to_orm(candle)
+
+    #         existing = self.session.get(
+    #             CandleORM,
+    #             (
+    #                 orm_candle.timeframe,
+    #                 orm_candle.timestamp,
+    #                 orm_candle.contract,
+    #             ),
+    #         )
+
+    #         self.session.merge(orm_candle)
+
+    #     # self.session.commit()
+    #     try:
+    #         self.session.commit()
+
+    #     except IntegrityError as e:
+    #         self.session.rollback()
+
+    #         if "UNIQUE constraint failed: candles.timeframe, candles.timestamp, candles.contract" in str(e):
+    #             print(
+    #                 ">>> Duplicate candle detected; "
+    #                 "skipping insert and continuing"
+    #             )
+    #             return
+
+    #         raise
+
+    #     count = self.session.query(CandleORM).count()
+    #     print(self.session.bind.url)
+    #     print("Rows after commit:", count)
+    #     print("Save finished")
     def save(self, candles: list[Candle]) -> None:
         print(f"Saving {len(candles)} candles")
 
@@ -88,34 +125,17 @@ class SQLiteCandleRepository(CandleRepository):
                 ),
             )
 
-            # print(
-            #     "CANDLE SAVE:",
-            #     orm_candle.instrument,
-            #     orm_candle.timeframe,
-            #     repr(orm_candle.timestamp),
-            #     orm_candle.timestamp.tzinfo,
-            #     orm_candle.contract,
-            #     "EXISTS:",
-            #     existing is not None,
-            # )
+            if existing is not None:
+                existing.instrument = orm_candle.instrument
+                existing.open = orm_candle.open
+                existing.high = orm_candle.high
+                existing.low = orm_candle.low
+                existing.close = orm_candle.close
+                existing.volume = orm_candle.volume
+            else:
+                self.session.add(orm_candle)
 
-            self.session.merge(orm_candle)
-
-        # self.session.commit()
-        try:
-            self.session.commit()
-
-        except IntegrityError as e:
-            self.session.rollback()
-
-            if "UNIQUE constraint failed: candles.timeframe, candles.timestamp, candles.contract" in str(e):
-                print(
-                    ">>> Duplicate candle detected; "
-                    "skipping insert and continuing"
-                )
-                return
-
-            raise
+        self.session.commit()
 
         count = self.session.query(CandleORM).count()
         print(self.session.bind.url)
@@ -348,7 +368,13 @@ class SQLiteCandleRepository(CandleRepository):
             .where(CandleORM.timestamp <= end)
             .order_by(CandleORM.timestamp)
         )
-
+        print(
+            "[GET_BETWEEN DB]",
+            f"session_id={id(self.session)}",
+            f"in_transaction={self.session.in_transaction()}",
+            f"is_active={self.session.is_active}",
+            f"transaction={self.session.get_transaction()}",
+        )
         rows = self.session.scalars(stmt).all()
 
         return [self._to_domain(row) for row in rows]

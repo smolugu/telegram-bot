@@ -196,8 +196,15 @@ async def start_command(update, context):
 
             return
 
+        # await update.message.reply_text(
+        #     "Welcome back to Ping."
+        # )
+        message, keyboard = non_subscriber_welcome_screen()
+
         await update.message.reply_text(
-            "Welcome back to Ping."
+            message,
+            reply_markup=keyboard,
+            parse_mode="HTML",
         )
 
     finally:

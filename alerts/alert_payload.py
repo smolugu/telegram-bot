@@ -233,7 +233,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
 
     # set stop loss based on OB or IB high or low when we have sweep with displacement
     direction = "bearish" if side == "buy_side" else "bullish"
-    tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1)
+    tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1, instrument)
 
 
     # candidate.final_target_price is not None

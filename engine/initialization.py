@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 # import time
 
+from engine.helpers.start_of_day import get_start_of_trading_day
 from framework.models.auction.engine.auction_engine import initialize_auction
 from framework.models.auction.models.auction_engine import AuctionEngine
 from framework.models.candle_7h import SevenHourBuilder
@@ -9,7 +10,7 @@ from framework.models.london_market_context import LondonMarketContext
 from framework.models.market_context import MarketContext
 from framework.models.nyam_market_context import NewYorkMarketContext
 from framework.models.setup_candidate import SetupCandidate
-from framework.state.weekly_state import build_weekly_state, initialize_weekly_state
+from framework.state.weekly_state import build_weekly_state, get_week_start, initialize_weekly_state
 from engine.helpers.atr import calculate_daily_atr
 from helpers.atr import calculate_atr
 from helpers.liquidity_levels import get_liquidity_values, refresh_liquidity, reset_liquidity
@@ -369,11 +370,13 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             print(">>> Resetting auction engines for new contracts")
             # initialize auction from beginning of contract to start of day at 18:00
             # and update auction engine state at the end of each 30m candle in replay or realtime
-            auction_history_end_ny = datetime.combine(
-                current_trading_date,
-                time(17, 0),
-                tzinfo=NY_TZ,
-            )
+            # auction_history_end_ny is start of day for ping start up
+            auction_history_end_ny = get_start_of_trading_day(start_time_ny)
+            # auction_history_end_ny = datetime.combine(
+            #     current_trading_date,
+            #     time(17, 0),
+            #     tzinfo=NY_TZ,
+            # )
             auction_start_ny_60 = auction_history_end_ny - timedelta(days=60)
             auction_start_ny_45 = auction_history_end_ny - timedelta(days=45)
             auction_start_ny_30 = auction_history_end_ny - timedelta(days=30)
@@ -384,6 +387,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             auction_start_utc_30 = auction_start_ny_30.astimezone(UTC_TZ)
             start_utc_10 = start_ny_10.astimezone(UTC_TZ)
             start_time_utc = start_time_ny.astimezone(UTC_TZ)
+            auction_history_end_utc = auction_history_end_ny.astimezone(UTC_TZ)
 
             print(
                 f">>> Loading auction history: "
@@ -395,34 +399,34 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 contract=runtime.nq_contract,
                 timeframe=60,
                 start=start_utc_10,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
             nq_3m_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=3,
                 start=auction_start_utc_60,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             nq_4h_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=240,
                 start=auction_start_utc_30,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             nq_7h_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=420,
                 start=auction_start_utc_45,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             nq_1d_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=1440,
                 start=auction_start_utc_60,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             # ES
@@ -430,35 +434,35 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 contract=runtime.es_contract,
                 timeframe=60,
                 start=start_utc_10,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             es_3m_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=3,
                 start=auction_start_utc_60,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             es_4h_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=240,
                 start=auction_start_utc_30,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             es_7h_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=420,
                 start=auction_start_utc_45,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             es_1d_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=1440,
                 start=auction_start_utc_60,
-                end=start_time_utc,
+                end=auction_history_end_utc,
             )
 
             nq_candles_for_auction = {
@@ -509,18 +513,22 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             datetime.min.time(),
             tzinfo=NY_TZ,
         ).replace(hour=18)
-
+        week_start_ny = get_week_start(futures_session_start)
+        runtime.week_start_ny = week_start_ny
+        runtime.week_start_utc = week_start_ny.astimezone(timezone.utc)
         runtime.nq_weekly_state = build_weekly_state(
             nq_1d_auction,
             nq_1h_candles,
             futures_session_start,
-            "NQ"
+            "NQ",
+            week_start_ny
         )
         runtime.es_weekly_state = build_weekly_state(
             es_1d_auction,
             es_1h_candles,
             futures_session_start,
-            "ES"
+            "ES",
+            week_start_ny
         )
 
         # 6. Initialize HTF builders

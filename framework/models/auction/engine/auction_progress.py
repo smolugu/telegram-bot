@@ -493,19 +493,19 @@ def update_auction_progress(context, candle_30m):
     )
     print("\n========== AUCTION PROGRESS STATE ==========")
 
-    for progress in (
-        context.daily,
-        context.h7,
-        context.h4,
-    ):
-        print(
-            progress.timeframe,
-            "confirmed=", progress.confirmed,
-            "completed=", progress.completed,
-            "direction=", progress.direction,
-            "confirmed_direction=", progress.confirmed_direction,
-            "origin=", progress.origin,
-            "current_objective=", progress.current_objective,
-            "previous_origin=", progress.previous_origin,
-            "previous_objective=", progress.previous_objective,
-        )
+    # for progress in (
+    #     context.daily,
+    #     context.h7,
+    #     context.h4,
+    # ):
+    #     print(
+    #         progress.timeframe,
+    #         "confirmed=", progress.confirmed,
+    #         "completed=", progress.completed,
+    #         "direction=", progress.direction,
+    #         "confirmed_direction=", progress.confirmed_direction,
+    #         "origin=", progress.origin,
+    #         "current_objective=", progress.current_objective,
+    #         "previous_origin=", progress.previous_origin,
+    #         "previous_objective=", progress.previous_objective,
+    #     )

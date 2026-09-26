@@ -35,6 +35,7 @@ def detect_ping(
     candle_30m_nq,
     candle_30m_es,
     current_30m_start,
+    start_up=False
     
 ):
     # Existing 30m strategy processing
@@ -144,33 +145,18 @@ def detect_ping(
     # update weekly state a the end of new 1h candle
     nq_1h_candles = None
     es_1h_candles = None
-    # if dt_current.hour==0 and dt_current.hour !=18:
-    if dt_current.hour==0:
-        current_week_start_ny = (
-            last_closed_nq.timestamp
-            - timedelta(
-                days=(last_closed_nq.timestamp.weekday() + 1) % 7
-            )
-        ).replace(
-            hour=18,
-            minute=0,
-            second=0,
-            microsecond=0,
-        )
-
-        current_week_start_utc = current_week_start_ny.astimezone(
-            timezone.utc
-        )
+    if dt_current.hour==0 and dt_current.hour !=18:
+        
         nq_weekly_1h_candles = candle_repo.get_between(
             contract=runtime.nq_contract,
             timeframe=60,
-            start=current_week_start_utc,
+            start=runtime.week_start_utc,
             end=last_closed_nq.timestamp.astimezone(timezone.utc),
         )
         es_weekly_1h_candles = candle_repo.get_between(
             contract=runtime.es_contract,
             timeframe=60,
-            start=current_week_start_utc,
+            start=runtime.week_start_utc,
             end=last_closed_nq.timestamp.astimezone(timezone.utc),
         )
         update_weekly_1h_structure_abs(nq_weekly_state = runtime.nq_weekly_state, nq_weekly_1h_candles=nq_weekly_1h_candles, es_weekly_state=runtime.es_weekly_state, es_weekly_1h_candles=es_weekly_1h_candles, current_30m_start_utc=current_30m_start_utc)
@@ -420,7 +406,7 @@ def detect_ping(
     
     # update london context
     if dt.hour > 1 and dt.hour < 8:
-        print("liquidity nq: ", runtime.liquidity_nq)
+        # print("liquidity nq: ", runtime.liquidity_nq)
         runtime.nq_london_market_context.update(last_closed_nq, runtime.liquidity_nq)
         runtime.es_london_market_context.update(last_closed_es, runtime.liquidity_es)
     
@@ -453,11 +439,11 @@ def detect_ping(
         print("ib18: ",  runtime.nq_seven_hour_builder.candles["6PM"].values())
         runtime.nq_ny_market_context.set_8am_ib(runtime.nq_seven_hour_builder.candles, runtime.nq_london_market_context.ib_18, runtime.nq_london_market_context.ib_1)
         runtime.es_ny_market_context.set_8am_ib(runtime.es_seven_hour_builder.candles, runtime.es_london_market_context.ib_18, runtime.es_london_market_context.ib_1)
-        print("test 1: ", runtime.nq_ny_market_context.structure)
-        print("rest es: ", runtime.es_ny_market_context.structure)
+        # print("test 1: ", runtime.nq_ny_market_context.structure)
+        # print("rest es: ", runtime.es_ny_market_context.structure)
         print("add new mitigation or equilibrium level to liquidity key levels")
-        print("xxib8am: ",  runtime.nq_seven_hour_builder.candles["8AM"].values())
-        print("xxib8am: ",  runtime.es_seven_hour_builder.candles["8AM"].values())
+        # print("xxib8am: ",  runtime.nq_seven_hour_builder.candles["8AM"].values())
+        # print("xxib8am: ",  runtime.es_seven_hour_builder.candles["8AM"].values())
 
         # we have structure for ny am, determine if 8am IB forms an fvg
         fvg_results = detect_9am_fvg(
@@ -491,7 +477,7 @@ def detect_ping(
         print("es liquidity levels: ", runtime.liquidity_es)
         # send nyam summary at 9am est
         summary_message = build_summary_alert(runtime.nq_ny_market_context, runtime.es_ny_market_context, current_30m_start)
-        send_newyork_summary(summary_message)
+        send_newyork_summary(summary_message, start_up)
         # ob levels as mitigation level for migration structures
         # dont mix ob levels and structure migration mtl levels
         # not using bearish and bullish ob levels in market context, they are stored as key levels in liquidity levels
@@ -693,8 +679,9 @@ def detect_ping(
         # fetch compression data
         is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq = runtime.nq_ny_market_context.get_compression_data()
         is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es = runtime.es_ny_market_context.get_compression_data()
-        print("compression data nq pre update: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
-        print("compression data es pre update: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
+        print("compression data nq pre update: ##")
+        # print("compression data nq pre update: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
+        # print("compression data es pre update: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
         # update compression state
         runtime.nq_ny_market_context.update_compression_state(runtime.liquidity_nq)
         runtime.es_ny_market_context.update_compression_state(runtime.liquidity_es)
@@ -705,9 +692,9 @@ def detect_ping(
 
         update_compression_range_levels(runtime.liquidity_nq, compression_range_nq, "8AM")
         update_compression_range_levels(runtime.liquidity_es, compression_range_es, "8AM")
-        print("compression data after updates:")
-        print("compression data nq: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
-        print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
+        print("compression data after updates: ##")
+        # print("compression data nq: ", is_compression_nq, compression_range_nq, compression_sweep_data_nq, compression_state_nq)
+        # print("compression data es: ", is_compression_es, compression_range_es, compression_sweep_data_es, compression_state_es)
         
         # update compression state values. remaining updates to structure at end of 30m done above
         
@@ -1501,7 +1488,7 @@ def detect_ping(
             print("Market Context: ", runtime.nq_market_context.values())
             message = build_trade_alert(candidate = runtime.nq_sell_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.nq_sell_candidate, message)
+                execute_trade_and_log(runtime.nq_sell_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
                 # runtime.nq_sell_candidate.alert_sent = True
                 # insert_trade(nq_sell_candidate)
@@ -1544,7 +1531,7 @@ def detect_ping(
             # send alert for NQ buy candidate
             message = build_trade_alert(candidate = runtime.nq_buy_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.nq_buy_candidate, message)
+                execute_trade_and_log(runtime.nq_buy_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
                 # runtime.nq_buy_candidate.alert_sent = True
                 # insert_trade(nq_buy_candidate)
@@ -1600,7 +1587,7 @@ def detect_ping(
             # send alert for ES sell candidate
             message = build_trade_alert(candidate = runtime.es_sell_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.es_sell_candidate, message)
+                execute_trade_and_log(runtime.es_sell_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
                 # runtime.es_sell_candidate.alert_sent = True
                 # insert_trade(es_sell_candidate)
@@ -1638,7 +1625,7 @@ def detect_ping(
             # send alert for ES buy candidate
             message = build_trade_alert(candidate = runtime.es_buy_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.es_buy_candidate, message)
+                execute_trade_and_log(runtime.es_buy_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
                 # runtime.es_buy_candidate.alert_sent = True
                 # insert_trade(es_buy_candidate)

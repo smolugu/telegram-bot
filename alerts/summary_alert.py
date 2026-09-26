@@ -51,14 +51,14 @@ def build_summary_alert(
     es_auction_phase = es_market_context.structure["auction_phase"]
     nq_pqs = nq_market_context.structure["pqs"]
     es_pqs = es_market_context.structure["pqs"]
-    nq_priority = AUCTION_PRIORITY.get(nq_auction_phase, 0)
-    es_priority = AUCTION_PRIORITY.get(es_auction_phase, 0)
+    nq_priority = AUCTION_PRIORITY.get(nq_auction_phase.value, 0)
+    es_priority = AUCTION_PRIORITY.get(es_auction_phase.value, 0)
 
     if nq_priority > es_priority:
         preferred_asset = "NQ"
         reason = (
             f"NQ is in an earlier auction stage "
-            f"({nq_auction_phase}) compared with ES ({es_auction_phase}), "
+            f"({nq_auction_phase.value}) compared with ES ({es_auction_phase.value}), "
             "providing greater delivery potential."
         )
 
@@ -66,7 +66,7 @@ def build_summary_alert(
         preferred_asset = "ES"
         reason = (
             f"ES is in an earlier auction stage "
-            f"({es_auction_phase}) compared with NQ ({nq_auction_phase}), "
+            f"({es_auction_phase.value}) compared with NQ ({nq_auction_phase.value}), "
             "providing greater delivery potential."
         )
 
@@ -75,7 +75,7 @@ def build_summary_alert(
         if nq_pqs > es_pqs:
             preferred_asset = "NQ"
             reason = (
-                f"Both markets are in the {nq_auction_phase} phase. "
+                f"Both markets are in the {nq_auction_phase.value} phase. "
                 f"NQ has the stronger overnight structure "
                 f"(PQS {nq_pqs} vs {es_pqs})."
             )
@@ -83,7 +83,7 @@ def build_summary_alert(
         elif es_pqs > nq_pqs:
             preferred_asset = "ES"
             reason = (
-                f"Both markets are in the {es_auction_phase} phase. "
+                f"Both markets are in the {es_auction_phase.value} phase. "
                 f"ES has the stronger overnight structure "
                 f"(PQS {es_pqs} vs {nq_pqs})."
             )
@@ -91,7 +91,7 @@ def build_summary_alert(
         else:
             preferred_asset = "Either"
             reason = (
-                f"Both markets are in the {nq_auction_phase} phase "
+                f"Both markets are in the {nq_auction_phase.value} phase "
                 "with similar structure quality."
             )
 

@@ -61,7 +61,6 @@ def  start_ping_flow(start_time, contract_repo, candle_repo):
         es_contract = es_contract.contract
         runtime.nq_contract = nq_contract
         runtime.es_contract = es_contract
-
         
         # 7. Replay today's 3m/30m candles up to start_time
         # # 7.2 Initialize 7H builders / candidates
@@ -129,7 +128,8 @@ def  start_ping_flow(start_time, contract_repo, candle_repo):
                 contract_repo=contract_repo,
                 candle_30m_nq=candle_30m_nq,
                 candle_30m_es=candle_30m_es,
-                current_30m_start=current_30m_start
+                current_30m_start=current_30m_start,
+                start_up=True
             )
 
         print(">>> Ping initialization placeholder complete")

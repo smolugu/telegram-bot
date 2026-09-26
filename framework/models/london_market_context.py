@@ -1,3 +1,6 @@
+from helpers.enums import AuctionPhaseEnums, GroupEnums, StructurePhaseEnums
+
+
 class LondonMarketContext:
 
     def __init__(self, instrument, ib_18 = None):
@@ -143,7 +146,8 @@ class LondonMarketContext:
         if ib1_high <= ib18_high and ib1_low >= ib18_low:
             print("Ib relationship: ib1 inside ib18")
             self.structure["name"] = "compression"
-            self.structure["group"] = "compression"
+            self.structure["group"] = GroupEnums.COMPRESSION
+            self.structure["structure_phase"] = StructurePhaseEnums.COMPRESSION
             self.structure["category"]= "compression"
             self.structure["market_phase"]= "compression"
             self.structure["is_compression"]= True
@@ -162,8 +166,15 @@ class LondonMarketContext:
         # -----------------------------------
         elif ib1_high > ib18_high and ib1_low < ib18_low:
             print("Ib relationship: ib1 engulfs ib18")
-            self.structure["ib_relationship"] = "engulfing"
+            self.structure["name"] = "decompression"
+            self.structure["group"] = GroupEnums.DECOMPRESSION
+            self.structure["category"]= "decompression"
+            self.structure["market_phase"] = "decompression"
+            self.structure["structure_phase"] = StructurePhaseEnums.MIGRATION
+            self.structure["auction_phase"] = AuctionPhaseEnums.EARLY_EXPANSION
             self.structure["compression"] = False
+            self.structure["ib_relationship"] = "engulfing"
+            
 
             self.structure["range_high"] = ib1_high
             self.structure["range_low"] = ib1_low

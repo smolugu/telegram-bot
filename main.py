@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 import time
 import os
 from zoneinfo import ZoneInfo
@@ -300,10 +301,20 @@ def main():
         # ================================
         # ProjectX Websocket Connection
         # ================================
-        
+        realtime_session = SessionLocal()
+
+        realtime_candle_repo = SQLiteCandleRepository(
+            realtime_session
+        )
         # Callback for completed realtime candles
         def save_realtime_candle(candle: Candle) -> None:
-            projectx_candle_repo.save([candle])
+            
+            print(
+                f"[REALTIME] thread={threading.current_thread().name} "
+                f"id={threading.get_ident()}"
+                f"session_id={id(realtime_session)}"
+            )
+            realtime_candle_repo.save([candle])
 
             print(
                 f"Saved realtime candle: "
@@ -871,6 +882,11 @@ def main():
             )
 
         def process_3m_v3():
+            print(
+                f"[SCHEDULER] thread={threading.current_thread().name} "
+                f"id={threading.get_ident()}"
+                f"session_id={id(projectx_session)}"
+            )
             now_utc = datetime.now(timezone.utc).replace(
                 second=0,
                 microsecond=0,
@@ -1301,6 +1317,13 @@ def main():
 
     
         def process_scheduler_tasks():
+            print(
+                "[SCHEDULER DB]",
+                f"session_id={id(projectx_session)}",
+                f"in_transaction={projectx_session.in_transaction()}",
+                f"is_active={projectx_session.is_active}",
+                f"transaction={projectx_session.get_transaction()}",
+            )
 
             now_utc = datetime.now(timezone.utc).replace(
                 second=0,

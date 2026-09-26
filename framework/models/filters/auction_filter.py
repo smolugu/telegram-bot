@@ -53,6 +53,11 @@ def allowed_auction_direction(
         if not auction.at_htf:
             continue
         print("price is at htf")
+        # return neutral for london session
+        # return AuctionDirection.NEUTRAL
+        
+        # return opposite direction, assuming reversal from htf. the structure will decide if the
+        # level is appropriate for reversal
         if auction.previous_direction == (
             AuctionDirection.BULLISH
         ):

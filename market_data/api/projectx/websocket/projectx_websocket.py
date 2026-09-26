@@ -248,6 +248,7 @@ class ProjectXWebSocket:
         self._watchdog_thread.start()
 
         print("ProjectX WebSocket watchdog started")
+
     def subscribe_trades(self, contract_id: str) -> None:
 
         if not self._connected.is_set():
@@ -272,7 +273,6 @@ class ProjectXWebSocket:
 
     def _resubscribe_trades(
         self,
-        contract_ids: list[str],
     ) -> None:
 
         if not self._connected.is_set():
@@ -281,7 +281,7 @@ class ProjectXWebSocket:
 
         print(">>> Resubscribing to ProjectX trades")
 
-        for contract_id in contract_ids:
+        for contract_id in self._subscribed_contracts:
             print(
                 f">>> Resubscribing trades: {contract_id}"
             )

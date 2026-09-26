@@ -20,6 +20,11 @@ def initialize_weekly_state(instrument):
         "new_bullish_fvg": None,
         "new_bearish_fvg": None,
 
+        "active_bullish_fvgs": [],
+        "active_bearish_fvgs": [],
+        "active_bullish_cisds": [],
+        "active_bearish_cisds": [],
+
         "bias": None,
         "bias_reason": None,
 
@@ -150,7 +155,8 @@ def build_weekly_state(
     candles_1d,
     candles_1h,
     current_day_start_ny,
-    instrument
+    instrument,
+    week_start_ny
 ):
     """
     Build weekly state by replaying all completed 1H candles
@@ -159,24 +165,14 @@ def build_weekly_state(
 
     weekly_state = initialize_weekly_state(instrument)
     
-    week_start_ny = get_week_start(current_day_start_ny)
-    print("week start 101: ", week_start_ny)
+    # week_start_ny = get_week_start(current_day_start_ny)
+    print("current_day_start_ny:", current_day_start_ny)
+    print("WEEK START:", week_start_ny)
+    print("WEEK START UTC:", week_start_ny.astimezone(UTC_TZ))
+
     
-    week_open_daily = None
-    # print("candles daily: ", candles_1d)
-    # Yahoo labels the session by the next calendar day
-    # target_date = (week_start + timedelta(days=1)).date()
-    # week_start_utc = week_start.astimezone(UTC_TZ)
-    # week_open_daily = next(
-    #     (
-    #         candle
-    #         for candle in candles_1d
-    #         if datetime.fromisoformat(candle.timestamp).date() == target_date
-    #     ),
-    #     None,
-    # ) 
-    print("candles_1h: ", candles_1h)
-    week_open_daily = next(
+    week_open_candle = None
+    week_open_candle = next(
         (
             candle
             for candle in candles_1h
@@ -185,39 +181,23 @@ def build_weekly_state(
         None,
     ) 
     
-    # weekly_state["week_start"] = week_start
-    print("weekly_open_daily: ", week_open_daily)
-    weekly_state["weekly_open"] = week_open_daily.open
+    print("weekly_open_candle: ", week_open_candle)
+    weekly_state["weekly_open"] = week_open_candle.open
 
     history = []
 
     for candle in candles_1h:
 
         ts_ny = candle.timestamp
-        # print("week_start: ", week_start)
-        # print("ts: ", ts)
-        # print("current_day_start: ", current_day_start)
-        if week_start_ny <= ts_ny < current_day_start_ny:
-            # print("appending")
-            
+        if week_start_ny <= ts_ny < current_day_start_ny:    
             history.append(candle)
 
-    # print("history: ", history)
     weekly_state["week_start"] = week_start_ny
     # we need to loop through these candles from start of week to start of current day and update weekly state
     candles_to_update_state = []
     for candle in history:
         
         candles_to_update_state.append(candle)
-        # temporary fix to correct 1st 1h candle at week open
-        # if len(candles_to_update_state) == 1:
-        #     print("updating first candle")
-        #     candles_to_update_state[0]["open"] = 28747.5 if instrument == "NQ" else 7484.5
-        #     # print("candles_to_update_state 0 open: ", candles_to_update_state[0]["open"])
-        #     candles_to_update_state[0]["high"] = 28851.25 if instrument == "NQ" else 7502.5
-        #     candles_to_update_state[0]["low"] = 28706.75 if instrument == "NQ" else 7482
-        #     candles_to_update_state[0]["close"] = 28815.75 if instrument == "NQ" else 7495.75
-        # print("candles_to_update_state: ", candles_to_update_state[0])
         weekly_state = update_weekly_1h_structure(
             weekly_state,
             candles_to_update_state
@@ -232,35 +212,58 @@ def update_weekly_1h_structure(
 ):
     """
     Called at every 1H close.
+
+    Structure lifecycle
+    -------------------
+    First CISD/FVG of a direction:
+        -> anchor
+
+    Subsequent CISD/FVG:
+        -> active list
+        -> new_* points to latest active structure
+
+    Reclaimed/invalidated:
+        -> removed from active list
+        -> new_* falls back to previous active structure
+
+    Mitigated FVG:
+        -> remains active
+        -> remains eligible to be new_*
+
+    Bias
+    ----
+    Below weekly open:
+        bearish CISD + bearish FVG -> bearish
+        bullish CISD + bullish FVG -> neutral_bullish
+
+    Above weekly open:
+        bullish CISD + bullish FVG -> bullish
+        bearish CISD + bearish FVG -> neutral_bearish
+
+    A transition from bearish -> bullish requires the
+    original bearish anchor pair to be invalidated.
+
+    A transition from bullish -> bearish requires the
+    original bullish anchor pair to be invalidated.
     """
 
     if len(candles_1h) < 3:
         return weekly_state
+    # --------------------------------------------------
+    # Ensure active lists exist
+    # --------------------------------------------------
 
-    #
-    # Reset at new week
-    #
+    if weekly_state["active_bullish_fvgs"] is None:
+        weekly_state["active_bullish_fvgs"] = []
 
-    # current_week = get_week_start(
-    #     datetime.fromisoformat(
-    #         candles_1h[-1].timestamp
-    #     )
-    # )
-    # print("currnt_week: ", current_week)
-    # print("week start: ", weekly_state["week_start"])
+    if weekly_state["active_bearish_fvgs"] is None:
+        weekly_state["active_bearish_fvgs"] = []
 
-    # if weekly_state["week_start"] is not None and weekly_state["week_start"] != current_week:
-    #     print("resetting week state 102")
+    if weekly_state["active_bullish_cisds"] is None:
+        weekly_state["active_bullish_cisds"] = []
 
-    #     weekly_state = initialize_weekly_state()
-
-    #     weekly_state["week_start"] = current_week
-    #     print("week start X: ", weekly_state["week_start"])
-    #     # print("candle 0:", candles[0])
-
-    #     # weekly_state["weekly_open"] = candles[0]["open"]
-        
-    # print("weekly open: ", weekly_state["weekly_open"])
+    if weekly_state["active_bearish_cisds"] is None:
+        weekly_state["active_bearish_cisds"] = []
     
     current_price = candles_1h[-1].close
     last_closed = candles_1h[-1]
@@ -277,49 +280,9 @@ def update_weekly_1h_structure(
     else:
         weekly_state["price_location"] = "below"
 
-    #
-    # --------------------------------------------------
-    # Invalidate Existing CISDs
-    # --------------------------------------------------
-    #
-
-    if (
-        weekly_state["bullish_cisd"] is not None
-        and
-        last_closed.close < weekly_state["bullish_cisd"]["invalidate_below"]
-    ):
-        print("Weekly Bullish CISD invalidated")
-        weekly_state["bullish_cisd"] = None
-
-    if (
-        weekly_state["bearish_cisd"] is not None
-        and
-        last_closed.close > weekly_state["bearish_cisd"]["invalidate_above"]
-    ):
-        print("Weekly Bearish CISD invalidated")
-        weekly_state["bearish_cisd"] = None
-    
-    if (
-        weekly_state["new_bullish_cisd"] is not None
-        and
-        last_closed.close < weekly_state["new_bullish_cisd"]["invalidate_below"]
-    ):
-        print("Weekly New Bullish CISD invalidated")
-        weekly_state["new_bullish_cisd"] = None
-
-    if (
-        weekly_state["new_bearish_cisd"] is not None
-        and
-        last_closed.close > weekly_state["new_bearish_cisd"]["invalidate_above"]
-    ):
-        print("Weekly New Bearish CISD invalidated")
-        weekly_state["new_bearish_cisd"] = None
-
-    #
     # --------------------------------------------------
     # Detect Bullish CISD
     # --------------------------------------------------
-    #
 
     recent_bearish = _find_recent_bearish_candle(
         candles_1h
@@ -329,45 +292,52 @@ def update_weekly_1h_structure(
         recent_bearish is not None
         and last_closed.close > recent_bearish.open
         and last_closed.timestamp != recent_bearish.timestamp
-
     ):
-        print("last_closed timestamp: ", last_closed.timestamp)
-        print("recent timestamp: ", recent_bearish.timestamp)
-        # bullish cisd detected
-        # update state and bias
-            # if there is a valid bearish cisd, set bias to neutral
-            # if bullish cisd followed by bullish fvg set bias to bullish 
-            # if a new bearish fvg is reclaimed, set bias to strong bullish
+
+        bullish_cisd = {
+            "timestamp": last_closed.timestamp,
+            "cisd_level": recent_bearish.open,
+            "invalidate_below": (
+                recent_bearish.close
+                if recent_bearish.close < last_closed.open
+                else last_closed.open
+            ),
+        }
+
+        print("Bullish CISD detected:", bullish_cisd)
+
+        # First bullish CISD = anchor
         if weekly_state["bullish_cisd"] is None:
 
-            weekly_state["bullish_cisd"] = {
-                "timestamp": last_closed.timestamp,
-                "cisd_level": recent_bearish.open,
-                "invalidate_below": recent_bearish.close if recent_bearish.close < last_closed.open else last_closed.open,
-            }
-            print("Weekly Bullish CISD formed: ", weekly_state["bullish_cisd"])
-        elif weekly_state["new_bullish_cisd"] is not None:
+            weekly_state["bullish_cisd"] = bullish_cisd
 
-            weekly_state["new_bullish_cisd"] = {
-                "timestamp": last_closed.timestamp,
-                "cisd_level": recent_bearish.open,
-                "invalidate_below": recent_bearish.close if recent_bearish.close < last_closed.open else last_closed.open,
-            }
-            print("Weekly New Bullish CISD formed: ", weekly_state["new_bullish_cisd"])
-        
-        # update weekly bias and reason
-        # dont change to neutral yet
-        # if weekly_state["bearish_cisd"] and weekly_state["bullish_cisd"]:
-        #     weekly_state["bias"] = "neutral"
-        #     weekly_state["bias_reason"] = "conflicting cisd's"
-        
+            weekly_state["active_bullish_cisds"].append(
+                bullish_cisd
+            )
 
-    #
+            print(
+                "Weekly Bullish CISD anchor formed:",
+                weekly_state["bullish_cisd"]
+            )
+
+        else:
+
+            # Subsequent bullish CISD
+            weekly_state["active_bullish_cisds"].append(
+                bullish_cisd
+            )
+
+            weekly_state["new_bullish_cisd"] = bullish_cisd
+
+            print(
+                "Weekly New Bullish CISD formed:",
+                weekly_state["new_bullish_cisd"]
+            )
+
     # --------------------------------------------------
     # Detect Bearish CISD
     # --------------------------------------------------
-    #
-    
+
     recent_bullish = _find_recent_bullish_candle(
         candles_1h
     )
@@ -377,656 +347,516 @@ def update_weekly_1h_structure(
         and last_closed.close < recent_bullish.open
         and last_closed.timestamp != recent_bullish.timestamp
     ):
-        print("check for new bearish cisd")
-        print("recent_bullish: ", recent_bullish)
-        print("last_closed timestamp: ", last_closed.timestamp)
-        print("recent timestamp: ", recent_bullish.timestamp)
-        print("last_closed close: ", last_closed.close)
-        print("recent bullish open: ", recent_bullish.open)
-        print("prevous cisd: ", weekly_state["bearish_cisd"])
+
+        bearish_cisd = {
+            "timestamp": last_closed.timestamp,
+            "cisd_level": recent_bullish.open,
+            "invalidate_above": (
+                recent_bullish.close
+                if recent_bullish.close > last_closed.open
+                else last_closed.open
+            ),
+        }
+
+        print("Bearish CISD detected:", bearish_cisd)
+
+        # First bearish CISD = anchor
         if weekly_state["bearish_cisd"] is None:
 
-            weekly_state["bearish_cisd"] = {
-                "timestamp": last_closed.timestamp,
-                "cisd_level": recent_bullish.open,
-                # "invalidate_above": recent_bullish["high"] if recent_bullish["high"] > last_closed["high"] else last_closed["high"],
-                "invalidate_above": recent_bullish.close if recent_bullish.close > last_closed.open else last_closed.open,
-            }
-            print("Weekly Bearish CISD formed: ", weekly_state["bearish_cisd"])
-            # update weekly state
-        elif weekly_state["new_bearish_cisd"] is not None:
-            weekly_state["new_bearish_cisd"] = {
-                "timestamp": last_closed.timestamp,
-                "cisd_level": recent_bullish.open,
-                "invalidate_above": recent_bullish.close if recent_bullish.close > last_closed.open else last_closed.open,
-            }
-            print("Weekly New Bearish CISD formed: ", weekly_state["new_bearish_cisd"])
+            weekly_state["bearish_cisd"] = bearish_cisd
 
-    #
+            weekly_state["active_bearish_cisds"].append(
+                bearish_cisd
+            )
+
+            print(
+                "Weekly Bearish CISD anchor formed:",
+                weekly_state["bearish_cisd"]
+            )
+
+        else:
+
+            # Subsequent bearish CISD
+            weekly_state["active_bearish_cisds"].append(
+                bearish_cisd
+            )
+
+            weekly_state["new_bearish_cisd"] = bearish_cisd
+
+            print(
+                "Weekly New Bearish CISD formed:",
+                weekly_state["new_bearish_cisd"]
+            )
+
+
+
     # --------------------------------------------------
     # Detect New FVGs
     # --------------------------------------------------
-    #
 
     bullish_fvg, bearish_fvg = _detect_latest_fvg(
         candles_1h
     )
-    print("bullish fvgs: ", bullish_fvg)
-    print("bearish fvgs: ", bearish_fvg)
 
-    if bullish_fvg:
-        print("fresh bullish fvg detected")
-        print("bearish_fvg and CISd:", weekly_state["bearish_cisd"], weekly_state["bearish_fvg"])
-    if bearish_fvg:
-        print("fresh bearish fvg detected")
-        print("bullish_fvg and CISd:", weekly_state["bullish_cisd"], weekly_state["bullish_fvg"])
+    print("bullish fvg:", bullish_fvg)
+    print("bearish fvg:", bearish_fvg)
+
+    # --------------------------------------------------
+    # Store Bullish FVG
+    # --------------------------------------------------
 
     if bullish_fvg is not None:
-        
-        if (
-            weekly_state["bullish_fvg"] is None
-            or weekly_state["bullish_fvg"]["state"] == "reclaimed"
-        ):
-    
+
+        print("Fresh bullish FVG detected")
+
+        # First bullish FVG = anchor
+        if weekly_state["bullish_fvg"] is None:
+
             weekly_state["bullish_fvg"] = bullish_fvg
-            print("Weekly Bullish FVG formed: ", weekly_state["bullish_fvg"])
-            # update weekly state
-            if weekly_state["bullish_cisd"]:
-                weekly_state["bias"] = "bullish"
-                weekly_state["bias_reason"] = "bullish_cisd_plus_fvg"
+
+            weekly_state["active_bullish_fvgs"].append(
+                bullish_fvg
+            )
+
+            print(
+                "Weekly Bullish FVG anchor formed:",
+                weekly_state["bullish_fvg"]
+            )
+
         else:
+
+            # Subsequent bullish FVG
+            weekly_state["active_bullish_fvgs"].append(
+                bullish_fvg
+            )
+
             weekly_state["new_bullish_fvg"] = bullish_fvg
-    
+
+            print(
+                "Weekly New Bullish FVG formed:",
+                weekly_state["new_bullish_fvg"]
+            )
+
+    # --------------------------------------------------
+    # Store Bearish FVG
+    # --------------------------------------------------
+
     if bearish_fvg is not None:
-        
-        if (
-            weekly_state["bearish_fvg"] is None
-            or weekly_state["bearish_fvg"]["state"] == "reclaimed"
-        ):
-    
+
+        print("Fresh bearish FVG detected")
+
+        # First bearish FVG = anchor
+        if weekly_state["bearish_fvg"] is None:
+
             weekly_state["bearish_fvg"] = bearish_fvg
-            print("Weekly Bearish FVG formed: ", weekly_state["bearish_fvg"])
-            # update weekly state
-            if weekly_state["bearish_cisd"]:
-                weekly_state["bias"] = "bearish"
-                weekly_state["bias_reason"] = "bearish_cisd_plus_fvg"
+
+            weekly_state["active_bearish_fvgs"].append(
+                bearish_fvg
+            )
+
+            print(
+                "Weekly Bearish FVG anchor formed:",
+                weekly_state["bearish_fvg"]
+            )
+
         else:
+
+            # Subsequent bearish FVG
+            weekly_state["active_bearish_fvgs"].append(
+                bearish_fvg
+            )
+
             weekly_state["new_bearish_fvg"] = bearish_fvg
 
-    #  update weekly bias since we have new cisd_and_fvg formed
+            print(
+                "Weekly New Bearish FVG formed:",
+                weekly_state["new_bearish_fvg"]
+            )
 
+    # ==================================================
+    # INVALIDATE / RECLAIM CISDs
+    # ==================================================
 
-
-    #
     # --------------------------------------------------
-    # Update FVG States
+    # Bullish CISDs
     # --------------------------------------------------
-    #
 
-    if weekly_state["bullish_fvg"] is not None:
+    bullish_cisds = weekly_state["active_bullish_cisds"]
+
+    for cisd in bullish_cisds[:]:
+
+        if last_closed.close < cisd["invalidate_below"]:
+
+            print(
+                "Bullish CISD invalidated:",
+                cisd
+            )
+
+            bullish_cisds.remove(cisd)
+
+            # If this was the anchor, the anchor is gone
+            if weekly_state["bullish_cisd"] is cisd:
+                weekly_state["bullish_cisd"] = None
+
+    # Latest surviving bullish CISD after anchor
+    if weekly_state["bullish_cisd"] is not None:
+
+        post_anchor = [
+            cisd
+            for cisd in bullish_cisds
+            if cisd is not weekly_state["bullish_cisd"]
+        ]
+
+        weekly_state["new_bullish_cisd"] = (
+            post_anchor[-1]
+            if post_anchor
+            else None
+        )
+
+    else:
+        weekly_state["new_bullish_cisd"] = (
+            bullish_cisds[-1]
+            if bullish_cisds
+            else None
+        )
+
+    # --------------------------------------------------
+    # Bearish CISDs
+    # --------------------------------------------------
+
+    bearish_cisds = weekly_state["active_bearish_cisds"]
+
+    for cisd in bearish_cisds[:]:
+
+        if last_closed.close > cisd["invalidate_above"]:
+
+            print(
+                "Bearish CISD invalidated:",
+                cisd
+            )
+
+            bearish_cisds.remove(cisd)
+
+            if weekly_state["bearish_cisd"] is cisd:
+                weekly_state["bearish_cisd"] = None
+
+    # Latest surviving bearish CISD after anchor
+    if weekly_state["bearish_cisd"] is not None:
+
+        post_anchor = [
+            cisd
+            for cisd in bearish_cisds
+            if cisd is not weekly_state["bearish_cisd"]
+        ]
+
+        weekly_state["new_bearish_cisd"] = (
+            post_anchor[-1]
+            if post_anchor
+            else None
+        )
+
+    else:
+        weekly_state["new_bearish_cisd"] = (
+            bearish_cisds[-1]
+            if bearish_cisds
+            else None
+        )
+
+    # ==================================================
+    # UPDATE FVG STATES
+    # ==================================================
+
+    # --------------------------------------------------
+    # Bullish FVGs
+    # --------------------------------------------------
+
+    bullish_fvgs = weekly_state["active_bullish_fvgs"]
+
+    for fvg in bullish_fvgs[:]:
+
+        # ----------------------------------------------
+        # Reclaim
+        # ----------------------------------------------
 
         if (
-            last_closed.close < weekly_state["bullish_fvg"]["low"]
-            and weekly_state["bullish_fvg"]["state"] != "reclaimed"
+            last_closed.close < fvg["low"]
+            and fvg["state"] != "reclaimed"
         ):
-            print("Weekly Bullish FVG reclaimed at: ", last_closed.timestamp)
-            weekly_state["bullish_fvg"]["state"] = "reclaimed"
 
-            if weekly_state["price_location"] == "above":
-                if weekly_state["bullish_cisd"] is None:
-                    weekly_state['bias'] = "neutral"
-                    weekly_state["bias_reason"] = "invalidation of bullish fvg and cisd above open"
-                elif weekly_state["bearish_fvg"] is not None:
-                    weekly_state["bias"] = "bearish"
-                    weekly_state["bias_reason"] = "bearish cisd plus fvg above open"
-                elif weekly_state["bullish_cisd"] is not None and weekly_state["bearish_cisd"] is not None:
-                    weekly_state["bias"] = "neutral"
-                    weekly_state["bias_reason"] = "conflicting cisds"
-                else:
-                    weekly_state['bias'] = "bullish"
-                    weekly_state["bias_reason"] = "price above weekly open"
-            else:
-                if weekly_state["bearish_fvg"] is not None:
-                    weekly_state["bias"] = "bearish"
-                    weekly_state["bias_reason"] = "bearish fvg and cisd below open"
-                elif weekly_state["bearish_cisd"] is not None and weekly_state["bullish_cisd"] is not None:
-                    weekly_state["bias"] = "neutral"
-                    weekly_state["bias_reason"] = "conflicting cisds below open"
-                elif weekly_state["bearish_cisd"] is None and weekly_state["bullish_cisd"] is None:
-                    weekly_state["bias"] = "neutral"
-                    weekly_state["bias_reason"] = "price below open with reclaimed bullish fvg"
-                else:
-                    weekly_state["bias"] = "bearish"
-                    weekly_state["bias_reason"] = "price below open"
-            # weekly_state["bias"] = "neutral"
-            # weekly_state["bias_reason"] = "bullish fvg reclaimed"
-            weekly_state["rocket"]["status"] = False
-            weekly_state["rocket"]["time"] = None
+            print(
+                "Weekly Bullish FVG reclaimed:",
+                fvg
+            )
+
+            fvg["state"] = "reclaimed"
+
+            bullish_fvgs.remove(fvg)
+
+            # If this was the anchor, remove anchor
+            if weekly_state["bullish_fvg"] is fvg:
+                weekly_state["bullish_fvg"] = None
+
+            # Rocket is no longer active for this FVG
+            if weekly_state["rocket"]["time"] == fvg.get("timestamp"):
+                weekly_state["rocket"]["status"] = False
+                weekly_state["rocket"]["time"] = None
+
+        # ----------------------------------------------
+        # Mitigation
+        # ----------------------------------------------
 
         elif (
-            last_closed.low < weekly_state["bullish_fvg"]["high"]
-            and weekly_state["bullish_fvg"]["state"] == "open"
+            last_closed.low < fvg["high"]
+            and fvg["state"] == "open"
         ):
-            weekly_state["bullish_fvg"]["state"] = "mitigated"
+            fvg["state"] = "mitigated"
+
             weekly_state["rocket"]["status"] = True
             weekly_state["rocket"]["time"] = last_closed.timestamp
 
-    if weekly_state["bearish_fvg"] is not None:
+            print(
+                "Weekly Bullish FVG mitigated:",
+                fvg
+            )
+
+    # Determine latest surviving bullish FVG
+    if weekly_state["bullish_fvg"] is not None:
+
+        post_anchor = [
+            fvg
+            for fvg in bullish_fvgs
+            if fvg is not weekly_state["bullish_fvg"]
+        ]
+
+        weekly_state["new_bullish_fvg"] = (
+            post_anchor[-1]
+            if post_anchor
+            else None
+        )
+
+    else:
+        weekly_state["new_bullish_fvg"] = (
+            bullish_fvgs[-1]
+            if bullish_fvgs
+            else None
+        )
+
+    # --------------------------------------------------
+    # Bearish FVGs
+    # --------------------------------------------------
+
+    bearish_fvgs = weekly_state["active_bearish_fvgs"]
+
+    for fvg in bearish_fvgs[:]:
+
+        # ----------------------------------------------
+        # Reclaim
+        # ----------------------------------------------
 
         if (
-            last_closed.close > weekly_state["bearish_fvg"]["high"]
-            and weekly_state["bearish_fvg"]["state"] != "reclaimed"
+            last_closed.close > fvg["high"]
+            and fvg["state"] != "reclaimed"
         ):
 
-            print("Weekly Bearish FVG reclaimed at: ", last_closed.timestamp)
-            print("bearish fvg: ", weekly_state["bearish_fvg"])
-            weekly_state["bearish_fvg"]["state"] = "reclaimed"
+            print(
+                "Weekly Bearish FVG reclaimed:",
+                fvg
+            )
 
-            if weekly_state["price_location"] == "above":
-                if weekly_state["bearish_cisd"] is None:
-                    weekly_state['bias'] = "bullish"
-                    weekly_state["bias_reason"] = "invalidation of bearish fvg and cisd above open"
-                elif weekly_state["bullish_fvg"] is not None:
-                    weekly_state["bias"] = "bullish"
-                    weekly_state["bias_reason"] = "bullish cisd and fvg above open"
-                elif weekly_state["bearish_cisd"] is not None:
-                    weekly_state["bias"] = "neutral"
-                    weekly_state["bias_reason"] = "conflicting cisds"
-                else:
-                    weekly_state['bias'] = "bullish"
-                    weekly_state["bias_reason"] = "price above weekly open"
-            else:
-                if weekly_state["bullish_fvg"] is not None:
-                    weekly_state["bias"] = "bullish"
-                    weekly_state["bias_reason"] = "bullish fvg and cisd below open"
-                elif weekly_state["bearish_cisd"] is not None and weekly_state["bullish_cisd"] is not None:
-                    weekly_state["bias"] = "neutral"
-                    weekly_state["bias_reason"] = "conflicting cisds below open"
-                elif weekly_state["bearish_cisd"] is None and weekly_state["bullish_cisd"] is None:
-                    weekly_state["bias"] = "neutral"
-                    weekly_state["bias_reason"] = "price below open"
-                else:
-                    weekly_state["bias"] = "bearish"
-                    weekly_state["bias_reason"] = "price below open"
-            weekly_state["flush"]["status"] = False
-            weekly_state["flush"]["time"] = None
+            fvg["state"] = "reclaimed"
+
+            bearish_fvgs.remove(fvg)
+
+            if weekly_state["bearish_fvg"] is fvg:
+                weekly_state["bearish_fvg"] = None
+
+            if weekly_state["flush"]["time"] == fvg.get("timestamp"):
+                weekly_state["flush"]["status"] = False
+                weekly_state["flush"]["time"] = None
+
+        # ----------------------------------------------
+        # Mitigation
+        # ----------------------------------------------
 
         elif (
-            last_closed.high > weekly_state["bearish_fvg"]["low"]
-            and weekly_state["bearish_fvg"]["state"] == "open"
+            last_closed.high > fvg["low"]
+            and fvg["state"] == "open"
         ):
-            weekly_state["bearish_fvg"]["state"] = "mitigated"
+
+            fvg["state"] = "mitigated"
+
             weekly_state["flush"]["status"] = True
             weekly_state["flush"]["time"] = last_closed.timestamp
 
-    #
-    # --------------------------------------------------
-    # Determine HTF Bias
-    # --------------------------------------------------
-    #
+            print(
+                "Weekly Bearish FVG mitigated:",
+                fvg
+            )
 
-    if not weekly_state["bullish_fvg"] and not weekly_state["bearish_fvg"]:
-        if weekly_state["bullish_cisd"] and weekly_state["bearish_cisd"]:
-            weekly_state["bias"] = "neutral"
-            weekly_state["bias_reason"] = "conflicting cisds"
-        elif weekly_state["bullish_cisd"] and weekly_state["price_location"] == "above":
-            weekly_state["bias"] = "bullish"
-            weekly_state["bias_reason"] = "bullish CISD above weekly open"
-        elif weekly_state["bullish_cisd"] and weekly_state["price_location"] == "below":
-            weekly_state["bias"] = "neutral"
-            weekly_state["bias_reason"] = "bullish CISD below weekly open"
-        elif weekly_state["bearish_cisd"] and weekly_state["price_location"] == "below":
+    # Determine latest surviving bearish FVG
+    if weekly_state["bearish_fvg"] is not None:
+
+        post_anchor = [
+            fvg
+            for fvg in bearish_fvgs
+            if fvg is not weekly_state["bearish_fvg"]
+        ]
+
+        weekly_state["new_bearish_fvg"] = (
+            post_anchor[-1]
+            if post_anchor
+            else None
+        )
+
+    else:
+        weekly_state["new_bearish_fvg"] = (
+            bearish_fvgs[-1]
+            if bearish_fvgs
+            else None
+        )
+
+    # ==================================================
+    # DETERMINE WEEKLY BIAS
+    # ==================================================
+
+    bullish_cisd_exists = (
+        weekly_state["bullish_cisd"] is not None
+        or weekly_state["new_bullish_cisd"] is not None
+    )
+
+    bearish_cisd_exists = (
+        weekly_state["bearish_cisd"] is not None
+        or weekly_state["new_bearish_cisd"] is not None
+    )
+
+    bullish_fvg_exists = (
+        weekly_state["bullish_fvg"] is not None
+        or weekly_state["new_bullish_fvg"] is not None
+    )
+
+    bearish_fvg_exists = (
+        weekly_state["bearish_fvg"] is not None
+        or weekly_state["new_bearish_fvg"] is not None
+    )
+
+    # A complete directional structure requires BOTH CISD + FVG
+    bullish_structure = (
+        bullish_cisd_exists
+        and bullish_fvg_exists
+    )
+
+    bearish_structure = (
+        bearish_cisd_exists
+        and bearish_fvg_exists
+    )
+
+    # Any opposing structure — used for neutral_bullish / neutral_bearish
+    bullish_structure_exists = (
+        bullish_cisd_exists
+        or bullish_fvg_exists
+    )
+
+    bearish_structure_exists = (
+        bearish_cisd_exists
+        or bearish_fvg_exists
+    )
+
+    
+    # ------------------------------------------------------------
+    # BELOW WEEKLY OPEN
+    # ------------------------------------------------------------
+    #
+    # Bullish CISD + Bullish FVG below open:
+    #
+    #   No bearish structure  -> bullish
+    #   Bearish structure     -> neutral_bullish
+    #
+    # ------------------------------------------------------------
+
+    if weekly_state["price_location"] == "below":
+
+        if bullish_structure:
+
+            if bearish_structure_exists:
+                weekly_state["bias"] = "neutral_bullish"
+                weekly_state["bias_reason"] = (
+                    "Bullish CISD and FVG formed below weekly open "
+                    "while bearish structure remains."
+                )
+
+            else:
+                weekly_state["bias"] = "bullish"
+                weekly_state["bias_reason"] = (
+                    "Bullish CISD and FVG formed below weekly open "
+                    "with no bearish structure remaining."
+                )
+        elif bearish_structure_exists:
+
             weekly_state["bias"] = "bearish"
-            weekly_state["bias_reason"] = "bearish CISD below weekly open"
-        elif weekly_state["bearish_cisd"] and weekly_state["price_location"] == "above":
-            weekly_state["bias"] = "neutral"
-            weekly_state["bias_reason"] = "bearish CISD above weekly open"
-        elif weekly_state["price_location"] == "below":
-            weekly_state["bias"] = "bearish"
-            weekly_state["bias_reason"] = "start of week. price below weekly open"
-        elif weekly_state["price_location"] == "above":
-            weekly_state["bias"] = "bullish"
-            weekly_state["bias_reason"] = "start of week. price above weekly open"
+            weekly_state["bias_reason"] = (
+                "Price is below weekly open with bearish structure "
+                "and no complete bullish structure."
+            )
+
         else:
+
             weekly_state["bias"] = "neutral"
-            weekly_state["bias_reason"] = "too early in the week"
+            weekly_state["bias_reason"] = (
+                "Price is below weekly open with no bullish or bearish "
+                "structure."
+            )
 
-    # weekly_state["bias"] = None
-    # weekly_state["bias_reason"] = None
-    # print("weekly_state: ", weekly_state)
-    # # neutral
-    # if (
-    #     weekly_state["bullish_cisd"]
-    #     and
-    #     weekly_state["bullish_fvg"]
-    #     and
-    #     weekly_state["bullish_fvg"]["state"]
-    #     != "reclaimed" and weekly_state["bearish_cisd"]
-    #     and
-    #     weekly_state["bearish_fvg"]
-    #     and
-    #     weekly_state["bearish_fvg"]["state"]
-    #     != "reclaimed"
-    # ):
-    #     weekly_state["bias"] = "neutral"
-    #     weekly_state["bias_reason"] = (
-    #         "cisd+fvg on both sides"
-    #     )
-    # #
-    # # Strong Bullish
-    # #
 
-    # elif (
-    #     weekly_state["bullish_cisd"]
-    #     and
-    #     weekly_state["bullish_fvg"]
-    #     and
-    #     weekly_state["bullish_fvg"]["state"]
-    #     != "reclaimed" 
-    # ):
+    # ------------------------------------------------------------
+    # ABOVE WEEKLY OPEN
+    # ------------------------------------------------------------
+    #
+    # Bearish CISD + Bearish FVG above open:
+    #
+    #   No bullish structure  -> bearish
+    #   Bullish structure     -> neutral_bearish
+    #
+    # ------------------------------------------------------------
 
-    #     weekly_state["bias"] = "bullish"
-    #     weekly_state["bias_reason"] = (
-    #         "bullish_cisd_plus_bullish_fvg"
-    #     )
+    elif weekly_state["price_location"] == "above":
 
-    # #
-    # # Strong Bearish
-    # #
+        if bearish_structure:
 
-    # elif (
-    #     weekly_state["bearish_cisd"]
-    #     and
-    #     weekly_state["bearish_fvg"]
-    #     and
-    #     weekly_state["bearish_fvg"]["state"]
-    #     != "reclaimed"
-    # ):
+            if bullish_structure_exists:
+                weekly_state["bias"] = "neutral_bearish"
+                weekly_state["bias_reason"] = (
+                    "Bearish CISD and FVG formed above weekly open "
+                    "while bullish structure remains."
+                )
 
-    #     weekly_state["bias"] = "bearish"
-    #     weekly_state["bias_reason"] = (
-    #         "bearish_cisd_plus_bearish_fvg"
-    #     )
+            else:
+                weekly_state["bias"] = "bearish"
+                weekly_state["bias_reason"] = (
+                    "Bearish CISD and FVG formed above weekly open "
+                    "with no bullish structure remaining."
+                )
 
-    # #
-    # # Conflicting CISDs
-    # #
+        elif bullish_structure_exists:
 
-    # elif (
-    #     weekly_state["bullish_cisd"]
-    #     and
-    #     weekly_state["bearish_cisd"]
-    # ):
+            weekly_state["bias"] = "bullish"
+            weekly_state["bias_reason"] = (
+                "Price is above weekly open with bullish structure "
+                "and no complete bearish structure."
+            )
 
-    #     weekly_state["bias"] = "neutral"
-    #     weekly_state["bias_reason"] = (
-    #         "conflicting_cisds"
-    #     )
+        else:
 
-    # #
-    # # Weak Bullish
-    # #
+            weekly_state["bias"] = "neutral"
+            weekly_state["bias_reason"] = (
+                "Price is above weekly open with no bullish or bearish "
+                "structure."
+            )
 
-    # elif weekly_state["bullish_cisd"]:
+    else:
+        weekly_state["bias"] = "neutral"
+        weekly_state["bias_reason"] = "weekly open location unavailable"
 
-    #     weekly_state["bias"] = "bullish"
-    #     weekly_state["bias_reason"] = (
-    #         "bullish_cisd_only"
-    #     )
-
-    # #
-    # # Weak Bearish
-    # #
-
-    # elif weekly_state["bearish_cisd"]:
-
-    #     weekly_state["bias"] = "bearish"
-    #     weekly_state["bias_reason"] = (
-    #         "bearish_cisd_only"
-    #     )
-
-    # #
-    # # Weekly Open Fallback
-    # #
-
-    # else:
-
-    #     if (
-    #         weekly_state["price_location"]
-    #         == "above"
-    #     ):
-
-    #         weekly_state["bias"] = "bullish"
-    #         weekly_state["bias_reason"] = (
-    #             "above_weekly_open"
-    #         )
-
-    #     else:
-
-    #         weekly_state["bias"] = "bearish"
-    #         weekly_state["bias_reason"] = (
-    #             "below_weekly_open"
-    #         )
     print("weekly bias: ", weekly_state["bias"])
     print("weekly reason: ", weekly_state["bias_reason"])
     return weekly_state
 
-# def update_daily_delivery_state(
-#     weekly_state,
-#     candles_1h,
-# ):
-#     """
-#     Called at every 1H close.
-#     """
-
-#     candles = filter_weekly_1h_candles(
-#         candles_1h
-#     )
-
-#     if len(candles_1h) < 3:
-#         return weekly_state
-
-#     #
-#     # Reset at new week
-#     #
-
-#     current_week = get_week_start(
-#         datetime.fromisoformat(
-#             candles[-1].timestamp
-#         )
-#     )
-
-#     if weekly_state["week_start"] != current_week:
-
-#         weekly_state = initialize_weekly_state()
-
-#         weekly_state["week_start"] = current_week
-
-#         weekly_state["weekly_open"] = candles[0]["open"]
-
-#     current_price = candles[-1]["close"]
-#     last_closed = candles_1h[-1]
-
-#     #
-#     # Weekly Open Location
-#     #
-
-#     if current_price > weekly_state["weekly_open"]:
-
-#         weekly_state["price_location"] = "above"
-
-#     else:
-
-#         weekly_state["price_location"] = "below"
-
-#     #
-#     # --------------------------------------------------
-#     # Invalidate Existing CISDs
-#     # --------------------------------------------------
-#     #
-
-#     if (
-#         weekly_state["bullish_cisd"] is not None
-#         and
-#         last_closed["close"]
-#         <
-#         weekly_state["bullish_cisd"]["invalidate_below"]
-#     ):
-
-#         print("Weekly Bullish CISD invalidated")
-
-#         weekly_state["bullish_cisd"] = None
-
-#     if (
-#         weekly_state["bearish_cisd"] is not None
-#         and
-#         last_closed["close"]
-#         >
-#         weekly_state["bearish_cisd"]["invalidate_above"]
-#     ):
-
-#         print("Weekly Bearish CISD invalidated")
-
-#         weekly_state["bearish_cisd"] = None
-
-#     #
-#     # --------------------------------------------------
-#     # Detect Bullish CISD
-#     # --------------------------------------------------
-#     #
-
-#     recent_bearish = _find_recent_bearish_candle(
-#         candles_1h
-#     )
-
-#     if (
-#         recent_bearish is not None
-#         and
-#         last_closed["close"]
-#         >
-#         recent_bearish["open"]
-#     ):
-
-#         if weekly_state["bullish_cisd"] is None:
-
-#             print("Weekly Bullish CISD formed")
-
-#             weekly_state["bullish_cisd"] = {
-#                 "timestamp": last_closed.timestamp,
-#                 "cisd_level": recent_bearish["open"],
-#                 "invalidate_below": recent_bearish["low"],
-#             }
-
-#     #
-#     # --------------------------------------------------
-#     # Detect Bearish CISD
-#     # --------------------------------------------------
-#     #
-
-#     recent_bullish = _find_recent_bullish_candle(
-#         candles_1h
-#     )
-
-#     if (
-#         recent_bullish is not None
-#         and
-#         last_closed["close"]
-#         <
-#         recent_bullish["open"]
-#     ):
-
-#         if weekly_state["bearish_cisd"] is None:
-
-#             print("Weekly Bearish CISD formed uuu")
-
-#             weekly_state["bearish_cisd"] = {
-#                 "timestamp": last_closed.timestamp,
-#                 "cisd_level": recent_bullish["open"],
-#                 "invalidate_above": recent_bullish["high"],
-#             }
-
-#     #
-#     # --------------------------------------------------
-#     # Detect New FVGs
-#     # --------------------------------------------------
-#     #
-
-#     bullish_fvg, bearish_fvg = _detect_latest_fvg(
-#         candles_1h
-#     )
-
-#     if (
-#         bullish_fvg is not None
-#         and (
-#             weekly_state["bullish_fvg"] is None
-#             or weekly_state["bullish_fvg"]["state"] == "reclaimed"
-#         )
-#     ):
-
-#         print("Weekly Bullish FVG formed")
-
-#         weekly_state["bullish_fvg"] = bullish_fvg
-
-#     if (
-#         bearish_fvg is not None
-#         and (
-#             weekly_state["bearish_fvg"] is None
-#             or weekly_state["bearish_fvg"]["state"] == "reclaimed"
-#         )
-#     ):
-
-#         print("Weekly Bearish FVG formed")
-
-#         weekly_state["bearish_fvg"] = bearish_fvg
-
-#     #
-#     # --------------------------------------------------
-#     # Update FVG States
-#     # --------------------------------------------------
-#     #
-
-#     if weekly_state["bullish_fvg"] is not None:
-
-#         if (
-#             last_closed["close"]
-#             <
-#             weekly_state["bullish_fvg"]["low"]
-#         ):
-
-#             print("Weekly Bullish FVG reclaimed")
-
-#             weekly_state["bullish_fvg"]["state"] = "reclaimed"
-
-#         elif (
-#             last_closed["low"]
-#             <
-#             weekly_state["bullish_fvg"]["high"]
-#         ):
-
-#             weekly_state["bullish_fvg"]["state"] = "mitigated"
-
-#     if weekly_state["bearish_fvg"] is not None:
-
-#         if (
-#             last_closed["close"]
-#             >
-#             weekly_state["bearish_fvg"]["high"]
-#         ):
-
-#             print("Weekly Bearish FVG reclaimed")
-#             weekly_state["bearish_fvg"]["state"] = "reclaimed"
-
-#         elif (
-#             last_closed["high"]
-#             >
-#             weekly_state["bearish_fvg"]["low"]
-#         ):
-
-#             weekly_state["bearish_fvg"]["state"] = "mitigated"
-
-#     #
-#     # --------------------------------------------------
-#     # Determine HTF Bias
-#     # --------------------------------------------------
-#     #
-
-#     weekly_state["bias"] = None
-#     weekly_state["bias_reason"] = None
-
-#     #
-#     # Strong Bullish
-#     #
-
-#     if (
-#         weekly_state["bullish_cisd"]
-#         and
-#         weekly_state["bullish_fvg"]
-#         and
-#         weekly_state["bullish_fvg"]["state"]
-#         != "reclaimed"
-#     ):
-
-#         weekly_state["bias"] = "bullish"
-#         weekly_state["bias_reason"] = (
-#             "bullish_cisd_plus_bullish_fvg"
-#         )
-
-#     #
-#     # Strong Bearish
-#     #
-
-#     elif (
-#         weekly_state["bearish_cisd"]
-#         and
-#         weekly_state["bearish_fvg"]
-#         and
-#         weekly_state["bearish_fvg"]["state"]
-#         != "reclaimed"
-#     ):
-
-#         weekly_state["bias"] = "bearish"
-#         weekly_state["bias_reason"] = (
-#             "bearish_cisd_plus_bearish_fvg"
-#         )
-
-#     #
-#     # Conflicting CISDs
-#     #
-
-#     elif (
-#         weekly_state["bullish_cisd"]
-#         and
-#         weekly_state["bearish_cisd"]
-#     ):
-
-#         weekly_state["bias"] = "neutral"
-#         weekly_state["bias_reason"] = (
-#             "conflicting_cisds"
-#         )
-
-#     #
-#     # Weak Bullish
-#     #
-
-#     elif weekly_state["bullish_cisd"]:
-
-#         weekly_state["bias"] = "bullish"
-#         weekly_state["bias_reason"] = (
-#             "bullish_cisd_only"
-#         )
-
-#     #
-#     # Weak Bearish
-#     #
-
-#     elif weekly_state["bearish_cisd"]:
-
-#         weekly_state["bias"] = "bearish"
-#         weekly_state["bias_reason"] = (
-#             "bearish_cisd_only"
-#         )
-
-#     #
-#     # Weekly Open Fallback
-#     #
-
-#     else:
-
-#         if (
-#             weekly_state["price_location"]
-#             == "above"
-#         ):
-
-#             weekly_state["bias"] = "bullish"
-#             weekly_state["bias_reason"] = (
-#                 "above_weekly_open"
-#             )
-
-#         else:
-
-#             weekly_state["bias"] = "bearish"
-#             weekly_state["bias_reason"] = (
-#                 "below_weekly_open"
-#             )
-
-#     return weekly_state
