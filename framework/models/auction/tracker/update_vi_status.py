@@ -172,6 +172,7 @@ def update_vi_status(
 
                         vi.status = HTFViStatus.PARTIAL
                         vi.is_touched = False
+                        vi.is_swept = True
 
                         continue
 
@@ -187,6 +188,7 @@ def update_vi_status(
 
                         vi.status = HTFViStatus.MITIGATED
                         vi.is_touched = False
+                        vi.is_swept = True
 
                         continue
 
@@ -211,6 +213,7 @@ def update_vi_status(
                             vi.mitigation_time = candle.timestamp
                             vi.is_mitigated = True
                         vi.is_touched = False
+                        vi.is_swept = True
 
                         continue
 
@@ -227,6 +230,7 @@ def update_vi_status(
                             vi.mitigation_time = candle.timestamp
                             vi.is_mitigated = True
                         vi.is_touched = False
+                        vi.is_swept = True
 
             # =================================================
             # BEARISH VI
@@ -270,6 +274,7 @@ def update_vi_status(
 
                         vi.status = HTFViStatus.PARTIAL
                         vi.is_touched = False
+                        vi.is_swept = True
 
                         continue
 
@@ -285,6 +290,7 @@ def update_vi_status(
 
                         vi.status = HTFViStatus.MITIGATED
                         vi.is_touched = False
+                        vi.is_swept = True
 
                         continue
 
@@ -309,6 +315,7 @@ def update_vi_status(
                             vi.mitigation_time = candle.timestamp
                             vi.is_mitigated = True
                         vi.is_touched = False
+                        vi.is_swept = True
 
                         continue
 
@@ -325,6 +332,7 @@ def update_vi_status(
                             vi.mitigation_time = candle.timestamp
                             vi.is_mitigated = True
                         vi.is_touched = False
+                        vi.is_swept = True
 
     # =========================================================
     # HTF RECLAIM PROCESSING

@@ -83,6 +83,7 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
     print("auction updates for: ", candle_30m.timestamp)
     print("last_3_4h_candles: ", last_3_4h_candles)
     print("last_3_7h_candles: ", last_3_7h_candles)
+    
     if last_3_4h_candles:
         update_new_htf_levels(
             auction_engine.context,

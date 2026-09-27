@@ -134,56 +134,6 @@ def update_current_level_status(context, candle_30m, ltf_candles, last_3_4h_cand
                 htf_candles,
             )
 
-    # # Swings
-    # update_swing_status(
-    #     auction_context.bullish_swings,
-    #     ltf_candles,
-    # )
-
-    # update_swing_status(
-    #     auction_context.bearish_swings,
-    #     ltf_candles,
-    # )
-    
-    # # FVGs
-    # update_fvg_status(
-    #     fvgs=auction_context.bullish_fvgs,
-    #     ltf_candles=ltf_candles,
-    #     htf_candles=htf_candles,
-    # )
-
-    # update_fvg_status(
-    #     fvgs=auction_context.bearish_fvgs,
-    #     ltf_candles=ltf_candles,
-    #     htf_candles=htf_candles,
-    # )
-
-    # # Volume Imbalances
-    # update_vi_status(
-    #     vis=auction_context.bullish_vis,
-    #     ltf_candles=ltf_candles,
-    #     htf_candles=htf_candles,
-    # )
-
-    # update_vi_status(
-    #     vis=auction_context.bearish_vis,
-    #     ltf_candles=ltf_candles,
-    #     htf_candles=htf_candles,
-    # )
-
-    # # CISDs
-    # update_cisd_status(
-    #     cisds=auction_context.bullish_cisds,
-    #     ltf_candles=ltf_candles,
-    #     htf_candles=htf_candles,
-    # )
-
-    # update_cisd_status(
-    #     cisds=auction_context.bearish_cisds,
-    #     ltf_candles=ltf_candles,
-    #     htf_candles=htf_candles,
-    # )
-
 def update_historical_level_state(levels, historical_candles):
     """
     Update the state of all HTF levels using historical candles.

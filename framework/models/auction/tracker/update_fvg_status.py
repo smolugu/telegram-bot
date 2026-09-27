@@ -192,6 +192,7 @@ def update_fvg_status(
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_touched = False
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
                         continue
 
@@ -210,6 +211,7 @@ def update_fvg_status(
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_touched = False
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
                         continue
 
@@ -235,6 +237,7 @@ def update_fvg_status(
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_touched = False
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
                         continue
 
                     # ---------------------------------------------
@@ -253,6 +256,7 @@ def update_fvg_status(
                         if not fvg.is_mitigated:
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
             # =================================================
             # BEARISH FVG
@@ -298,6 +302,7 @@ def update_fvg_status(
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_touched = False
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
                         continue
 
@@ -314,6 +319,7 @@ def update_fvg_status(
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_touched = False
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
                         continue
 
@@ -338,6 +344,7 @@ def update_fvg_status(
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_touched = False
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
                         continue
 
@@ -355,6 +362,7 @@ def update_fvg_status(
                         if not fvg.is_mitigated:
                             fvg.mitigation_time = candle.timestamp
                         fvg.is_mitigated = True
+                        fvg.is_swept = True
 
     # =========================================================
     # HTF RECLAIM PROCESSING

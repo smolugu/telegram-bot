@@ -73,6 +73,9 @@ def build_auction_context(levels, auction_engine):
     open_bullish_levels = open_bullish_levels + open_bullish_swings
 
     if open_bullish_swings:
+        open_bullish_swings.sort(
+            key=lambda x: x.price
+        )
         auction_engine.context.nearest_bullish_swing = open_bullish_swings[0]
 
     open_bearish_swings = [
@@ -82,6 +85,10 @@ def build_auction_context(levels, auction_engine):
     open_bearish_levels = open_bearish_levels + open_bearish_swings
 
     if open_bearish_swings:
+        open_bearish_swings.sort(
+            key=lambda x: x.price,
+            reverse=True
+        )
         auction_engine.context.nearest_bearish_swing = open_bearish_swings[0]
 
     # populate nearest open levels - fvgs
@@ -92,6 +99,10 @@ def build_auction_context(levels, auction_engine):
     open_bearish_levels = open_bearish_levels + open_bullish_fvgs
 
     if open_bullish_fvgs:
+        open_bullish_fvgs.sort(
+            key=lambda x: x.price,
+            reverse=True,
+        )
         auction_engine.context.nearest_bullish_fvg = open_bullish_fvgs[0]
 
     open_bearish_fvgs = [
@@ -101,6 +112,9 @@ def build_auction_context(levels, auction_engine):
     open_bullish_levels = open_bullish_levels + open_bearish_fvgs
 
     if open_bearish_fvgs:
+        open_bearish_fvgs.sort(
+            key=lambda x: x.price,
+        )
         auction_engine.context.nearest_bearish_fvg = open_bearish_fvgs[0]
 
     # populate nearest open levels - vis
@@ -111,6 +125,10 @@ def build_auction_context(levels, auction_engine):
     open_bearish_levels = open_bearish_levels + open_bullish_vis
 
     if open_bullish_vis:
+        open_bullish_vis.sort(
+            key=lambda x: x.price,
+            reverse=True,
+        )
         auction_engine.context.nearest_bullish_vi = open_bullish_vis[0]
 
     open_bearish_vis = [
@@ -120,6 +138,9 @@ def build_auction_context(levels, auction_engine):
     open_bullish_levels = open_bullish_levels + open_bearish_vis
 
     if open_bearish_vis:
+        open_bearish_vis.sort(
+            key=lambda x: x.price,
+        )
         auction_engine.context.nearest_bearish_vi = open_bearish_vis[0]
 
     # populate nearest open levels - cisds
@@ -130,6 +151,10 @@ def build_auction_context(levels, auction_engine):
     open_bearish_levels = open_bearish_levels + open_bullish_cisds
 
     if open_bullish_cisds:
+        open_bullish_cisds.sort(
+            key=lambda x: x.price,
+            reverse=True,
+        )
         auction_engine.context.nearest_bullish_cisd = open_bullish_cisds[0]
 
     open_bearish_cisds = [
@@ -139,6 +164,9 @@ def build_auction_context(levels, auction_engine):
     open_bullish_levels = open_bullish_levels + open_bearish_cisds
 
     if open_bearish_cisds:
+        open_bearish_cisds.sort(
+            key=lambda x: x.price,
+        )
         auction_engine.context.nearest_bearish_cisd = open_bearish_cisds[0]
 
     open_bullish_levels.sort(

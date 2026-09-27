@@ -119,32 +119,32 @@ def _refresh_nearest_levels(
         candle_30m,
     )
 
-    context.nearest_bullish_fvg = _nearest_above(
+    context.nearest_bullish_fvg = _nearest_below(
         context.bullish_fvgs,
         candle_30m,
     )
 
-    context.nearest_bearish_fvg = _nearest_below(
+    context.nearest_bearish_fvg = _nearest_above(
         context.bearish_fvgs,
         candle_30m,
     )
 
-    context.nearest_bullish_vi = _nearest_above(
+    context.nearest_bullish_vi = _nearest_below(
         context.bullish_vis,
         candle_30m,
     )
 
-    context.nearest_bearish_vi = _nearest_below(
+    context.nearest_bearish_vi = _nearest_above(
         context.bearish_vis,
         candle_30m,
     )
 
-    context.nearest_bullish_cisd = _nearest_above(
+    context.nearest_bullish_cisd = _nearest_below(
         context.bullish_cisds,
         candle_30m,
     )
 
-    context.nearest_bearish_cisd = _nearest_below(
+    context.nearest_bearish_cisd = _nearest_above(
         context.bearish_cisds,
         candle_30m,
     )    
