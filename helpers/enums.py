@@ -3,16 +3,16 @@ from enum import Enum
 
 class AuctionPhaseEnums(str, Enum):
     WAITING = "waiting"
-    EARLY_EXPANSION = "early_expansion"
-    MID_EXPANSION = "mid_expansion"
-    LATE_EXPANSION = "late_expansion"
+    EARLY_EXPANSION = "early expansion"
+    MID_EXPANSION = "mid expansion"
+    LATE_EXPANSION = "late expansion"
     DISTRIBUTION = "distribution"
     COMPLETE = "complete"
 
 class StructurePhaseEnums(str, Enum):
     COMPRESSION = "compression"
     MIGRATION = "migration"
-    EARLY_EXPANSION = "early_expansion"
+    EARLY_EXPANSION = "early expansion"
     
     
 

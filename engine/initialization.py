@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 # import time
 
+from engine.helpers.previous_day import get_previous_trading_day_for_pdhl
 from engine.helpers.start_of_day import get_start_of_trading_day
 from framework.models.auction.engine.auction_engine import initialize_auction
 from framework.models.auction.models.auction_engine import AuctionEngine
@@ -16,45 +17,6 @@ from helpers.atr import calculate_atr
 from helpers.liquidity_levels import get_liquidity_values, refresh_liquidity, reset_liquidity
 from market_data.candle_builder.htf_candle_builder import NY_TZ, UTC_TZ
 
-def get_previous_trading_day_for_pdhl(start_time_ny: datetime) -> date:
-
-    # Determine the date on which the current futures session started
-    if start_time_ny.hour >= 18:
-        current_session_date = start_time_ny.date()
-    else:
-        current_session_date = (
-            start_time_ny.date() - timedelta(days=1)
-        )
-
-    # Previous session starts one calendar day earlier
-    previous_trading_day = (
-        current_session_date - timedelta(days=1)
-    )
-
-    # Saturday → Friday
-    if previous_trading_day.weekday() == 5:
-        previous_trading_day -= timedelta(days=1)
-
-    # Sunday is VALID because Sunday 18:00 is the weekly open
-    return previous_trading_day
-
-    
-
-
-def get_previous_trading_day(start_time_ny: datetime) -> date:
-
-    if start_time_ny.hour >= 18:
-        session_date = start_time_ny.date()
-    else:
-        session_date = start_time_ny.date() - timedelta(days=1)
-
-    previous_trading_day = session_date
-
-    while previous_trading_day.weekday() >= 5:
-        previous_trading_day -= timedelta(days=1)
-
-    return previous_trading_day
-
 def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         print(">>> Initializing Ping")
         # update current day state from start of day to start of ping
@@ -64,10 +26,10 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         
         start_time_ny = runtime.start_time.astimezone(NY_TZ)
 
-
         # ===========================
         # get contracts
         # ===========================
+        # reinitialize contract ids in runtime context at the start of each day at 18:00
         nq_contract = contract_repo.get_front_month(
             "NQ",
             start_time_ny.date(),
@@ -92,6 +54,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         previous_trading_day = get_previous_trading_day_for_pdhl(
             start_time_ny
         )
+        print("previous trading day: ", previous_trading_day)
         prev_day_nq_contract = contract_repo.get_front_month(
             "NQ",
             previous_trading_day,
@@ -101,6 +64,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             "ES",
             previous_trading_day,
         )
+
         prev_day_nq_contract = prev_day_nq_contract.contract
         prev_day_es_contract = prev_day_es_contract.contract
 
@@ -110,6 +74,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         print("start_time_ny: ", start_time_ny)
         trading_date = get_previous_trading_day_for_pdhl(start_time_ny)
         print("trading_date: ", trading_date)
+        print("previous trading day: ", previous_trading_day)
         candle_time_ny = datetime.combine(
             trading_date,
             datetime.min.time(),
@@ -117,7 +82,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         ).replace(hour=18)
 
         candle_time_utc = candle_time_ny.astimezone(timezone.utc)
-        print("candle_time_utc: ", candle_time_utc)
+        print("candle_time_utc for pdhl: ", candle_time_utc)
         previous_day_nq_candle = candle_repo.get_at(
             contract=prev_day_nq_contract,
             timeframe=1440,
@@ -130,6 +95,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             timeframe=1440,
             timestamp=candle_time_utc,
         )
+
         if previous_day_nq_candle is not None:
             print("nq pdh: ", previous_day_nq_candle.high)
             print("nq pdl: ", previous_day_nq_candle.low)
@@ -142,7 +108,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         runtime.es_pdl=previous_day_es_candle.low if previous_day_es_candle else None
 
         # ATR using daily candles
-        end_date = get_previous_trading_day(start_time_ny)
+        end_date = get_previous_trading_day_for_pdhl(start_time_ny)
         end_time_ny = datetime.combine(
             end_date,
             datetime.min.time(),
@@ -199,6 +165,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         
         runtime.nq_daily_atr = calculate_daily_atr(nq_atr_candles)
         runtime.es_daily_atr = calculate_daily_atr(es_atr_candles)
+        print("atr from 30m candles using calculate_daily_atr: ", runtime.nq_daily_atr, runtime.es_daily_atr)
 
         # Initialize setup candidates
         runtime.nq_sell_candidate = SetupCandidate("buy_side", "NQ")
@@ -234,32 +201,60 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             # if runtime.liquidity is None then populate runtime with previous day
             # liquidity
             if runtime.liquidity_nq is None:
-                # get prev_day_pdh and pdl
-                prev_trading_date = get_previous_trading_day(start_time_ny)
+                # ---------------------------------------------------------
+                # Current session -> PDH/PDL date
+                # ---------------------------------------------------------
+
+                pdh_pdl_date = get_previous_trading_day_for_pdhl(start_time_ny)
+
+                # ---------------------------------------------------------
+                # PDH/PDL date -> previous trading date
+                # This is where prev_pdh / prev_pdl come from
+                # ---------------------------------------------------------
+
+                prev_prev_trading_date = get_previous_trading_day_for_pdhl(
+                    datetime.combine(
+                        pdh_pdl_date,
+                        datetime.min.time(),
+                        tzinfo=NY_TZ,
+                    ).replace(hour=18)
+                )
+
+                # ---------------------------------------------------------
+                # Build 18:00 NY timestamp for the previous trading day
+                # ---------------------------------------------------------
+
                 candle_time_ny = datetime.combine(
-                    prev_trading_date,
+                    prev_prev_trading_date,
                     datetime.min.time(),
                     tzinfo=NY_TZ,
                 ).replace(hour=18)
-                candle_end_time_ny = candle_time_ny + timedelta(days=1)
-        
+
                 candle_time_utc = candle_time_ny.astimezone(timezone.utc)
-                candle_end_time_utc = candle_end_time_ny.astimezone(timezone.utc)
-                nq_candle_result = candle_repo.get_at(
+
+
+                # ---------------------------------------------------------
+                # Get previous day's 1440 candles
+                # ---------------------------------------------------------
+
+                prev_prev_day_nq_candle_result = candle_repo.get_at(
                     contract=runtime.nq_contract,
                     timeframe=1440,
                     timestamp=candle_time_utc,
                 )
-        
-                es_candle_result = candle_repo.get_at(
+
+                prev_prev_day_es_candle_result = candle_repo.get_at(
                     contract=runtime.es_contract,
                     timeframe=1440,
                     timestamp=candle_time_utc,
                 )
-                prev_nq_pdh = nq_candle_result.high if nq_candle_result else None
-                prev_nq_pdl = nq_candle_result.low if nq_candle_result else None
-                prev_es_pdh = es_candle_result.high if es_candle_result else None
-                prev_es_pdl = es_candle_result.low if es_candle_result else None    
+                candle_end_time_ny = candle_time_ny + timedelta(days=1)
+                candle_end_time_utc = candle_end_time_ny.astimezone(timezone.utc)
+
+                prev_nq_pdh = prev_prev_day_nq_candle_result.high if prev_prev_day_nq_candle_result else None
+                prev_nq_pdl = prev_prev_day_nq_candle_result.low if prev_prev_day_nq_candle_result else None
+                prev_es_pdh = prev_prev_day_es_candle_result.high if prev_prev_day_es_candle_result else None
+                prev_es_pdl = prev_prev_day_es_candle_result.low if prev_prev_day_es_candle_result else None    
                 print("NQ prev PDh, prev PDl:", prev_nq_pdh, prev_nq_pdl)
                 print("ES prev PDh, prev PDl:", prev_es_pdh, prev_es_pdl)
                 
@@ -285,14 +280,6 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                     start=candle_time_utc,
                     end=candle_end_time_utc,
                 )
-                
-                # prev_es_3m=candle_repo.get_between(
-                #     contract=runtime.es_contract,
-                #     timeframe=3,
-                #     start=candle_time_utc,
-                #     end=candle_end_time_utc,
-                # )
-                
         
                 if not prev_nq_30m or not prev_es_30m:
                     print("No data available.")

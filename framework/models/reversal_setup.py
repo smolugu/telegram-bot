@@ -340,9 +340,11 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         allow_shorts = True
         allow_longs = True
         filters_passed = True
+
         print("overnight_expansion: ", market_context.overnight_expansion)
         print("exhaustion: ", market_context.exhaustion)
         print("direction: ", market_context.session_direction)
+        
         if (market_context.overnight_expansion or market_context.exhaustion or co_asset["market_context"].overnight_expansion or co_asset["market_context"].exhaustion ):
             if market_context.session_direction == "bearish":
                 print("overnight bearish expansion or exhausion. not allowing shorts")
@@ -738,7 +740,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     newyork_context.execution_state["rocket_triggered"] = True
     
             elif (
-                auction_direction == AuctionDirection.BULLISH and htf_bias == "bullish"
+                auction_direction == AuctionDirection.BULLISH and htf_weekly_bias == "bullish"
                 and is_smt
                 and is_rejection
             ):
@@ -775,7 +777,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     
             elif (
                 
-                auction_direction == AuctionDirection.BEARISH and htf_bias == "bearish"
+                auction_direction == AuctionDirection.BEARISH and htf_weekly_bias == "bearish"
                 and is_smt
                 and is_rejection
             ):
@@ -3241,7 +3243,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -3290,7 +3292,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -3452,7 +3454,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -3495,7 +3497,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -3632,7 +3634,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         # and not liquidity_levels["cr8am_low"]["swept"]
                     ):
                         reversal_confirmation = True
-                        candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                        candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                         # opposite side of compression
                         candidate.initial_target_price = newyork_context.structure["compression_low"]
 
@@ -3783,7 +3785,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         and candidate.ob_level < newyork_context.structure["mitigation_level"]
                     ):
                         reversal_confirmation = True
-                        candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                        candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                         candidate.initial_target_price = newyork_context.structure["compression_low"]
                         candidate.final_target = "ATR" if candidate.ping_type == "Flush" else "MINI"
                         if candidate.ping_type == "Flush":
@@ -3899,7 +3901,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         # and not liquidity_levels["cr8am_high"]["swept"]
                     ):
                         reversal_confirmation = True
-                        candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                        candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                         # opposite side of compression
                         candidate.initial_target_price = newyork_context.structure["compression_high"]
 
@@ -4034,7 +4036,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         and candidate.ob_level > newyork_context.structure["mitigation_level"]
                     ):
                         reversal_confirmation = True
-                        candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                        candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                         candidate.initial_target_price = newyork_context.structure["compression_high"]
                         
                         if candidate.ping_type == "Rocket":
@@ -4151,7 +4153,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -4217,11 +4219,11 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     reversal_confirmation = True
                     if (
                         newyork_context.ib_8["is_strong_body"]
-                        and htf_bias == "bullish"
+                        and htf_weekly_bias == "bullish"
                         # and candidate.ob_level > newyork_context.structure["range_high"]
                     ):
                         reversal_confirmation = False
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -4421,7 +4423,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -4481,19 +4483,19 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     print("compression high not swept: long")
                     print("strong body: ", newyork_context.ib_8["is_strong_body"])
-                    print("htf bias: ", htf_bias)
+                    print("htf bias: ", htf_weekly_bias)
 
                     print("ob level below: ", candidate.ob_level < newyork_context.structure["range_low"])
 
                     reversal_confirmation = True
                     if (
                         newyork_context.ib_8["is_strong_body"]
-                        and htf_bias == "bearish"
+                        and htf_weekly_bias == "bearish"
                         # and candidate.ob_level < newyork_context.structure["range_low"]
                     ):
                         reversal_confirmation = False
                     
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -4687,7 +4689,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -4721,14 +4723,14 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     print("rocket - rejecting from IB8 Ce")
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
-                    candidate.final_target = "ATR" if htf_bias == "bullish" else "RH"
+                    candidate.final_target = "ATR" if htf_weekly_bias == "bullish" else "RH"
                     candidate.final_target_price = (
                         bullish_atr_target_price
-                        if htf_bias == "bullish"
+                        if htf_weekly_bias == "bullish"
                         else newyork_context.structure["compression_high"]
                     )
                     newyork_context.execution_state["rocket_triggered"] = True
@@ -4760,11 +4762,11 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     reversal_confirmation = True
                     if (
                         newyork_context.ib_8["is_strong_body"]
-                        and htf_bias == "bullish"
+                        and htf_weekly_bias == "bullish"
                         # and candidate.ob_level > newyork_context.structure["range_high"]
                     ):
                         reversal_confirmation = False
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -4888,7 +4890,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -4951,11 +4953,11 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     reversal_confirmation = True
                     if (
                         newyork_context.ib_8["is_strong_body"]
-                        and htf_bias == "bearish"
+                        and htf_weekly_bias == "bearish"
                         # and candidate.ob_level < newyork_context.structure["range_low"]
                     ):
                         reversal_confirmation = False
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -5046,7 +5048,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Rocket" if htf_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
                     
                     if candidate.ping_type == "Rocket":    
                         candidate.final_target = "ATR"
@@ -5093,7 +5095,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     # and not co_asset["liquidity_levels"]["cr8am_low"]["swept"]
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush" if htf_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
                     
                     if candidate.ping_type == "Flush":
                         candidate.final_target = "ATR"
