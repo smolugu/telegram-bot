@@ -333,8 +333,12 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             runtime.liquidity_es = refresh_liquidity(liquidity_es, runtime.liquidity_es)
         else:
             print("No previous day liquidity available for current contracts.")
+            # resetting daily liquidity levels
+            print(">>> Resetting daily liquidity levels for new contracts")
             runtime.liquidity_nq = reset_liquidity()
             runtime.liquidity_es = reset_liquidity()
+            # contract rollover. resetting auction engine
+            print(">>> Resetting auction engines for new contracts")
             runtime.nq_auction_engine = None
             runtime.es_auction_engine = None
             runtime.nq_weekly_state = None
@@ -354,25 +358,22 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             runtime.nq_auction_engine = AuctionEngine()
             runtime.es_auction_engine = AuctionEngine()
             current_trading_date = start_time_ny.date()
-            print(">>> Resetting auction engines for new contracts")
             # initialize auction from beginning of contract to start of day at 18:00
             # and update auction engine state at the end of each 30m candle in replay or realtime
+            
             # auction_history_end_ny is start of day for ping start up
             auction_history_end_ny = get_start_of_trading_day(start_time_ny)
-            # auction_history_end_ny = datetime.combine(
-            #     current_trading_date,
-            #     time(17, 0),
-            #     tzinfo=NY_TZ,
-            # )
+            
             auction_start_ny_60 = auction_history_end_ny - timedelta(days=60)
             auction_start_ny_45 = auction_history_end_ny - timedelta(days=45)
             auction_start_ny_30 = auction_history_end_ny - timedelta(days=30)
-            start_ny_10 = auction_history_end_ny - timedelta(days=10)
+            auction_start_ny_10 = auction_history_end_ny - timedelta(days=10)
 
             auction_start_utc_60 = auction_start_ny_60.astimezone(UTC_TZ)
             auction_start_utc_45 = auction_start_ny_45.astimezone(UTC_TZ)
             auction_start_utc_30 = auction_start_ny_30.astimezone(UTC_TZ)
-            start_utc_10 = start_ny_10.astimezone(UTC_TZ)
+            auction_start_utc_10 = auction_start_ny_10.astimezone(UTC_TZ)
+
             start_time_utc = start_time_ny.astimezone(UTC_TZ)
             auction_history_end_utc = auction_history_end_ny.astimezone(UTC_TZ)
 
@@ -385,7 +386,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             nq_1h_candles = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=60,
-                start=start_utc_10,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
             nq_3m_auction = candle_repo.get_between(
@@ -420,7 +421,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             es_1h_candles = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=60,
-                start=start_utc_10,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
