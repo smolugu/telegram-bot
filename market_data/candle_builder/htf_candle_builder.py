@@ -894,7 +894,7 @@ class HTFCandleBuilder:
 
         start_utc = first_1m
         end_utc = last_1m + timedelta(minutes=1)
-        start_utc = last_1m - timedelta(days=2)
+        start_utc = last_1m - timedelta(days=6)
         # start_utc=datetime(
         #     2026, 9, 17, 21, 0,
         #     tzinfo=UTC_TZ,
@@ -1460,6 +1460,12 @@ class HTFCandleBuilder:
                             definition,
                         )
                     )
+                    # print("last_1m:", last_1m)
+                    print("daily start_period:", start_period)
+                    print("daily end_period:", end_period)
+                    print("end_utc:", end_utc)
+
+                    print(f"DAILY PERIOD: {start_period} → {end_period}")
                     print(
                         f"DAILY PERIOD: "
                         f"{start_period} → {end_period}"

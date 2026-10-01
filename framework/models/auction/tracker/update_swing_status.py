@@ -7,6 +7,7 @@ from framework.models.auction.models.htf_swing import HTFSwing, SwingType
 def update_swing_status(
     swings: list[HTFSwing],
     candles: list[Candle],
+    htf_candles: list[Candle],
 ) -> None:
     """
     Updates the status of every HTF swing.
@@ -46,8 +47,14 @@ def update_swing_status(
 
     for swing in swings:
 
-        # Once swept, the swing has completed its lifecycle.
-        if swing.status == HTFSwingStatus.SWEPT:
+        # ---------------------------------------------------------
+        # Already reclaimed or swept
+        # ---------------------------------------------------------
+
+        if swing.status in (
+            HTFSwingStatus.SWEPT,
+            HTFSwingStatus.RECLAIMED,
+        ):
             continue
 
         # ---------------------------------------------------------
@@ -79,7 +86,9 @@ def update_swing_status(
         # on whether price was completely on the opposite side
         # of the swing before the current candle.
         # ---------------------------------------------------------
-
+        # =========================================================
+        # 1. LTF interaction with levels
+        # =========================================================
         for i in range(1, len(candles)):
 
             previous_candle = candles[i - 1]
@@ -204,3 +213,53 @@ def update_swing_status(
                         swing.is_mitigated = True
 
                         break
+        # =========================================================
+        # 2. HTF RECLAIM
+        # =========================================================
+
+        for htf_candle in htf_candles:
+
+            # Don't evaluate the confirmation candle itself
+            # or anything before the swing becomes confirmed.
+            if htf_candle.timestamp <= swing_confirmation_time:
+                continue
+
+            # BUY-SIDE / HIGH SWING
+            if swing.swing_type == SwingType.BUY_SIDE:
+
+                if htf_candle.close > swing.price:
+                    swing.status = HTFSwingStatus.RECLAIMED
+                    if swing.timeframe == "4h":
+                        swing.reclaim_time = htf_candle.timestamp + timedelta(hours=4)
+            
+                    elif swing.timeframe == "7h":
+                        swing.reclaim_time = (
+                            htf_candle.timestamp + timedelta(hours=7)
+                        )
+            
+                    elif swing.timeframe == "1d":
+                        swing.reclaim_time = (
+                            htf_candle.timestamp + timedelta(days=1)
+                        )
+                    break
+
+            # SELL-SIDE / LOW SWING
+            else:
+
+                if htf_candle.close < swing.price:
+                    swing.status = HTFSwingStatus.RECLAIMED
+                    if swing.timeframe == "4h":
+                        swing.reclaim_time = htf_candle.timestamp + timedelta(hours=4)
+            
+                    elif swing.timeframe == "7h":
+                        swing.reclaim_time = (
+                            htf_candle.timestamp + timedelta(hours=7)
+                        )
+            
+                    elif swing.timeframe == "1d":
+                        swing.reclaim_time = (
+                            htf_candle.timestamp + timedelta(days=1)
+                        )
+                    break
+
+            

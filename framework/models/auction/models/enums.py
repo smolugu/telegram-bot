@@ -28,6 +28,7 @@ class LevelType(Enum):
     VI = "VI"
     CISD = "CISD"
     SWING = "SWING"
+    MITL = "MITL"
 
 class SwingType(str, Enum):
     BUY_SIDE = "BUY_SIDE"
@@ -44,9 +45,17 @@ class SwingType(str, Enum):
 class HTFSwingStatus(str, Enum):
     OPEN = "OPEN"
     TOUCHED = "TOUCHED"
-    MITIGATED = "MITIGATED"
     SWEPT = "SWEPT"
+    RECLAIMED = "RECLAIMED"
+    
+    MITIGATED = "MITIGATED"
     CLOSED = "CLOSED"
+
+class HTFMitlStatus(str, Enum):
+    OPEN = "OPEN"
+    SWEPT = "SWEPT"
+    RECLAIMED = "RECLAIMED"
+
 
 class HTFFvgStatus(str, Enum):
     OPEN = "OPEN"              # Newly created

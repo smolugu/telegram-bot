@@ -14,6 +14,7 @@ class HTFSwing:
                                 # SELL_SIDE = swing low
 
     price: float
+    close: float
     index: int
 
     timestamp: datetime
@@ -22,6 +23,9 @@ class HTFSwing:
     is_touched: bool = False
     is_mitigated: bool = False
     is_bullish: bool = False
+    mitl_created: bool = False
+    reclaim_time: datetime | None = None
+    
     
     status: HTFSwingStatus = HTFSwingStatus.OPEN
     liquidity_type: LiquidityType = LiquidityType.EXTERNAL

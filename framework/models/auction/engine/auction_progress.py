@@ -1,6 +1,6 @@
 from data.models.candle import Candle
 from framework.models.auction.models.auction_progress import AuctionDirection, AuctionProgress
-from framework.models.auction.models.enums import LevelType, LiquidityType
+from framework.models.auction.models.enums import HTFCisdStatus, HTFFvgStatus, HTFMitlStatus, HTFSwingStatus, HTFViStatus, LevelType, LiquidityType, SwingType
 
 def _closest_level(
     levels,
@@ -53,40 +53,133 @@ def _is_in_direction(
 
 def _candle_interacts_with_level(
     level,
-    candle_high,
-    candle_low,
-):
-    """
-    Return True if the 30m candle reaches the HTF level.
-    """
+    candle_high: float,
+    candle_low: float,
+) -> bool:
 
-    # ---------------------------------------------------------
-    # Swing = single price
-    # ---------------------------------------------------------
+    # =========================================================
+    # SWING
+    # =========================================================
 
     if level.level_type == LevelType.SWING:
 
+        # Reclaimed swing is no longer a valid HTF level.
+        if level.status == HTFSwingStatus.RECLAIMED:
+            return False
+
+        if level.swing_type == SwingType.BUY_SIDE:
+            # Swing high:
+            # interaction zone = wick/high -> middle candle close
+            return (
+                candle_low <= level.price
+                and candle_high >= level.close
+            )
+
+        else:
+            # Swing low:
+            # interaction zone = middle candle close -> wick/low
+            return (
+                candle_low <= level.close
+                and candle_high >= level.price
+            )
+
+    # =========================================================
+    # FVG
+    # =========================================================
+
+    elif level.level_type == LevelType.FVG:
+
+        if level.status == HTFFvgStatus.RECLAIMED:
+            return False
+
+        # Full FVG zone overlap.
         return (
-            candle_low
-            <= level.price
-            <= candle_high
+            candle_low <= level.upper
+            and candle_high >= level.lower
         )
 
-    # ---------------------------------------------------------
-    # FVG / VI / CISD = price range
-    # ---------------------------------------------------------
+    # =========================================================
+    # VI
+    # =========================================================
 
-    if level.is_bullish:
+    elif level.level_type == LevelType.VI:
+
+        if level.status == HTFViStatus.RECLAIMED:
+            return False
+
+        # Full VI zone overlap.
         return (
-            candle_low  <= level.upper
-            and candle_high >= level.upper
-        )
-    else:
-        return (
-            candle_high >= level.lower
-            and candle_low <= level.lower
+            candle_low <= level.upper
+            and candle_high >= level.lower
         )
 
+    # =========================================================
+    # CISD
+    # =========================================================
+
+    elif level.level_type == LevelType.CISD:
+
+        if level.status in (
+            HTFCisdStatus.RECLAIMED,
+            HTFCisdStatus.RCISD,
+        ):
+            return False
+
+        # Full CISD zone overlap.
+        return (
+            candle_low <= level.upper
+            and candle_high >= level.lower
+        )
+
+    # =========================================================
+    # HTF MITL
+    # =========================================================
+
+    elif level.level_type == LevelType.MITL:
+
+        # Reclaimed MITL is no longer a valid HTF level.
+        if level.status == HTFMitlStatus.RECLAIMED:
+            return False
+
+        if level.is_buy_side:
+            # Buy-side MITL is ABOVE price.
+            # Candle must approach from BELOW.
+            return (
+                candle_low < level.price
+                and candle_high >= level.price
+            )
+
+        else:
+            # Sell-side MITL is BELOW price.
+            # Candle must approach from ABOVE.
+            return (
+                candle_high > level.price
+                and candle_low <= level.price
+            )
+
+    return False
+
+def _is_valid_htf_level(level) -> bool:
+
+    if level.level_type == LevelType.SWING:
+        return level.status != HTFSwingStatus.RECLAIMED
+
+    if level.level_type == LevelType.FVG:
+        return level.status != HTFFvgStatus.RECLAIMED
+
+    if level.level_type == LevelType.VI:
+        return level.status != HTFViStatus.RECLAIMED
+
+    if level.level_type == LevelType.CISD:
+        return level.status not in (
+            HTFCisdStatus.RECLAIMED,
+            HTFCisdStatus.RCISD,
+        )
+
+    if level.level_type == LevelType.MITL:
+        return level.status != HTFMitlStatus.RECLAIMED
+
+    return True
 
 def _update_timeframe_progress(
     tf_auction_progress: AuctionProgress,
@@ -155,7 +248,7 @@ def _update_timeframe_progress(
 
     if interacting_levels:
 
-        current_htf = min(
+        current_htf = max(
             interacting_levels,
             key=lambda level: abs(
                 current_price - level.price
@@ -183,15 +276,14 @@ def _update_timeframe_progress(
         if current_htf.is_buy_side:
             print("current_htf is buy_side")
             direction = AuctionDirection.BULLISH
-
             opposing_levels = [
                 level
                 for level in tf_levels
                 if (
                     level.is_swept
-                    and not level.is_buy_side
-                    and level.timestamp
-                    <= current_htf.timestamp
+                    and level.is_buy_side
+                    and level.timestamp <= current_htf.timestamp
+                    and _is_valid_htf_level(level)
                 )
             ]
             
@@ -206,8 +298,8 @@ def _update_timeframe_progress(
                 if (
                     level.is_swept
                     and level.is_buy_side
-                    and level.timestamp
-                    <= current_htf.timestamp
+                    and level.timestamp <= current_htf.timestamp
+                    and _is_valid_htf_level(level)
                 )
             ]
 
@@ -270,11 +362,16 @@ def _update_timeframe_progress(
     swept_levels = [
         level
         for level in tf_levels
-        if level.is_swept
+        if (
+            level.is_swept
+            and _is_valid_htf_level(level)
+            and level.mitigation_time is not None
+        )
     ]
 
     if not swept_levels:
         return
+    
     mitigated_swept_levels = [
         level
         for level in swept_levels
@@ -294,35 +391,33 @@ def _update_timeframe_progress(
         reverse=True,
     )
 
-    # swept_levels.sort(
-    #     key=lambda level: level.mitigation_time,
-    #     reverse=True
-    # )
     swept_levels = mitigated_swept_levels
-    # if tf_auction_progress.timeframe == "4h":
-    #     print("swept_levels: ", swept_levels)
+    
     print("recent swept: ", latest_swept)
+
     # ---------------------------------------------------------
     # Determine direction of anticipated auction.
     # ---------------------------------------------------------
 
-    # if latest_swept.is_bullish and current_price > latest_swept.price:
-    #     direction = AuctionDirection.BULLISH
-    # else:
-    #     direction = AuctionDirection.BEARISH
-    # if latest_swept.is_bearish and current_price < latest_swept.price:
-    #     direction = AuctionDirection.BEARISH
-    # else:
-    #     direction = AuctionDirection.BULLISH
     if current_price > latest_swept.price:
+
         direction = AuctionDirection.BULLISH
+
     elif current_price < latest_swept.price:
+
         direction = AuctionDirection.BEARISH
+
     else:
+
         direction = AuctionDirection.NEUTRAL
+        return
+
     print("direction relative to last swept: ", direction)
+
+
     # ---------------------------------------------------------
     # Find candidate objectives.
+    #
     # Prefer INTERNAL liquidity.
     # If none exists, use EXTERNAL.
     # ---------------------------------------------------------
@@ -332,6 +427,7 @@ def _update_timeframe_progress(
         for level in tf_levels
         if (
             not level.is_swept
+            and _is_valid_htf_level(level)
             and _is_in_direction(
                 level,
                 latest_swept,
@@ -343,11 +439,11 @@ def _update_timeframe_progress(
     if not candidates:
         return
 
+
     internal = [
         level
         for level in candidates
-        if level.liquidity_type
-        == LiquidityType.INTERNAL
+        if level.liquidity_type == LiquidityType.INTERNAL
     ]
 
     if internal:
@@ -362,8 +458,7 @@ def _update_timeframe_progress(
         external = [
             level
             for level in candidates
-            if level.liquidity_type
-            == LiquidityType.EXTERNAL
+            if level.liquidity_type == LiquidityType.EXTERNAL
         ]
 
         if not external:
@@ -374,12 +469,20 @@ def _update_timeframe_progress(
             direction,
         )
 
+
     # ---------------------------------------------------------
     # New anticipated auction
     # ---------------------------------------------------------
+
     print("next target: ", objective)
+
     tf_auction_progress.origin = latest_swept
     tf_auction_progress.current_objective = objective
+
+
+    # ---------------------------------------------------------
+    # Calculate auction progress
+    # ---------------------------------------------------------
 
     total_distance = abs(
         objective.price
@@ -388,6 +491,7 @@ def _update_timeframe_progress(
 
     if total_distance <= 0:
         return
+
 
     if direction == AuctionDirection.BULLISH:
 
@@ -402,70 +506,81 @@ def _update_timeframe_progress(
             latest_swept.price
             - current_candle_low
         )
+
     print("travelled: ", travelled)
+
     progress = (
         travelled / total_distance
     )
+
     print("progress after travelled: ", progress)
 
     progress = max(
         0.0,
         min(progress, 1.0),
     )
+
     print("progressX: ", progress)
 
     tf_auction_progress.progress = progress
+
 
     # ---------------------------------------------------------
     # Confirm auction after 40%
     # ---------------------------------------------------------
 
-    # if progress >= 0.40:
-    #     print("progress > 0.4")
-    #     tf_auction_progress.confirmed = True
-    #     tf_auction_progress.confirmed_direction = (
-    #         direction
-    #     )
-    #     tf_auction_progress.direction = direction
     if progress >= 0.40:
+
         print("progress > 0.4")
 
         tf_auction_progress.confirmed = True
-        tf_auction_progress.confirmed_direction = direction
+
+        tf_auction_progress.confirmed_direction = (
+            direction
+        )
+
         tf_auction_progress.direction = direction
 
         assert tf_auction_progress.origin is not None
         assert tf_auction_progress.current_objective is not None
 
     else:
+
         print("progress less than 0.4")
 
         tf_auction_progress.confirmed = False
+
         tf_auction_progress.confirmed_direction = (
             AuctionDirection.NEUTRAL
         )
+
         tf_auction_progress.direction = direction
+
 
     # ---------------------------------------------------------
     # Objective reached
     # ---------------------------------------------------------
 
     if objective.is_swept:
+
         print("new objective reached")
 
         tf_auction_progress.progress = 1.0
+
         tf_auction_progress.completed = True
 
         tf_auction_progress.previous_direction = (
             direction
         )
 
-        # The next invocation will identify the next
-        # closest liquidity and begin a new anticipated auction.
-
     else:
-        print("price not at htf and auction is not complete")
+
+        print(
+            "price not at htf and auction is not complete"
+        )
+
         tf_auction_progress.completed = False
+
 
 def update_auction_progress(context, candle_30m):
 

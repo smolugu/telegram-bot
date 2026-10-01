@@ -135,7 +135,22 @@ class SQLiteCandleRepository(CandleRepository):
             else:
                 self.session.add(orm_candle)
 
-        self.session.commit()
+        # self.session.commit()
+        try:
+            self.session.commit()
+
+        except IntegrityError as e:
+            self.session.rollback()
+
+            if "UNIQUE constraint failed: candles.timeframe, candles.timestamp, candles.contract" in str(e):
+                print(
+                    ">>> Duplicate candle detected during commit; "
+                    "rolling back and continuing"
+                )
+                return
+
+            raise
+
 
         count = self.session.query(CandleORM).count()
         print(self.session.bind.url)
@@ -368,13 +383,13 @@ class SQLiteCandleRepository(CandleRepository):
             .where(CandleORM.timestamp <= end)
             .order_by(CandleORM.timestamp)
         )
-        print(
-            "[GET_BETWEEN DB]",
-            f"session_id={id(self.session)}",
-            f"in_transaction={self.session.in_transaction()}",
-            f"is_active={self.session.is_active}",
-            f"transaction={self.session.get_transaction()}",
-        )
+        # print(
+        #     "[GET_BETWEEN DB]",
+        #     f"session_id={id(self.session)}",
+        #     f"in_transaction={self.session.in_transaction()}",
+        #     f"is_active={self.session.is_active}",
+        #     f"transaction={self.session.get_transaction()}",
+        # )
         rows = self.session.scalars(stmt).all()
 
         return [self._to_domain(row) for row in rows]

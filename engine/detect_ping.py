@@ -7,7 +7,7 @@ from alerts.execute import execute_trade_and_log, send_newyork_summary
 from alerts.summary_alert import build_summary_alert
 from data.market_data import filter_daily_candles
 from data.models.candle import NY_TZ
-from engine.initialization import get_previous_trading_day, initialize_ping
+from engine.initialization import initialize_ping
 from framework.models.auction.engine.auction_engine import refresh_auction
 from framework.models.compression import detect_compression
 from framework.models.reversal_setup import check_for_reversal_setup_confirmation
@@ -70,10 +70,31 @@ def detect_ping(
     # code to run in every 30m loop
     # ============================
     # if i >= 1:
-    # get completed 4h and 7h candle
+    # get completed 4h and 7h and 1d candle
+   
+    # 1d candle
+    last_3_1d_nq=None
+    last_3_1d_es=None
+    
+    # we have 1d candle built at last closed 16:30 candle
+    if dt.hour in [18,] and dt.minute == 00:
+        last_3_1d_nq = candle_repo.get_last_n(
+            contract=runtime.nq_contract,
+            timeframe=1440,
+            end=current_30m_start_utc,
+            n=3,
+        )
+        last_3_1d_es = candle_repo.get_last_n(
+            contract=runtime.es_contract,
+            timeframe=1440,
+            end=current_30m_start_utc,
+            n=3,
+        )
+    # start last closed 8am 30m candle, 
     # 7h candle
     last_3_7h_nq=None
     last_3_7h_es=None
+    
     # start last closed 8am 30m candle, 
     # we have 7hr candle built at last closed 7:30 candle
     if dt.hour in [1, 8, 15] and dt.minute == 00:
@@ -127,6 +148,7 @@ def detect_ping(
         ltf_candles=nq_candles_3m_for_auction,
         last_3_4h_candles=last_3_4h_nq,
         last_3_7h_candles=last_3_7h_nq,
+        last_3_1d_candles=last_3_1d_nq,
     )
     refresh_auction(
         auction_engine=runtime.es_auction_engine,
@@ -134,6 +156,7 @@ def detect_ping(
         ltf_candles=es_candles_3m_for_auction,
         last_3_4h_candles=last_3_4h_es,
         last_3_7h_candles=last_3_7h_es,
+        last_3_1d_candles=last_3_1d_es,
     )
     
     if dt.hour == 8:
@@ -439,6 +462,42 @@ def detect_ping(
         print("ib18: ",  runtime.nq_seven_hour_builder.candles["6PM"].values())
         runtime.nq_ny_market_context.set_8am_ib(runtime.nq_seven_hour_builder.candles, runtime.nq_london_market_context.ib_18, runtime.nq_london_market_context.ib_1)
         runtime.es_ny_market_context.set_8am_ib(runtime.es_seven_hour_builder.candles, runtime.es_london_market_context.ib_18, runtime.es_london_market_context.ib_1)
+        if runtime.nq_ny_market_context.structure["name"] in ["bullish_macro_decompression", "bearish_macro_decompression"]:
+            # store 30m 6to8 candles in ny_market_context
+            current_trading_date = current_30m_start.date()
+            nq_candles_30m_6_to_730 = candle_repo.get_between(
+                contract=runtime.nq_contract,
+                timeframe=30,
+                start=datetime.combine(
+                    current_trading_date,
+                    time(6, 0),
+                    tzinfo=NY_TZ,
+                ).astimezone(timezone.utc),
+                end=datetime.combine(
+                    current_trading_date,
+                    time(7, 30),
+                    tzinfo=NY_TZ,
+                ).astimezone(timezone.utc),
+            )
+            runtime.nq_ny_market_context.candles_30m_6to730 = nq_candles_30m_6_to_730
+        if runtime.es_ny_market_context.structure["name"] in ["bullish_macro_decompression", "bearish_macro_decompression"]:
+            # store 30m 6to8 candles in es_market_context
+            current_trading_date = current_30m_start.date()
+            es_candles_30m_6_to_730 = candle_repo.get_between(
+                contract=runtime.es_contract,
+                timeframe=30,
+                start=datetime.combine(
+                    current_trading_date,
+                    time(6, 0),
+                    tzinfo=NY_TZ,
+                ).astimezone(timezone.utc),
+                end=datetime.combine(
+                    current_trading_date,
+                    time(7, 30),
+                    tzinfo=NY_TZ,
+                ).astimezone(timezone.utc),
+            )
+            runtime.es_ny_market_context.candles_30m_6to730 = es_candles_30m_6_to_730
         # print("test 1: ", runtime.nq_ny_market_context.structure)
         # print("rest es: ", runtime.es_ny_market_context.structure)
         print("add new mitigation or equilibrium level to liquidity key levels")
@@ -474,7 +533,7 @@ def detect_ping(
         # add_8am_ib_fvg_levels(liquidity_levels=runtime.liquidity_nq, bullish_fvg_level=bullish_nq_fvg_level, bearish_ob_level=bearish_nq_fvg_level)
         # add_8am_ib_fvg_levels(liquidity_levels=runtime.liquidity_es, bullish_fvg_level=bullish_es_fvg_level, bearish_ob_level=bearish_es_fvg_level)
 
-        print("es liquidity levels: ", runtime.liquidity_es)
+        # print("es liquidity levels: ", runtime.liquidity_es)
         # send nyam summary at 9am est
         summary_message = build_summary_alert(runtime.nq_ny_market_context, runtime.es_ny_market_context, current_30m_start)
         send_newyork_summary(summary_message, start_up)
@@ -530,8 +589,9 @@ def detect_ping(
         runtime.es_ny_market_context.update(last_closed_es, runtime.liquidity_es)
         
     # update atr_usage based on daily atr and session range
-    runtime.nq_market_context.update_atr_usage(current_30m_start, last_closed_nq.close)
-    runtime.es_market_context.update_atr_usage(current_30m_start, last_closed_es.close)
+    
+    runtime.nq_market_context.update_atr_usage(current_30m_start=current_30m_start, close=last_closed_nq.close, weekly_bias=runtime.nq_weekly_state["bias"])
+    runtime.es_market_context.update_atr_usage(current_30m_start=current_30m_start, close=last_closed_es.close, weekly_bias=runtime.es_weekly_state["bias"])
     # print("nq atr: ", nq_market_context.get_atr_info())
     # print("es atr: ", es_market_context.get_atr_info())
     
@@ -544,8 +604,8 @@ def detect_ping(
         runtime.es_market_context.update_relative_expansion(runtime.nq_market_context.expansion_ratio)
         # ideally detect_day_type() function should run only when needed at 10:00, 10:30, 11:00 and 11:30
         # which reduces unnecessary checks
-        nq_day_type = runtime.nq_market_context.detect_day_type(last_closed_nq.timestamp, current_30m_start, last_closed_nq.close)
-        es_day_type = runtime.es_market_context.detect_day_type(last_closed_es.timestamp, current_30m_start, last_closed_nq.close)
+        nq_day_type = runtime.nq_market_context.detect_day_type(timestamp=last_closed_nq.timestamp, current_timestamp=current_30m_start, close=last_closed_nq.close, weekly_bias=runtime.nq_weekly_state["bias"])
+        es_day_type = runtime.es_market_context.detect_day_type(timestamp=last_closed_es.timestamp, current_timestamp=current_30m_start, close=last_closed_nq.close, weekly_bias=runtime.es_weekly_state["bias"])
         print("nq day type: ", nq_day_type)
         print("es dat type: ", es_day_type)
     # call set_ib towards the end so ib_ready is true for the next candle
@@ -1486,7 +1546,7 @@ def detect_ping(
         print("send === ", send, "trade confirmation time: ", runtime.nq_sell_candidate.confirmation_time, "last_closed_candle: ", last_closed_nq.timestamp)
         if send:
             print("Market Context: ", runtime.nq_market_context.values())
-            message = build_trade_alert(candidate = runtime.nq_sell_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.nq_contract, candidate = runtime.nq_sell_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
                 execute_trade_and_log(runtime.nq_sell_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
@@ -1529,7 +1589,7 @@ def detect_ping(
         if send:
             print("Market Context: ", runtime.nq_market_context.values())
             # send alert for NQ buy candidate
-            message = build_trade_alert(candidate = runtime.nq_buy_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.nq_contract, candidate = runtime.nq_buy_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
                 execute_trade_and_log(runtime.nq_buy_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
@@ -1585,7 +1645,7 @@ def detect_ping(
         if send:
             print("ES Market Context: ", runtime.es_market_context.values())
             # send alert for ES sell candidate
-            message = build_trade_alert(candidate = runtime.es_sell_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.es_contract, candidate = runtime.es_sell_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
                 execute_trade_and_log(runtime.es_sell_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)
@@ -1623,7 +1683,7 @@ def detect_ping(
         if send:
             print("ES Market Context: ", runtime.es_market_context.values())
             # send alert for ES buy candidate
-            message = build_trade_alert(candidate = runtime.es_buy_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
+            message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.es_contract, candidate = runtime.es_buy_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
                 execute_trade_and_log(runtime.es_buy_candidate, message, start_up)
                 # send_telegram_alert_to_all(message)

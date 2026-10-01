@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from framework.models.profit_targets import get_tp_levels
 
-def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current_time = None):
+def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None, daily_atr = None, current_time = None):
 
     if not candidate.fvg_confirmed and not candidate.sweep_and_ob_confirmed:
         return None
@@ -55,7 +55,35 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     tp1 = None
     # stop loss when we have rejection sweep at key level or swing point
     if candidate.sweep_type == "rejection":
-        stop = sweep_candle_extreme
+        # stop = sweep_candle_extreme
+        sweep_timestamp_utc = candidate.sweep_timestamp.astimezone(timezone.utc)
+        confirmation_timestamp_utc = candidate.confirmation_time.astimezone(timezone.utc)
+        candles_between = candle_repo.get_between(
+            contract=contract_id,
+            timeframe=30,
+            start=sweep_timestamp_utc,
+            end=confirmation_timestamp_utc,
+        )
+
+        if candles_between:
+
+            if side == "buy_side":
+                stop = max(c.high for c in candles_between)
+            else:
+                stop = min(c.low for c in candles_between)
+
+            print(
+                "stop based on sweep -> OB extreme: ",
+                stop,
+            )
+
+        else:
+            stop = sweep_candle_extreme
+            print(
+                "no candles found between sweep and OB, "
+                "using sweep candle extreme: ",
+                stop,
+            )
     elif candidate.sweep_type == "breakout" and candidate.ib_stop_loss is not None:
         stop = candidate.ib_stop_loss
         print("stop based on IB stop loss 1: ", stop)
@@ -74,20 +102,34 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
             stop = sweep_candle_extreme
     # get previous session context with bias, atr to calculate RR, entry levels
     
+    # candidate.final_target_price is not None
+    if side == "buy_side" and instrument == "ES":
+        stop = stop + 4
+    elif side == "sell_side" and instrument == "ES":
+        stop = stop - 4
+    
+    if side == "buy_side" and instrument == "NQ":
+        stop = stop + 10
+    elif side == "sell_side" and instrument == "NQ":
+        stop = stop - 10
     rr = 1
     if side == "buy_side" and candidate.sweep_and_ob_confirmed:
+        print("alert Payload: initial target set 101")
         if candidate.sweep_and_ob_ce_confirmed:
             
             entry = candidate.sweep_and_ob_ce_entry
+            print("alert Payload: initial target set 101-1")
             print("entry1 buyside: ", entry)
             rr = 2
             print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
         elif entry is None:
             if candidate.ob_data is not None:
                 entry = candidate.ob_data["ob_low"]
+                print("alert Payload: initial target set 101-2")
                 print("entry2 buyside: ", entry)
             else:
                 entry = candidate.sweep_and_ob_entry
+                print("alert Payload: initial target set 101-3")
                 print("entry3 buy side: ", entry)
             rr = 2
             print("sweep and OB confirmed. Adjusting entry to:", entry)
@@ -96,36 +138,44 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         if initial_target is not None:
             print("risk: ", risk)
             print("entry: ", entry)
+            print("alert Payload: initial target set 101-4")
             print("initial_target: ", initial_target)
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
             print("rr_in1: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry - (risk * rr)
+            print("alert Payload: initial target set 101-5")
             print("tp1: ", tp1)
         else:
             rr = rr_initial_target
+            print("alert Payload: initial target set 101-6")
             tp1 = initial_target
             print("tp1 based on initial target and rr_initial_targetxx: ", tp1, rr_initial_target)
             
 
     elif side == "buy_side" and entry < ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
+
         print("Adjusting entry to CE confirmation candle price:", entry)
+        print("alert Payload: initial target set 102")
         rr = 1.5
         if initial_target is not None:
             print("risk: ", risk)
             print("entry: ", entry)
+            print("alert Payload: initial target set 102-1")
             print("initial_target: ", initial_target)
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
             print("rr_in2: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry - (risk * rr)
+            print("alert Payload: initial target set 102-2")
             print("tp1 based on rr: ", tp1)
         else:
             rr = rr_initial_target
             tp1 = initial_target
+            print("alert Payload: initial target set 102-3")
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
 
         # candidate.insert_trade_data = {
@@ -138,9 +188,11 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         #     "tp": ce_confirmation_candle_price - (risk * 1.5)
         # }
     elif side == "buy_side":
+        print("alert Payload: initial target set 103")
         rr = 1.5
         risk = abs(entry - stop)
         if initial_target is not None:
+            print("alert Payload: initial target set 103-1")
             print("risk: ", risk)
             print("entry: ", entry)
             print("initial_target: ", initial_target)
@@ -149,16 +201,20 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
             print("rr_in3: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry - (risk * rr)
+            print("alert Payload: initial target set 103-2")
             print("Using original imbalance entry. TP adjusted to:", entry)
         else:
             rr = rr_initial_target
             tp1 = initial_target
+            print("alert Payload: initial target set 103-3")
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
     
     # buy candidate
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
+        print("alert Payload: initial target set 104")
         if candidate.sweep_and_ob_ce_confirmed:
             entry = candidate.sweep_and_ob_ce_entry
+            print("alert Payload: initial target set 104-1")
             print("entry1: ", entry)
             rr = 2
             print("CE of Sweep and OB confirmed. Adjusting entry to:", entry)
@@ -166,9 +222,11 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
             if candidate.ob_data is not None:
                 entry = candidate.ob_data["ob_high"]
                 print("entry2: ", entry)
+                print("alert Payload: initial target set 104-2")
             else:
                 entry = candidate.sweep_and_ob_entry
                 print("entry3: ", entry)
+                print("alert Payload: initial target set 104-3")
             rr = 2
             print("sweep and OB confirmed. Adjusting entry to:", entry)
         # if candidate.sweep_and_ob_ce_confirmed:
@@ -181,42 +239,53 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
         #     rr = 4
         risk = abs(entry - stop)
         if initial_target is not None:
+            print("alert Payload: initial target set 104-4")
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
+            print("alert Payload: initial target set 104-5")
             print("tp1: ", tp1)
         else:
             rr = rr_initial_target
             tp1 = initial_target
+            print("alert Payload: initial target set 104-6")
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
         
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > default_risk:
         entry = ce_confirmation_candle_price
+        print("alert Payload: initial target set 105")
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5
         if initial_target is not None:
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
+            print("alert Payload: initial target set 105-1")
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
             print("tp1 based on rr: ", tp1)
+            print("alert Payload: initial target set 105-2")
         else:
             rr = rr_initial_target
             tp1 = initial_target
+            print("alert Payload: initial target set 105-3")
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
     elif side == "sell_side":
         rr = 1.5
         risk = abs(entry - stop)
+        print("alert Payload: initial target set 106")
         if initial_target is not None:
+            print("alert Payload: initial target set 106-1")
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
+            print("alert Payload: initial target set 106-2")
             print("Using original imbalance entry. TP adjusted to:", entry)
         else:
             rr = rr_initial_target
             tp1 = initial_target
+            print("alert Payload: initial target set 106-3")
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
         
         # candidate.insert_trade_data = {
@@ -235,19 +304,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     direction = "bearish" if side == "buy_side" else "bullish"
     tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1, instrument)
 
-
-    # candidate.final_target_price is not None
-    if side == "buy_side" and instrument == "ES":
-        stop = stop + 1.5
-    elif side == "sell_side" and instrument == "ES":
-        stop = stop - 1.5
-    
-    if side == "buy_side" and instrument == "NQ":
-        stop = stop + 4
-    elif side == "sell_side" and instrument == "NQ":
-        stop = stop - 4
-
-
+    print("tp levels from get_tp_levels: ", tp1, tp2, tp3)
     candidate.insert_trade_data = {
             "entry": entry,
             "side": side,
@@ -286,6 +343,12 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
     alert_type = "t1"
     if candidate.final_target == "ATR":
         print("alert_type: ", "t3")
+        if instrument == "NQ":
+            tp_spacing = 40.0
+        elif instrument == "ES":
+            tp_spacing = 10.0
+        else:
+            tp_spacing = 40.0
         alert_type = "t3"
         if final_target is not None:
             tp3 = final_target
@@ -299,8 +362,8 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
                 # alert_type = "t1"
                 tp1 = tp3
                 # TODO: change increments based on VIX
-                tp2 = tp1 + 40.0
-                tp3 = tp2 + 40.0
+                tp2 = tp1 + tp_spacing
+                tp3 = tp2 + tp_spacing
 
             elif tp3 <= tp2:
                 alert_type = "t2"
@@ -311,7 +374,7 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
                 alert_type = "t3"
         
         if side == "buy_side":
-            if tp1 > tp2 >= tp3:
+            if tp1 > tp2 > tp3:
                 alert_type = "t3"
             elif tp1 > tp3 > tp2:
                 alert_type = "t2"
@@ -320,8 +383,8 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
                 # alert_type = "t1"
                 # TODO: change increments based on VIX
                 tp1 = tp3
-                tp2 = tp1 - 40.0
-                tp3 = tp2 - 40.0
+                tp2 = tp1 - tp_spacing
+                tp3 = tp2 - tp_spacing
 
             elif tp3 >= tp2:
                 alert_type = "t2"
@@ -345,23 +408,29 @@ def build_trade_alert(candidate, liquidity_map = None, daily_atr = None, current
             elif tp1 > final_target > tp2:
                 tp2 = final_target
                 alert_type = "t2"
+                print("alert_type sub2 100: ")
             elif tp1 > tp2 > final_target:
                 # dont increse tp2 to final target
                 alert_type = "t2"
+                print("alert_type sub2 200: ")
             
         if final_target is not None and side == "sell_side":
             if tp1 > tp2 and tp1 > final_target:
                 alert_type = "t1"
                 print("alert_type sub2: ", "t1")
+                print("alert_type sub2 300: ")
             elif tp1 < final_target < tp2:
                 tp2 = final_target
                 alert_type = "t2"
+                print("alert_type sub2 400: ")
             elif tp1 < tp2 < final_target:
                 # dont increse tp2 to final target
                 alert_type = "t2"
+                print("alert_type sub2 500: ")
                 
     else:
         alert_type = "t1"
+        print("alert_type sub2 600: ")
     
     zone = "Sell Zone"
     if side == "sell_side":

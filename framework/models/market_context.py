@@ -217,7 +217,7 @@ class MarketContext:
     def set_daily_atr(self, atr):
         self.daily_atr = atr
 
-    def update_atr_usage(self, current_30m_start, close=None):
+    def update_atr_usage(self, current_30m_start, weekly_bias, close=None):
         """
         Updates:
         - ATR usage
@@ -229,6 +229,15 @@ class MarketContext:
 
         print("session_range: ", self.session_range)
         print("daily_atr: ", self.daily_atr)
+
+        atr_exhaustion_threshold = 0.8
+        
+        if weekly_bias in ("bullish", "neutral_bearish") and self.session_direction == "bullish":
+            atr_exhaustion_threshold = 1.0
+        elif weekly_bias in ("bearish", "neutral_bullish") and self.session_direction == "bearish":
+            atr_exhaustion_threshold = 1.0
+        else:
+            atr_exhaustion_threshold = 0.8
 
         # ts = datetime.fromisoformat(current_30m_start)
         ts=None
@@ -255,7 +264,7 @@ class MarketContext:
 
             self.overnight_atr_usage = self.atr_usage
 
-            if self.overnight_atr_usage > 0.8:
+            if self.overnight_atr_usage > atr_exhaustion_threshold:
                 self.atr_context = "overnight_exhaustion"
                 self.expansion_origin = "overnight"
                 self.overnight_expansion = True
@@ -303,11 +312,11 @@ class MarketContext:
         self.directional_exhaustion = None
 
         # Strong bullish expansion already happened
-        if self.atr_used_above_open >= 0.8:
+        if self.atr_used_above_open >= atr_exhaustion_threshold:
             self.directional_exhaustion = "bullish"
 
         # Strong bearish expansion already happened
-        elif self.atr_used_below_open >= 0.8:
+        elif self.atr_used_below_open >= atr_exhaustion_threshold:
             self.directional_exhaustion = "bearish"
 
         # =====================================================
@@ -514,9 +523,19 @@ class MarketContext:
         # last_closed_candle
         timestamp,
         current_timestamp,
-        close
+        close,
+        weekly_bias
         # closes_outside_ib
     ):
+        
+        atr_exhaustion_threshold = 0.8
+                
+        if weekly_bias in ("bullish", "neutral_bearish") and self.session_direction == "bullish":
+            atr_exhaustion_threshold = 1.0
+        elif weekly_bias in ("bearish", "neutral_bullish") and self.session_direction == "bearish":
+            atr_exhaustion_threshold = 1.0
+        else:
+            atr_exhaustion_threshold = 0.8
         # ts = datetime.fromisoformat(current_timestamp)
         ts=None
         if isinstance(current_timestamp, str):
@@ -573,7 +592,7 @@ class MarketContext:
             print("expansion ratio: ", self.expansion_ratio)
             print("expansion speed: ", self.expansion_speed)
             print("atr usage: ", self.atr_usage)
-            if (self.expansion_ratio >= 1.2 and self.atr_usage > 0.9 and self.expansion_speed < 0.5):
+            if (self.expansion_ratio >= 1.2 and self.atr_usage > atr_exhaustion_threshold and self.expansion_speed < 0.5):
                 self.exhaustion = True
                 print("assigning exhaustion at 10:30am")
                 print("assigning day type: ", self.day_type)

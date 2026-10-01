@@ -19,6 +19,7 @@ class NewYorkMarketContext:
         self.preferred_sweep = None
         self.quality = None
         self.note = None
+        self.candles_30m_6to730 = None
         self.execution_state = {
             "rocket_triggered": False,
             "rocket_completed": False,
@@ -226,7 +227,7 @@ class NewYorkMarketContext:
             self.ib_18["high"] < self.ib_1["high"]
         )
         ib_classification_data = classify_ib_structure(self.ib_18, self.ib_1, self.ib_8)
-        print("ib_dataXX: ", ib_classification_data)
+        # print("ib_dataXX: ", ib_classification_data)
         
         self.structure["execution_edge"] = ib_classification_data["execution_edge"]
         self.structure["direction_score"] = ib_classification_data["direction_score"]

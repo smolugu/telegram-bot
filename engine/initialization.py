@@ -74,14 +74,15 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         print("start_time_ny: ", start_time_ny)
         trading_date = get_previous_trading_day_for_pdhl(start_time_ny)
         print("trading_date: ", trading_date)
-        print("previous trading day: ", previous_trading_day)
-        candle_time_ny = datetime.combine(
+        session_start_ny = datetime.combine(
             trading_date,
-            datetime.min.time(),
+            time(18, 0),
             tzinfo=NY_TZ,
-        ).replace(hour=18)
+        )
+        print("previous trading day: ", previous_trading_day)
+        
 
-        candle_time_utc = candle_time_ny.astimezone(timezone.utc)
+        candle_time_utc = session_start_ny.astimezone(timezone.utc)
         print("candle_time_utc for pdhl: ", candle_time_utc)
         previous_day_nq_candle = candle_repo.get_at(
             contract=prev_day_nq_contract,
@@ -225,7 +226,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 # ---------------------------------------------------------
 
                 candle_time_ny = datetime.combine(
-                    prev_prev_trading_date,
+                    prev_prev_trading_date - timedelta(days=1),
                     datetime.min.time(),
                     tzinfo=NY_TZ,
                 ).replace(hour=18)
@@ -248,6 +249,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                     timeframe=1440,
                     timestamp=candle_time_utc,
                 )
+
                 candle_end_time_ny = candle_time_ny + timedelta(days=1)
                 candle_end_time_utc = candle_end_time_ny.astimezone(timezone.utc)
 
@@ -392,28 +394,28 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             nq_3m_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=3,
-                start=auction_start_utc_60,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
             nq_4h_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=240,
-                start=auction_start_utc_30,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
             nq_7h_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=420,
-                start=auction_start_utc_45,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
             nq_1d_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=1440,
-                start=auction_start_utc_60,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
@@ -428,28 +430,28 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             es_3m_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=3,
-                start=auction_start_utc_60,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
             es_4h_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=240,
-                start=auction_start_utc_30,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
             es_7h_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=420,
-                start=auction_start_utc_45,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 
             es_1d_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=1440,
-                start=auction_start_utc_60,
+                start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
 

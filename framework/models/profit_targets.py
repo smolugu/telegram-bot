@@ -58,7 +58,7 @@ def get_tp2_from_liquidity(tp1, direction, liquidity_map):
 
     return tp2
 
-def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price, min_liquidity_distance):
+def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price, min_liquidity_distance, min_tp2_spacing):
 
     buy_levels = []
     sell_levels = []
@@ -159,14 +159,20 @@ def get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry_price, min
     # -------------------------
     # 6. TP2 = next level ONLY
     # -------------------------
+    # tp2 = None
+
+    # if tp1_index + 1 < len(candidates):
+    #     tp2 = candidates[tp1_index + 1]
+
+    # # Prevent duplicate TP1/TP2
+    # if tp2 == new_tp1:
+    #     tp2 = candidates[tp1_index + 2] if tp1_index + 2 < len(candidates) else None
     tp2 = None
 
-    if tp1_index + 1 < len(candidates):
-        tp2 = candidates[tp1_index + 1]
-
-    # Prevent duplicate TP1/TP2
-    if tp2 == new_tp1:
-        tp2 = candidates[tp1_index + 2] if tp1_index + 2 < len(candidates) else None
+    for p in candidates[tp1_index + 1:]:
+        if abs(p - new_tp1) >= min_tp2_spacing:
+            tp2 = p
+            break
 
     return new_tp1, tp2
 
@@ -182,15 +188,18 @@ def get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1=None, in
 
     if instrument == "NQ":
         min_liquidity_distance = 75
+        min_tp2_spacing = 40
 
     elif instrument == "ES":
         min_liquidity_distance = 25
+        min_tp2_spacing = 10
 
     else:
         min_liquidity_distance = 75
+        min_tp2_spacing = 40
 
     # TP2: liquidity
-    tp1, tp2 = get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry, min_liquidity_distance)
+    tp1, tp2 = get_tp_levels_from_liquidity(tp1, direction, liquidity_map, entry, min_liquidity_distance, min_tp2_spacing)
     print("tp2 from function: ", tp2)
 
      # if no valid TP2 from liquidity, set TP2 to 2RR

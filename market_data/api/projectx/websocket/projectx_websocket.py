@@ -186,30 +186,12 @@ class ProjectXWebSocket:
             )
 
             # print(trade)
-            if self._trade_event_count % 500 == 0:
+            if self._trade_event_count % 1000 == 0:
                 print(trade)
             if self._on_trade is not None:
                 self._on_trade(trade)
 
-    # def subscribe_trades(self, contract_id: str) -> None:
 
-    #     if not self._connected.is_set():
-    #         raise RuntimeError(
-    #             "WebSocket is not ready"
-    #         )
-
-    #     print(
-    #         f"Subscribing to trades: {contract_id}"
-    #     )
-
-    #     self._connection.invoke(
-    #         "SubscribeContractTrades",
-    #         [contract_id],
-    #     )
-
-    #     print(
-    #         f"Trade subscription sent: {contract_id}"
-    #     )
     def _watchdog_loop(self) -> None:
 
         while not self._watchdog_stop.wait(timeout=30):

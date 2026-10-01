@@ -75,7 +75,7 @@ def update_new_htf_levels(
         )
 
 
-def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_candles, last_3_7h_candles):
+def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_candles, last_3_7h_candles, last_3_1d_candles):
 
     # ---------------------------------------------------------
     # 1. Detect newly formed HTF levels
@@ -83,6 +83,7 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
     print("auction updates for: ", candle_30m.timestamp)
     print("last_3_4h_candles: ", last_3_4h_candles)
     print("last_3_7h_candles: ", last_3_7h_candles)
+    print("last_3_1d_candles: ", last_3_1d_candles)
     
     if last_3_4h_candles:
         update_new_htf_levels(
@@ -98,6 +99,13 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
             "7h",
         )
 
+    if last_3_1d_candles:
+        update_new_htf_levels(
+            auction_engine.context,
+            last_3_1d_candles,
+            "1d",
+        )
+
     # levels = update_level_state(levels, candles_for_auction)
     # build auction context
     # auction_engine.auction_context = build_auction_context(levels)
@@ -108,7 +116,8 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
         candle_30m,
         ltf_candles,
         last_3_4h_candles,
-        last_3_7h_candles
+        last_3_7h_candles,
+        last_3_1d_candles,
     )
 
     # 
