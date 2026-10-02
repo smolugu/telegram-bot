@@ -397,7 +397,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
 
         print("alert_type:", alert_type)
         
-    elif candidate.final_target in ["DO", "MITL", "LIQUIDITY", "RL", "RH"]:
+    elif candidate.final_target in ["WO", "DO", "MITL", "LIQUIDITY", "RL", "RH"]:
         alert_type = "t2"
         print("alert_type: ", "t2")
         print("tp1 xx: ", tp1, tp2, final_target)

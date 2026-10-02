@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from helpers.enums import WeeklyBiasEnums
 from market_data.candle_builder.htf_candle_builder import UTC_TZ
 
 def initialize_weekly_state(instrument):
@@ -778,21 +779,21 @@ def update_weekly_1h_structure(
         if bullish_structure:
 
             if bearish_structure_exists:
-                weekly_state["bias"] = "neutral_bullish"
+                weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL_BULLISH
                 weekly_state["bias_reason"] = (
                     "Bullish CISD and FVG formed below weekly open "
                     "while bearish structure remains."
                 )
 
             else:
-                weekly_state["bias"] = "bullish"
+                weekly_state["bias"] = WeeklyBiasEnums.BULLISH
                 weekly_state["bias_reason"] = (
                     "Bullish CISD and FVG formed below weekly open "
                     "with no bearish structure remaining."
                 )
         elif bearish_structure_exists:
 
-            weekly_state["bias"] = "bearish"
+            weekly_state["bias"] = WeeklyBiasEnums.BEARISH
             weekly_state["bias_reason"] = (
                 "Price is below weekly open with bearish structure "
                 "and no complete bullish structure."
@@ -800,7 +801,7 @@ def update_weekly_1h_structure(
 
         else:
 
-            weekly_state["bias"] = "neutral"
+            weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL
             weekly_state["bias_reason"] = (
                 "Price is below weekly open with no bullish or bearish "
                 "structure."
@@ -823,14 +824,14 @@ def update_weekly_1h_structure(
         if bearish_structure:
 
             if bullish_structure_exists:
-                weekly_state["bias"] = "neutral_bearish"
+                weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL_BEARISH
                 weekly_state["bias_reason"] = (
                     "Bearish CISD and FVG formed above weekly open "
                     "while bullish structure remains."
                 )
 
             else:
-                weekly_state["bias"] = "bearish"
+                weekly_state["bias"] = WeeklyBiasEnums.BEARISH
                 weekly_state["bias_reason"] = (
                     "Bearish CISD and FVG formed above weekly open "
                     "with no bullish structure remaining."
@@ -838,7 +839,7 @@ def update_weekly_1h_structure(
 
         elif bullish_structure_exists:
 
-            weekly_state["bias"] = "bullish"
+            weekly_state["bias"] = WeeklyBiasEnums.BULLISH
             weekly_state["bias_reason"] = (
                 "Price is above weekly open with bullish structure "
                 "and no complete bearish structure."
@@ -846,17 +847,17 @@ def update_weekly_1h_structure(
 
         else:
 
-            weekly_state["bias"] = "neutral"
+            weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL
             weekly_state["bias_reason"] = (
                 "Price is above weekly open with no bullish or bearish "
                 "structure."
             )
 
     else:
-        weekly_state["bias"] = "neutral"
+        weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL
         weekly_state["bias_reason"] = "weekly open location unavailable"
 
-    print("weekly bias: ", weekly_state["bias"])
+    print("weekly bias: ", weekly_state["bias"].value)
     print("weekly reason: ", weekly_state["bias_reason"])
     return weekly_state
 

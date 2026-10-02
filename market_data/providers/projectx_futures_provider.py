@@ -120,15 +120,34 @@ class ProjectXFuturesProvider(FuturesProvider):
             return self._contract_mapper.to_projectx(contract)
         except ValueError:
             pass
+        
+        # result = self._rest.search_accounts()
+        # print("account result:", result)
 
+        # result = self._rest.validate_session()
+        # print(result)
+        account_result = self._rest.search_accounts()
+        print("account result:", account_result)
+
+        result = self._rest.available_contracts(live=False)
+
+        print("Number of contracts:", len(result.get("contracts", [])))
+
+        for c in result.get("contracts", []):
+            if "NQ" in c.get("name", ""):
+                print(c)
+        
+        
         # ----------------------------------------------------------
         # 2. Search ProjectX
         # ----------------------------------------------------------
-
+        print(f"Resolving ProjectX contract: {contract}")
         result = self._rest.search_contracts(
             search_text=contract,
             live=False,
         )
+        print("ProjectX contract search response:")
+        print(result)
 
         if not result.get("success"):
             raise RuntimeError(

@@ -184,3 +184,57 @@ class ProjectXREST:
         print(data)
 
         return data
+    
+    def available_contracts(self, live: bool = False):
+        response = self._session.post(
+            f"{self._BASE_URL}/Contract/available",
+            json={
+                "live": live,
+            },
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        print("ProjectX AVAILABLE CONTRACTS:")
+        print(data)
+
+        return data
+    
+    def search_accounts(self):
+        response = self._session.post(
+            f"{self._BASE_URL}/Account/search",
+            json={
+                "onlyActiveAccounts": True,
+            },
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        print("ProjectX ACCOUNT SEARCH:")
+        print(data)
+
+        return data
+
+    # def validate_session(self):
+    #     response = self._session.post(
+    #         f"{self._BASE_URL}/Auth/validate",
+    #     )
+
+    #     response.raise_for_status()
+
+    #     data = response.json()
+
+    #     print("Validate response:", data)
+
+    #     if data.get("success") and data.get("newToken"):
+    #         self._session.headers.update({
+    #             "Authorization": f"Bearer {data['newToken']}"
+    #         })
+
+    #         print("ProjectX session token refreshed")
+
+    #     return data

@@ -1,6 +1,13 @@
 from enum import Enum
 
 
+class WeeklyBiasEnums(str, Enum):
+    BULLISH = "bullish"
+    BEARISH = "bearish"
+    NEUTRAL_BULLISH = "neutral_bullish"
+    NEUTRAL_BEARISH = "neutral_bearish"
+    NEUTRAL = "neutral"
+
 class AuctionPhaseEnums(str, Enum):
     WAITING = "waiting"
     EARLY_EXPANSION = "early expansion"

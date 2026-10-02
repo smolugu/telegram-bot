@@ -4,6 +4,7 @@ from framework.models.displacement import is_displacement_candle
 from framework.models.filters.auction_filter import allowed_auction_direction, get_auction_direction
 from framework.models.final_context import determine_ping_direction
 from framework.models.ib_alignment import analyze_cross_asset_alignment
+from helpers.enums import WeeklyBiasEnums
 from helpers.ib_helpers import check_ib_rejection
 from helpers.sessions import in_session
 from helpers.time_windows import get_active_window
@@ -562,15 +563,15 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     daily_bias = determine_daily_bias()
     structure_bias = "bullish" if look_for_longs else "bearish"
     htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
-    
     weekly_bias = weekly_context["bias"]
     bullish_continuation = weekly_bias in (
-        "bullish",
-        "neutral_bearish",
+        WeeklyBiasEnums.BULLISH,
+        WeeklyBiasEnums.NEUTRAL_BULLISH,
     )
+
     bearish_continuation = weekly_bias in (
-        "bearish",
-        "neutral_bullish",
+        WeeklyBiasEnums.BEARISH,
+        WeeklyBiasEnums.NEUTRAL_BEARISH,
     )
 
     # -----------------------------------------------
@@ -1000,7 +1001,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
         
         structure_bias = "bullish" if look_for_longs else "bearish"
         htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
-        print("HTF WEEKLY BIAS: ", htf_weekly_bias)
+        print("HTF WEEKLY BIAS: ", htf_weekly_bias.value)
         direction_context = determine_ping_direction(
             cross_alignment,
             newyork_context.structure if candidate.instrument == "NQ" else co_asset["newyork_context"].structure,
@@ -2367,6 +2368,19 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
             #   - Shorts allowed
             #   - Longs disabled
             # --------------------------------------------------
+            weekly_bias = weekly_context["bias"]
+            
+            # --------------------------------------------------
+            # Weekly directional regime
+            # --------------------------------------------------
+
+            # structure movement with respect to weekly bias
+            # upside movement from IB18 to ib1
+            retracement_inside_bearish_bias = weekly_bias in (
+                WeeklyBiasEnums.NEUTRAL_BULLISH,
+                WeeklyBiasEnums.BEARISH,
+            )
+            
 
             if bullish_continuation:
 
@@ -2386,8 +2400,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
 
                 allow_shorts = is_atr_filter
 
-            # the structure
-            elif bearish_retracement:
+            elif retracement_inside_bearish_bias:
 
                 allow_longs = False
                 allow_shorts = True
@@ -2443,8 +2456,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
 
-                    if bearish_retracement:
-                        # Short is a retracement trade
+                    if retracement_inside_bearish_bias:
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
                         candidate.initial_target_price = (
@@ -2464,7 +2476,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
 
                     newyork_context.execution_state["flush_triggered"] = True
 
-        # block completed - V4
+        # block completed - V4, including weekly bias terminology
         elif structure_name == "bearish_decompression" or structure_name == "bearish_mixed_decompression":
             print("structure : bearish decompression")
 
@@ -2485,16 +2497,10 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
             # Weekly directional regime
             # --------------------------------------------------
 
-            bearish_continuation = weekly_bias in (
-                "bearish",
-                "neutral_bullish",
-            )
-
-            bullish_retracement = weekly_bias in (
+            retracement_inside_bullish_bias = weekly_bias in (
                 "neutral_bearish",
                 "bullish",
             )
-            
 
             # --------------------------------------------------
             # Directional permissions
@@ -2527,7 +2533,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
 
                 allow_longs = is_atr_filter
 
-            elif bullish_retracement:
+            elif retracement_inside_bullish_bias:
 
                 allow_shorts = False
                 allow_longs = True
@@ -2574,6 +2580,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 and allow_conflict_longs 
                 and allow_longs
                 and not newyork_context.execution_state["rocket_triggered"]
+                and not newyork_context.execution_state["flush_triggered"]
 
             ):
 
@@ -2584,12 +2591,13 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    newyork_context.execution_state["rocket_triggered"] = True
-                    if bullish_retracement:
+                    
+                    if retracement_inside_bullish_bias:
                         # Long is a retracement trade
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bullish_atr_target_price
                         candidate.initial_target_price = newyork_context.structure["range_high"]
+                        newyork_context.execution_state["rocket_triggered"] = True
 
                     elif bearish_continuation and is_atr_filter:
                         # Long is a counter-directional trade after ATR exhaustion
@@ -2600,157 +2608,10 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                         )
 
 
-        # block completed - V3
-        # elif structure_name == "bullish_mixed_decompression":
-        #     print("structure : bullish mixed decompression")
-        #     # structure coming out or weak compression from overlap of ib18 and ib1, sweeping ib1 high
-        #     # core pings:
-        #         # mini flush to compression low
-        #         # Rocket from compression low sweep
-        #     bearish_expansion = newyork_context.structure["ib_direction_8"] == "bearish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-        #     bullish_expansion = newyork_context.structure["ib_direction_8"] == "bullish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-        #     range_day = False
-        #     # flow is same as bullish_decompression
-        #     if not bearish_expansion and not bullish_expansion:
-        #         range_day = True
-            
-        #     if range_day:
-        #         print("range_day: check order of sweep of 1am IB.")
-        #         print("implement block later after capturing order of 1am IB sweeps")
-        #     rocket_triggered = newyork_context.execution_state["rocket_triggered"]
-        #     flush_triggered = newyork_context.execution_state["flush_triggered"]
-        #     if look_for_longs and allow_conflict_longs:
-        #         if (
-        #             bullish_expansion
-        #             and not newyork_context.execution_state["rocket_triggered"]
-        #             and not newyork_context.execution_state["flush_triggered"]
-        #             and candidate.ob_level > newyork_context.ib_8["ce"]
-        #         ):
-        #         # rocket expansion
-        #             reversal_confirmation = True
-        #             candidate.ping_type = "Rocket"
-        #             candidate.initial_target_price = newyork_context.structure["range_high"]
-        #             candidate.final_target = "ATR"
-        #             candidate.final_target_price = bullish_atr_target_price
-        #             newyork_context.execution_state["rocket_triggered"] = True
-                
-        #     elif look_for_shorts and allow_conflict_shorts: 
-        #         if (
-        #             bearish_expansion
-        #             and not newyork_context.execution_state["rocket_triggered"]
-        #             and not newyork_context.execution_state["flush_triggered"]
-        #             and candidate.ob_level < newyork_context.ib_8["ce"]
-        #         ):
-        #             reversal_confirmation = True
-        #             candidate.ping_type = "Flush"
-        #             candidate.initial_target_price = newyork_context.ib_18["low"]
-        #             candidate.final_target = "LIQUIDITY"
-        #             newyork_context.execution_state["flush_triggered"] = True
-        #         elif (
-        #             is_atr_filter
-        #             and is_smt
-        #             and is_rejection
-        #             and is_displacement
-        #             and not newyork_context.execution_state["flush_triggered"]
-        #         ):
-        #             reversal_confirmation = True
-        #             candidate.ping_type = "Flush"
-        #             candidate.initial_target_price = newyork_context.structure["mitigation_level"]
-        #             candidate.final_target = "LIQUIDITY"
-        #             newyork_context.execution_state["flush_triggered"] = True
-            
-        #     # if look_for_longs and allow_conflict_longs:
-        #     #     # TODO: sweep at compression low
-        #     #     if is_smt and is_rejection:
-        #     #         reversal_confirmation = True
-        #     #         candidate.ping_type = "Rocket"
-        #     #         candidate.initial_target_price = newyork_context.structure["compression_high"]
-        #     #         candidate.final_target = "ATR"
-        #     # elif look_for_shorts and allow_conflict_shorts:
-        #     #     # TODO: Ob level below ce of decompression range
-        #     #     if candidate.ob_level < newyork_context.structure["range_ce"]:
-        #     #         reversal_confirmation = True
-        #     #         candidate.ping_type = "Mini Flush"
-        #     #         candidate.initial_target_price = newyork_context.structure["compression_low"]
-        #     #         candidate.final_target = "MINI"
-        # # block completed - V3
-        # elif structure_name == "bearish_mixed_decompression":
-        #     print("structure : bearish mixed decompression")
-        #     # structure coming out or weak compression from overlap of ib18 and ib1, sweeping ib1 low
-        #     # core pings:
-        #         # mini rocket to compression high
-        #         # Flush from compression high sweep
-        #     bearish_expansion = newyork_context.structure["ib_direction_8"] == "bearish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-        #     bullish_expansion = newyork_context.structure["ib_direction_8"] == "bullish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-        #     range_day = False
-            
-        #     if not bearish_expansion and not bullish_expansion:
-        #         range_day = True
-            
-        #     if range_day:
-        #         print("range_day: check order of sweep of 1am IB.")
-        #         print("implement block later after capturing order of 1am IB sweeps")
-        #     rocket_triggered = newyork_context.execution_state["rocket_triggered"]
-        #     flush_triggered = newyork_context.execution_state["flush_triggered"]
-        #     if look_for_shorts and allow_conflict_shorts:
-        #         if (
-        #             bearish_expansion
-        #             and not newyork_context.execution_state["rocket_triggered"]
-        #             and not newyork_context.execution_state["flush_triggered"]
-        #             and candidate.ob_level < newyork_context.ib_8["ce"]
-        #         ):
-        #         # flush expansion
-        #             reversal_confirmation = True
-        #             candidate.ping_type = "Flush"
-        #             candidate.initial_target_price = newyork_context.structure["range_low"]
-        #             candidate.final_target = "ATR"
-        #             candidate.final_target_price = bearish_atr_target_price
-        #             newyork_context.execution_state["flush_triggered"] = True
-                
-        #     elif look_for_longs and allow_conflict_longs: 
-        #         if (
-        #             bullish_expansion
-        #             and not newyork_context.execution_state["rocket_triggered"]
-        #             and not newyork_context.execution_state["flush_triggered"]
-        #             and candidate.ob_level > newyork_context.ib_8["ce"]
-        #         ):
-        #             reversal_confirmation = True
-        #             candidate.ping_type = "Rocket"
-        #             candidate.initial_target_price = newyork_context.ib_18["high"]
-        #             candidate.final_target = "LIQUIDITY"
-        #             newyork_context.execution_state["rocket_triggered"] = True
-                    
-        #         elif (
-        #             is_atr_filter
-        #             and is_smt
-        #             and is_rejection
-        #             and is_displacement
-        #             and not newyork_context.execution_state["rocket_triggered"]
-        #         ):
-        #             reversal_confirmation = True
-        #             candidate.ping_type = "Rocket"
-        #             candidate.initial_target_price = newyork_context.structure["mitigation_level"]
-        #             candidate.final_target = "LIQUIDITY"
-        #             newyork_context.execution_state["rocket_triggered"] = True
-
-        #     # if look_for_shorts and allow_conflict_shorts:
-        #     #     # TODO: sweep at compression low
-        #     #     if is_smt and is_rejection:
-        #     #         reversal_confirmation = True
-        #     #         candidate.ping_type = "Flush"
-        #     #         candidate.initial_target_price = newyork_context.structure["compression_low"]
-        #     #         candidate.final_target = "ATR"
-        #     # elif look_for_longs and allow_conflict_longs:
-        #     #     # TODO: Ob level below ce of decompression range or strong Ob
-        #     #     if candidate.ob_level > newyork_context.structure["range_ce"]:
-        #     #         reversal_confirmation = True
-        #     #         candidate.ping_type = "Mini Rocket"
-        #     #         candidate.initial_target_price = newyork_context.structure["compression_high"]
-        #     #         candidate.final_target = "MINI"
         # ====================================
         # Set 2 Decompression Structures
         # ==================================== 
-        # block completed - v4
+        # block completed - V4, including weekly bias terminology
         elif structure_name == "bullish_macro_decompression":
             print("structure : bullish macro decompression")
             
@@ -2764,7 +2625,7 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
             # Price returned to IB18 and consolidated between
             # 6:00 AM and 8:00 AM before the early expansion.
             # ---------------------------------------------------------
-
+            
             candles_6_to_730 = newyork_context.candles_30m_6to730
 
             ib18_overlap = any(
@@ -2796,11 +2657,12 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 # Scenario 1:
                 # Price is migrating from the IB1 manipulation toward /
                 # through IB18.
-                #
+                # if weekly bias is bullish, IB1 to IB18 can be retraacement in bullish trend
                 # Weekly bias determines the allowed direction.
                 # ---------------------------------------------------------
 
                 if bullish_continuation:
+                # weekly bias is bullish or bearish_neutral
                     allow_longs = True
                     allow_shorts = False
 
@@ -2842,39 +2704,43 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     candidate.initial_target_price = market_context.session_high
-                    newyork_context.execution_state["rocket_triggered"] = True
+                    
                     if macro_scenario == "migration":
                         # Migration already has direction from weekly bias.
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bullish_atr_target_price
+                        newyork_context.execution_state["rocket_triggered"] = True
 
                     elif macro_scenario == "consolidation":
 
+                        # if weekly_bias in ("bullish", "bearish_neutral"):
                         if bullish_continuation:
                             # Bullish expansion agrees with weekly bias
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bullish_atr_target_price
+                            newyork_context.execution_state["rocket_triggered"] = True
 
                         elif bearish_continuation:
                             # Bullish expansion is counter to weekly bias
-                            candidate.final_target = "WO"
-                            candidate.final_target_price = weekly_context["weekly_open"]
-                            
+                            candidate.final_target = "LIQUIDITY"
+                            # candidate.final_target_price = weekly_context["weekly_open"]                     
 
             elif (
                     look_for_shorts 
                     and allow_conflict_shorts
                     and allow_shorts
                     and not flush_triggered
+                    and not rocket_triggered
                   ):
                 if is_smt and is_rejection and is_displacement:
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     candidate.initial_target_price = market_context.session_low
-                    newyork_context.execution_state["flush_triggered"] = True
+                    
                     if macro_scenario == "migration":
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
+                        newyork_context.execution_state["flush_triggered"] = True
 
                     elif macro_scenario == "consolidation":
 
@@ -2882,13 +2748,15 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                             # Bearish expansion agrees with weekly bias
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bearish_atr_target_price
+                            newyork_context.execution_state["flush_triggered"] = True
 
+                        # elif weekly_bias in ("bullish", "bearish_neutral"):
                         elif bullish_continuation:
                             # Bearish expansion is counter to weekly bias
-                            candidate.final_target = "WO"
-                            candidate.final_target_price = weekly_context["weekly_open"]
+                            candidate.final_target = "LIQUIDITY"
+                            # candidate.final_target_price = weekly_context["weekly_open"]
         
-        # block completed - v4
+        # block completed - V4, including weekly bias terminology
         elif structure_name == "bearish_macro_decompression":
             print("structure : bearish macro decompression")
 
@@ -2949,18 +2817,18 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 and allow_conflict_longs
                 and allow_longs
                 and not rocket_triggered
+                and not flush_triggered
             ):
                 if is_smt and is_rejection and is_displacement:
 
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     candidate.initial_target_price = market_context.session_high
-                    newyork_context.execution_state["rocket_triggered"] = True
-
+                    
                     if macro_scenario == "migration":
-
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bullish_atr_target_price
+                        newyork_context.execution_state["rocket_triggered"] = True
 
                     elif macro_scenario == "consolidation":
 
@@ -2968,11 +2836,12 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
 
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bullish_atr_target_price
+                            newyork_context.execution_state["rocket_triggered"] = True
 
                         elif bearish_continuation:
 
-                            candidate.final_target = "WO"
-                            candidate.final_target_price = weekly_context["weekly_open"]
+                            candidate.final_target = "LIQUIDITY"
+                            # candidate.final_target_price = weekly_context["weekly_open"]
 
             # ---------------------------------------------------------
             # FLUSH
@@ -2991,12 +2860,11 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                     candidate.ping_type = "Flush"
                     candidate.initial_target_price = market_context.session_low
 
-                    newyork_context.execution_state["flush_triggered"] = True
-
                     if macro_scenario == "migration":
 
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
+                        newyork_context.execution_state["flush_triggered"] = True
 
                     elif macro_scenario == "consolidation":
 
@@ -3004,153 +2872,147 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
 
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bearish_atr_target_price
+                            newyork_context.execution_state["flush_triggered"] = True
 
                         elif bullish_continuation:
 
-                            candidate.final_target = "WO"
-                            candidate.final_target_price = weekly_context["weekly_open"]
+                            candidate.final_target = "LIQUIDITY"
+                            # candidate.final_target_price = weekly_context["weekly_open"]
         
-        # block completed - V3
+        # block completed - V4, including weekly bias terminology
         elif structure_name == "bullish_mixed_macro_decompression":
-            print("structure : bullish mixed macro decompression")
-            # this decompression arising from weak compression with sweep of ib18 low
-            # core pings:
-                # mini rocket to compression high ib1 high
-                # Flush from compression high sweep
-            bearish_expansion = newyork_context.structure["ib_direction_8"] == "bearish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-            bullish_expansion = newyork_context.structure["ib_direction_8"] == "bullish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-            range_day = False
-            
-            if not bearish_expansion and not bullish_expansion:
-                range_day = True
-            
-            if range_day:
-                print("range_day: check order of sweep of 1am IB.")
-                print("implement block later after capturing order of 1am IB sweeps")
-            rocket_triggered = newyork_context.execution_state["rocket_triggered"]
-            flush_triggered = newyork_context.execution_state["flush_triggered"]
-            if look_for_longs and allow_conflict_longs:
+            # ---------------------------------------------------------
+            # BULLISH MACRO DECOMPRESSION — LONG / ROCKET
+            # ---------------------------------------------------------
+
+            if (
+                look_for_longs
+                and allow_conflict_longs
+                and not rocket_triggered
+                and not flush_triggered
+            ):
                 if (
-                    bullish_expansion
-                    and not newyork_context.execution_state["rocket_triggered"]
-                    and not newyork_context.execution_state["flush_triggered"]
-                    and candidate.ob_level > newyork_context.ib_8["ce"]
-                ):
-                    reversal_confirmation = True
-                    candidate.ping_type = "Rocket"
-                    candidate.initial_target_price = newyork_context.ib_1["high"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bullish_atr_target_price
-                    newyork_context.execution_state["rocket_triggered"] = True
-                elif (
-                    is_atr_filter
+                    newyork_context.structure["ib_direction_8"] == "bullish"
+                    and newyork_context.structure["is_ib_strong_body"]
+                    and newyork_context.structure["ib_body_range"] > 0.5
                     and is_smt
                     and is_rejection
                     and is_displacement
-                    and not newyork_context.execution_state["rocket_triggered"]
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target_price = newyork_context.ib_8["high"]
-                    candidate.final_target = "LIQUIDITY"
-                    newyork_context.execution_state["rocket_triggered"] = True
-            
-            elif look_for_shorts and allow_conflict_shorts:
+                    candidate.initial_target_price = market_context.session_high
+
+                    if bullish_continuation:
+                        # IB8 direction agrees with weekly bias
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bullish_atr_target_price
+                        newyork_context.execution_state["rocket_triggered"] = True
+
+                    elif bearish_continuation:
+                        # IB8 direction is counter to weekly bias
+                        candidate.final_target = "LIQUIDITY"
+                        # candidate.final_target_price = weekly_context["weekly_open"]
+            # ---------------------------------------------------------
+            # BULLISH MACRO DECOMPRESSION — SHORT / FLUSH
+            # ---------------------------------------------------------
+
+            elif (
+                look_for_shorts
+                and allow_conflict_shorts
+                and not flush_triggered
+                and not rocket_triggered
+            ):
                 if (
-                    bearish_expansion
-                    and not newyork_context.execution_state["rocket_triggered"]
-                    and not newyork_context.execution_state["flush_triggered"]
-                    and candidate.ob_level < newyork_context.ib_8["ce"]
+                    newyork_context.structure["ib_direction_8"] == "bearish"
+                    and newyork_context.structure["is_ib_strong_body"]
+                    and newyork_context.structure["ib_body_range"] > 0.5
+                    and is_smt
+                    and is_rejection
+                    and is_displacement
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target_price = newyork_context.structure["range_low"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bearish_atr_target_price
-                    newyork_context.execution_state["flush_triggered"] = True
-                elif (
-                    is_atr_filter
-                    and is_smt
-                    and is_rejection
-                    and is_displacement
-                    and not newyork_context.execution_state["flush_triggered"]
-                ):
-                    reversal_confirmation = True
-                    candidate.ping_type = "Mini Flush"
-                    # candidate.initial_target_price = newyork_context.ib_8["low"]
-                    candidate.final_target = "LIQUIDITY"
-                    # newyork_context.execution_state["flush_triggered"] = True
-        # block completed - V3
+                    candidate.initial_target_price = market_context.session_low
+
+                    if bearish_continuation:
+                        # IB8 direction agrees with weekly bias
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bearish_atr_target_price
+                        newyork_context.execution_state["flush_triggered"] = True
+
+                    elif bullish_continuation:
+                        # IB8 direction is counter to weekly bias
+                        candidate.final_target = "LIQUIDITY"
+                        # candidate.final_target_price = weekly_context["weekly_open"]
+        
+        # block completed - V4, including weekly bias terminology
         elif structure_name == "bearish_mixed_macro_decompression":
-            print("structure : bearish mixed macro decompression")
-            # this decompression arising from weak compression with sweep of IB18 high
-            # core pings:
-                # mini flush to compression low ib1 low
-                # Rocket from compression low sweep
-            # same flow as bearish_macro_decompression
-            bearish_expansion = newyork_context.structure["ib_direction_8"] == "bearish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-            bullish_expansion = newyork_context.structure["ib_direction_8"] == "bullish" and newyork_context.structure["is_ib_strong_body"] and newyork_context.structure["ib_body_range"] > 0.5
-            range_day = False
-            
-            if not bearish_expansion and not bullish_expansion:
-                range_day = True
-            
-            if range_day:
-                print("range_day: check order of sweep of 1am IB.")
-                print("implement block later after capturing order of 1am IB sweeps")
-            rocket_triggered = newyork_context.execution_state["rocket_triggered"]
-            flush_triggered = newyork_context.execution_state["flush_triggered"]
-            if look_for_shorts and allow_conflict_shorts:
+            # ---------------------------------------------------------
+            # BEARISH MACRO DECOMPRESSION — SHORT / FLUSH
+            # ---------------------------------------------------------
+
+            if (
+                look_for_shorts
+                and allow_conflict_shorts
+                and not flush_triggered
+                and not rocket_triggered
+            ):
                 if (
-                    bearish_expansion
-                    and not newyork_context.execution_state["rocket_triggered"]
-                    and not newyork_context.execution_state["flush_triggered"]
-                    and candidate.ob_level < newyork_context.ib_8["ce"]
-                ):
-                    reversal_confirmation = True
-                    candidate.ping_type = "Flush"
-                    candidate.initial_target_price = newyork_context.ib_1["low"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bearish_atr_target_price
-                    newyork_context.execution_state["flush_triggered"] = True
-                elif (
-                    is_atr_filter
+                    newyork_context.structure["ib_direction_8"] == "bearish"
+                    and newyork_context.structure["is_ib_strong_body"]
+                    and newyork_context.structure["ib_body_range"] > 0.5
                     and is_smt
                     and is_rejection
                     and is_displacement
-                    and not newyork_context.execution_state["flush_triggered"]
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
-                    candidate.initial_target_price = newyork_context.ib_8["low"]
-                    candidate.final_target = "LIQUIDITY"
-                    newyork_context.execution_state["flush_triggered"] = True
-            
-            elif look_for_longs and allow_conflict_longs:
+                    candidate.initial_target_price = market_context.session_low
+
+                    if bearish_continuation:
+                        # IB8 direction agrees with weekly bias
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bearish_atr_target_price
+                        newyork_context.execution_state["flush_triggered"] = True
+
+                    elif bullish_continuation:
+                        # IB8 direction is counter to weekly bias
+                        candidate.final_target = "LIQUIDITY"
+                        # candidate.final_target_price = weekly_context["weekly_open"]
+
+            # ---------------------------------------------------------
+            # BEARISH MACRO DECOMPRESSION — LONG / ROCKET
+            # ---------------------------------------------------------
+
+            elif (
+                look_for_longs
+                and allow_conflict_longs
+                and not rocket_triggered
+                and not flush_triggered
+            ):
                 if (
-                    bullish_expansion
-                    and not newyork_context.execution_state["rocket_triggered"]
-                    and not newyork_context.execution_state["flush_triggered"]
-                    and candidate.ob_level > newyork_context.ib_8["ce"]
+                    newyork_context.structure["ib_direction_8"] == "bullish"
+                    and newyork_context.structure["is_ib_strong_body"]
+                    and newyork_context.structure["ib_body_range"] > 0.5
+                    and is_smt
+                    and is_rejection
+                    and is_displacement
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
-                    candidate.initial_target_price = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bullish_atr_target_price
-                    newyork_context.execution_state["rocket_triggered"] = True
-                elif (
-                    is_atr_filter
-                    and is_smt
-                    and is_rejection
-                    and is_displacement
-                    and not newyork_context.execution_state["rocket_triggered"]
-                ):
-                    reversal_confirmation = True
-                    candidate.ping_type = "Mini Rocket"
-                    # candidate.initial_target_price = newyork_context.ib_8["low"]
-                    candidate.final_target = "LIQUIDITY"
-                    # newyork_context.execution_state["flush_triggered"] = True
+                    candidate.initial_target_price = market_context.session_high
+
+                    if bullish_continuation:
+                        # IB8 direction agrees with weekly bias
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bullish_atr_target_price
+                        newyork_context.execution_state["rocket_triggered"] = True
+
+                    elif bearish_continuation:
+                        # IB8 direction is counter to weekly bias
+                        candidate.final_target = "LIQUIDITY"
+                        # candidate.final_target_price = weekly_context["weekly_open"]
 
         # ====================================
         # Set 3 Decompression Structures
