@@ -20,7 +20,7 @@ from helpers.swing_points import get_valid_swings
 from helpers.time_windows import get_active_window, is_blocked_time
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle, detect_9am_fvg
 from modules.ob_detector import detect_30m_order_block
-from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, summary_smt
+from modules.smt_detector import detect_30m_swing_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, detect_short_term_smt, summary_smt
 from modules.sweep_detector import detect_30m_and_key_level_sweep, detect_key_liquidity_sweep, update_sweep_info
 
 def update_weekly_1h_structure_abs(nq_weekly_state, nq_weekly_1h_candles, es_weekly_state, es_weekly_1h_candles, current_30m_start_utc):
@@ -375,7 +375,6 @@ def detect_ping(
         start=historical_start_utc,
         end=historical_end_utc,
     )
-    
     print("length: ", len(historical_nq))
     historical_es = candle_repo.get_between(
         contract=runtime.es_contract,
@@ -384,6 +383,10 @@ def detect_ping(
         end=historical_end_utc,
     )
     print("length es: ", len(historical_es))
+    previous_nq_30m_candle = historical_nq[-1]
+    previous_es_30m_candle = historical_es[-1]
+    previous_3_nq_30m_candles = historical_nq[-3:]
+    previous_3_es_30m_candles = historical_es[-3:]
     #  gather session liquidity
     # print("pdh xx: ", runtime.nq_pdh, runtime.nq_pdl)
     runtime.liquidity_nq = get_liquidity_values(symbol= runtime.nq_contract, candles_30m = historical_nq, test_date=None, liquidity_levels=runtime.liquidity_nq, current_start = current_30m_start, pdh = runtime.nq_pdh, pdl = runtime.nq_pdl)
@@ -1319,6 +1322,8 @@ def detect_ping(
         end=current_30m_start_utc,
         n=40,
     )
+    previous_2_nq_1h_candles = nq_1h_filtered[-2:]
+    previous_2_es_1h_candles = es_1h_filtered[-2:]
     nq_4h_filtered = candle_repo.get_last_n(
         contract=runtime.nq_contract,
         timeframe=240,
@@ -1388,7 +1393,28 @@ def detect_ping(
     )
     
     d1_bullish_smt, d1_bearish_smt = detect_daily_smt_precise(nq_1d_filtered, es_1d_filtered, {"session_high": runtime.nq_market_context.session_high, "session_low": runtime.nq_market_context.session_low}, {"session_high": runtime.es_market_context.session_high, "session_low": runtime.es_market_context.session_low})
-
+    
+    # short term smt detection
+    short_term_bullish_smt, short_term_bearish_smt = detect_short_term_smt(
+        nq_30m_swings_high= nq_valid_swing_highs,
+        nq_30m_swings_low= nq_valid_swing_lows,
+        es_30m_swings_high= es_valid_swing_highs,
+        es_30m_swings_low= es_valid_swing_lows,
+        nq_1h_swings_high= nq_valid_1h_swing_highs,
+        nq_1h_swings_low= nq_valid_1h_swing_lows,
+        es_1h_swings_high= es_valid_1h_swing_highs,
+        es_1h_swings_low= es_valid_1h_swing_lows,
+        previous_3_nq_30m_candle= previous_3_nq_30m_candles,
+        previous_3_es_30m_candle= previous_3_es_30m_candles,
+        previous_2_nq_1h_candle= previous_2_nq_1h_candles,
+        previous_2_es_1h_candle= previous_2_es_1h_candles,
+        current_nq_candle= last_closed_nq,
+        current_es_candle= last_closed_es,
+    )
+    
+    
+    runtime.smt_context["short_term_bullish"] = short_term_bullish_smt
+    runtime.smt_context["short_term_bearish"] = short_term_bearish_smt
     # smt summary
     summary_bullish_smt, summary_bearish_smt = summary_smt(h7_bullish_smt_liquidity, h7_bearish_smt_liquidity, h4_bullish_smt_liquidity, h4_bearish_smt_liquidity, h1_bullish_smt_liquidity, h1_bearish_smt_liquidity, h1_bullish_smt, h1_bearish_smt, key_level_bullish_smt_result, key_level_bearish_smt_result, bullish_30m_swing_smt, bearish_30m_swing_smt)
     # print for debug

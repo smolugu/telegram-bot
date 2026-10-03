@@ -27,6 +27,12 @@ class ProjectXREST:
         return self._token
     
     def _login(self):
+        print("ProjectX username:", self._username)
+        print("ProjectX API key present:", bool(self._api_key))
+        print(
+            "ProjectX API key length:",
+            len(self._api_key) if self._api_key else 0,
+        )
         response = self._session.post(
             f"{self._BASE_URL}/Auth/loginKey",
             json={
@@ -34,6 +40,8 @@ class ProjectXREST:
                 "apiKey": self._api_key,
             },
         )
+        print("ProjectX login HTTP status:", response.status_code)
+        print("ProjectX login response:", response.json())
         
 
         response.raise_for_status()

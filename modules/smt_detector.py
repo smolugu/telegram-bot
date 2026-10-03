@@ -244,10 +244,7 @@ def detect_htf_smt_liquidity(
     if buy_diff > 0:
         bearish_smt = {
             "type": "bearish_smt",
-            "sweeper": "es" if nq_sellside_remaining > es_sellside_remaining else "nq",
-            # "nq_level_price": nq_high["high"],
-            # "es_level_price": es_high["high"],
-            # "level_ts": nq_high["timestamp"]
+            "sweeper": "es" if nq_buyside_remaining > es_buyside_remaining else "nq",
         }
     if sell_diff > 0:
         bullish_smt = {
@@ -601,23 +598,38 @@ def detect_30m_swing_smt(
     bullish_smt = None
     bearish_smt = None
     
+    # def find_matching_swing_old(target_ts, swings):
+    #     for s in swings:
+    #         # dt_target = datetime.fromisoformat(target_ts)
+    #         dt_target = None
+    #         if isinstance(target_ts, str):
+    #             dt_target = datetime.fromisoformat(target_ts)
+    #         else:
+    #             dt_target = target_ts
+    #         # dt = datetime.fromisoformat(s.timestamp)
+    #         dt=None
+    #         if isinstance(s.timestamp, str):
+    #             dt = datetime.fromisoformat(s.timestamp)
+    #         else:
+    #             dt = s.timestamp
+    #         # if abs(s["timestamp"] - target_ts) <= time_tolerance:
+    #         if dt_target.hour == dt.hour and dt_target.minute == dt.minute:
+    #             return s
+    #     return None
+    
     def find_matching_swing(target_ts, swings):
+        if isinstance(target_ts, str):
+            target_ts = datetime.fromisoformat(target_ts)
+
         for s in swings:
-            # dt_target = datetime.fromisoformat(target_ts)
-            dt_target = None
-            if isinstance(target_ts, str):
-                dt_target = datetime.fromisoformat(target_ts)
-            else:
-                dt_target = target_ts
-            # dt = datetime.fromisoformat(s.timestamp)
-            dt=None
-            if isinstance(s.timestamp, str):
-                dt = datetime.fromisoformat(s.timestamp)
-            else:
-                dt = s.timestamp
-            # if abs(s["timestamp"] - target_ts) <= time_tolerance:
-            if dt_target.hour == dt.hour and dt_target.minute == dt.minute:
+            dt = s.timestamp
+
+            if isinstance(dt, str):
+                dt = datetime.fromisoformat(dt)
+
+            if abs(dt - target_ts) <= time_tolerance:
                 return s
+
         return None
 
     # -------------------------
@@ -819,3 +831,217 @@ def summary_smt(h7_bullish_smt_liquidity, h7_bearish_smt_liquidity, h4_bullish_s
         "bearish_smt_7h_liquidity": h7_bearish_smt_liquidity,
         "bearish_smt_30m_swing": bearish_30m_swing_smt,
         "bearish_smt_key_level": key_level_bearish_smt_result}
+
+# updated new smt functions - October 3, 2026
+def get_latest_valid_swing(swings):
+    if not swings:
+        return None
+
+    return max(
+        swings,
+        key=lambda s: s.timestamp
+    )
+
+def detect_short_term_smt(
+    nq_30m_swings_high,
+    nq_30m_swings_low,
+    es_30m_swings_high,
+    es_30m_swings_low,
+    nq_1h_swings_high,
+    nq_1h_swings_low,
+    es_1h_swings_high,
+    es_1h_swings_low,
+    previous_3_nq_30m_candles,
+    previous_3_es_30m_candles,
+    previous_2_nq_1h_candles,
+    previous_2_es_1h_candles,
+    current_nq_candle,
+    current_es_candle,
+):
+    bullish_smt = []
+    bearish_smt = []
+    
+    # ---------------------------------------------------------
+    # Most recent valid swings
+    # ---------------------------------------------------------
+
+    nq_30m_high = get_latest_valid_swing(nq_30m_swings_high)
+    nq_30m_low = get_latest_valid_swing(nq_30m_swings_low)
+
+    es_30m_high = get_latest_valid_swing(es_30m_swings_high)
+    es_30m_low = get_latest_valid_swing(es_30m_swings_low)
+
+    nq_1h_high = get_latest_valid_swing(nq_1h_swings_high)
+    nq_1h_low = get_latest_valid_swing(nq_1h_swings_low)
+
+    es_1h_high = get_latest_valid_swing(es_1h_swings_high)
+    es_1h_low = get_latest_valid_swing(es_1h_swings_low)
+
+    # ---------------------------------------------------------
+    # Bearish SMT — 30m swing
+    # ---------------------------------------------------------
+
+    if nq_30m_high and es_30m_high:
+
+        nq_swept = current_nq_candle.high > nq_30m_high.high
+        es_swept = current_es_candle.high > es_30m_high.high
+
+        if nq_swept != es_swept:
+            bearish_smt.append({
+                "type": "bearish_smt",
+                "source": "30m_swing",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_level_price": nq_30m_high.high,
+                "es_level_price": es_30m_high.high,
+                "level_timestamp": nq_30m_high.timestamp,
+                "sweep_timestamp": current_nq_candle.timestamp,
+            }) 
+            
+
+    # ---------------------------------------------------------
+    # Bullish SMT — 30m swing
+    # ---------------------------------------------------------
+
+    if nq_30m_low and es_30m_low:
+
+        nq_swept = current_nq_candle.low < nq_30m_low.low
+        es_swept = current_es_candle.low < es_30m_low.low
+
+        if nq_swept != es_swept:
+            bullish_smt.append({
+                "type": "bullish_smt",
+                "source": "30m_swing",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_level_price": nq_30m_low.low,
+                "es_level_price": es_30m_low.low,
+                "level_timestamp": nq_30m_low.timestamp,
+                "sweep_timestamp": current_nq_candle.timestamp,
+            }) 
+            
+
+    # ---------------------------------------------------------
+    # Bearish SMT — 1h swing
+    # ---------------------------------------------------------
+
+    if nq_1h_high and es_1h_high:
+
+        nq_swept = current_nq_candle.high > nq_1h_high.high
+        es_swept = current_es_candle.high > es_1h_high.high
+
+        if nq_swept != es_swept:
+            bearish_smt.append({
+                "type": "bearish_smt",
+                "source": "1h_swing",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_level_price": nq_1h_high.high,
+                "es_level_price": es_1h_high.high,
+                "level_timestamp": nq_1h_high.timestamp,
+                "sweep_timestamp": current_nq_candle.timestamp,
+            })
+            
+    # ---------------------------------------------------------
+    # Bullish SMT — 1h swing
+    # ---------------------------------------------------------
+
+    if nq_1h_low and es_1h_low:
+
+        nq_swept = current_nq_candle.low < nq_1h_low.low
+        es_swept = current_es_candle.low < es_1h_low.low
+
+        if nq_swept != es_swept:
+            bullish_smt.append({
+                "type": "bullish_smt",
+                "source": "1h_swing",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_level_price": nq_1h_low.low,
+                "es_level_price": es_1h_low.low,
+                "level_timestamp": nq_1h_low.timestamp,
+                "sweep_timestamp": current_nq_candle.timestamp,
+            })
+            
+    # ---------------------------------------------------------
+    # Bearish SMT — previous 3 30m candle extreme
+    # ---------------------------------------------------------
+
+    for previous_nq_30m_candle, previous_es_30m_candle in zip(
+        previous_3_nq_30m_candles,
+        previous_3_es_30m_candles
+    ):
+        # Bearish SMT: one asset sweeps the previous high, the other does not
+        nq_swept = current_nq_candle.high > previous_nq_30m_candle.high
+        es_swept = current_es_candle.high > previous_es_30m_candle.high
+
+        if nq_swept != es_swept:
+            bearish_smt.append({
+                "type": "bearish_smt",
+                "source": "30m_extreme",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_level_price": previous_nq_30m_candle.high,
+                "es_level_price": previous_es_30m_candle.high,
+                "level_timestamp": previous_nq_30m_candle.timestamp,
+                "sweep_timestamp": current_nq_candle.timestamp,
+            })
+
+        # Bullish SMT: one asset sweeps the previous low, the other does not
+        nq_swept = current_nq_candle.low < previous_nq_30m_candle.low
+        es_swept = current_es_candle.low < previous_es_30m_candle.low
+
+        if nq_swept != es_swept:
+            bullish_smt.append({
+                "type": "bullish_smt",
+                "source": "30m_extreme",
+                "sweeper": "nq" if nq_swept else "es",
+                "nq_level_price": previous_nq_30m_candle.low,
+                "es_level_price": previous_es_30m_candle.low,
+                "level_timestamp": previous_nq_30m_candle.timestamp,
+                "sweep_timestamp": current_nq_candle.timestamp,
+            })
+
+    # ---------------------------------------------------------
+    # Bearish SMT — previous 1h candle extreme
+    # ---------------------------------------------------------
+    # 1h candles
+    recent_nq_1h = previous_2_nq_1h_candles[-1]
+    prior_nq_1h = previous_2_nq_1h_candles[-2]
+
+    recent_es_1h = previous_2_es_1h_candles[-1]
+    prior_es_1h = previous_2_es_1h_candles[-2]
+
+    # 1H extreme SMT
+    #
+    # Compare the most recent completed 1H candle
+    # against the immediately preceding completed 1H candle.
+    # This deliberately avoids the currently forming 1H candle.
+
+    # Bearish SMT
+    nq_swept = recent_nq_1h.high > prior_nq_1h.high
+    es_swept = recent_es_1h.high > prior_es_1h.high
+
+    if nq_swept != es_swept:
+        bearish_smt.append({
+            "type": "bearish_smt",
+            "source": "1h_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": prior_nq_1h.high,
+            "es_level_price": prior_es_1h.high,
+            "level_timestamp": prior_nq_1h.timestamp,
+            "sweep_timestamp": recent_nq_1h.timestamp,
+        })
+
+
+    # Bullish SMT
+    nq_swept = recent_nq_1h.low < prior_nq_1h.low
+    es_swept = recent_es_1h.low < prior_es_1h.low
+
+    if nq_swept != es_swept:
+        bullish_smt.append({
+            "type": "bullish_smt",
+            "source": "1h_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": prior_nq_1h.low,
+            "es_level_price": prior_es_1h.low,
+            "level_timestamp": prior_nq_1h.timestamp,
+            "sweep_timestamp": recent_nq_1h.timestamp,
+        })
+
+    return bullish_smt, bearish_smt

@@ -126,8 +126,8 @@ class ProjectXFuturesProvider(FuturesProvider):
 
         # result = self._rest.validate_session()
         # print(result)
-        account_result = self._rest.search_accounts()
-        print("account result:", account_result)
+        # account_result = self._rest.search_accounts()
+        # print("account result:", account_result)
 
         result = self._rest.available_contracts(live=False)
 

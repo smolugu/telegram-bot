@@ -20,6 +20,13 @@ class PingRuntime:
         self.nq_ny_market_context = None
         self.es_ny_market_context = None
 
+        self.smt_context = {
+            "short_term_bullish": [],
+            "short_term_bearish": [],
+            "long_term_bullish": [],
+            "long_term_bearish": [],
+        }
+
         # Weekly state
         self.nq_weekly_state = None
         self.es_weekly_state = None
