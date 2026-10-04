@@ -199,8 +199,9 @@ def detect_htf_smt_precise(
 def detect_htf_smt_liquidity(
     nq_candles,
     es_candles,
+    source,
     lookback=30,
-    time_tolerance=timedelta(minutes=5)
+    time_tolerance=timedelta(minutes=5),
 ):
     bearish_smt = None
     bullish_smt = None
@@ -439,6 +440,7 @@ def detect_smt_key_levels(nq_swept, es_swept):
                 results.append({
                     "type": "bullish_smt",
                     "sweeper": "nq",
+                    "source": "key_level",
                     "level": level,
                     "details": nq_lvl
                 })
@@ -447,6 +449,7 @@ def detect_smt_key_levels(nq_swept, es_swept):
                 results.append({
                     "type": "bearish_smt",
                     "sweeper": "nq",
+                    "source": "key_level",
                     "level": level,
                     "details": nq_lvl
                 })
@@ -460,6 +463,7 @@ def detect_smt_key_levels(nq_swept, es_swept):
                 results.append({
                     "type": "bullish_smt",
                     "sweeper": "es",
+                    "source": "key_level",
                     "level": level,
                     "details": es_lvl
                 })
@@ -468,6 +472,7 @@ def detect_smt_key_levels(nq_swept, es_swept):
                 results.append({
                     "type": "bearish_smt",
                     "sweeper": "es",
+                    "source": "key_level",
                     "level": level,
                     "details": es_lvl
                 })
@@ -507,6 +512,7 @@ def detect_bearish_smt_key_levels(nq_swept, es_swept):
                 results.append({
                     "type": "bearish_smt",
                     "sweeper": "nq",
+                    "source": "key_level",
                     "level": level,
                     "details": nq_lvl
                 })
@@ -519,6 +525,7 @@ def detect_bearish_smt_key_levels(nq_swept, es_swept):
             if es_lvl["side"] == "buy_side":
                 results.append({
                     "type": "bearish_smt",
+                    "source": "key_level",
                     "sweeper": "es",
                     "level": level,
                     "details": es_lvl
@@ -558,6 +565,7 @@ def detect_bullish_smt_key_levels(nq_swept, es_swept):
             if nq_lvl["side"] == "sell_side":
                 results.append({
                     "type": "bullish_smt",
+                    "source": "key_level",
                     "sweeper": "nq",
                     "level": level,
                     "details": nq_lvl
@@ -571,6 +579,7 @@ def detect_bullish_smt_key_levels(nq_swept, es_swept):
             if es_lvl["side"] == "sell_side":
                 results.append({
                     "type": "bullish_smt",
+                    "source": "key_level",
                     "sweeper": "es",
                     "level": level,
                     "details": es_lvl
@@ -1045,3 +1054,737 @@ def detect_short_term_smt(
         })
 
     return bullish_smt, bearish_smt
+
+
+def detect_4h_smt(
+    previous_2_nq_4h_candles,
+    previous_2_es_4h_candles,
+):
+    bullish_smt = None
+    bearish_smt = None
+
+    previous_nq_4h = previous_2_nq_4h_candles[-2]
+    recent_nq_4h = previous_2_nq_4h_candles[-1]
+
+    previous_es_4h = previous_2_es_4h_candles[-2]
+    recent_es_4h = previous_2_es_4h_candles[-1]
+
+    # Bearish SMT
+    nq_swept = recent_nq_4h.high > previous_nq_4h.high
+    es_swept = recent_es_4h.high > previous_es_4h.high
+
+    if nq_swept != es_swept:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "source": "4h_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_4h.high,
+            "es_level_price": previous_es_4h.high,
+            "level_timestamp": previous_nq_4h.timestamp,
+            "sweep_timestamp": recent_nq_4h.timestamp,
+        }
+
+    # Bullish SMT
+    nq_swept = recent_nq_4h.low < previous_nq_4h.low
+    es_swept = recent_es_4h.low < previous_es_4h.low
+
+    if nq_swept != es_swept:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "source": "4h_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_4h.low,
+            "es_level_price": previous_es_4h.low,
+            "level_timestamp": previous_nq_4h.timestamp,
+            "sweep_timestamp": recent_nq_4h.timestamp,
+        }
+
+    return bullish_smt, bearish_smt
+
+def detect_7h_smt(
+    previous_2_nq_7h_candles,
+    previous_2_es_7h_candles,
+):
+    bullish_smt = None
+    bearish_smt = None
+
+    previous_nq_7h = previous_2_nq_7h_candles[-2]
+    recent_nq_7h = previous_2_nq_7h_candles[-1]
+
+    previous_es_7h = previous_2_es_7h_candles[-2]
+    recent_es_7h = previous_2_es_7h_candles[-1]
+
+    # Bearish SMT
+    nq_swept = recent_nq_7h.high > previous_nq_7h.high
+    es_swept = recent_es_7h.high > previous_es_7h.high
+
+    if nq_swept != es_swept:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "source": "7h_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_7h.high,
+            "es_level_price": previous_es_7h.high,
+            "level_timestamp": previous_nq_7h.timestamp,
+            "sweep_timestamp": recent_nq_7h.timestamp,
+        }
+
+    # Bullish SMT
+    nq_swept = recent_nq_7h.low < previous_nq_7h.low
+    es_swept = recent_es_7h.low < previous_es_7h.low
+
+    if nq_swept != es_swept:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "source": "7h_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_7h.low,
+            "es_level_price": previous_es_7h.low,
+            "level_timestamp": previous_nq_7h.timestamp,
+            "sweep_timestamp": recent_nq_7h.timestamp,
+        }
+
+    return bullish_smt, bearish_smt
+
+def detect_daily_smt(
+    previous_2_nq_daily_candles,
+    previous_2_es_daily_candles,
+):
+    bullish_smt = None
+    bearish_smt = None
+
+    previous_nq_daily = previous_2_nq_daily_candles[-2]
+    recent_nq_daily = previous_2_nq_daily_candles[-1]
+
+    previous_es_daily = previous_2_es_daily_candles[-2]
+    recent_es_daily = previous_2_es_daily_candles[-1]
+
+    # Bearish SMT
+    nq_swept = recent_nq_daily.high > previous_nq_daily.high
+    es_swept = recent_es_daily.high > previous_es_daily.high
+
+    if nq_swept != es_swept:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "source": "daily_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_daily.high,
+            "es_level_price": previous_es_daily.high,
+            "level_timestamp": previous_nq_daily.timestamp,
+            "sweep_timestamp": recent_nq_daily.timestamp,
+        }
+
+    # Bullish SMT
+    nq_swept = recent_nq_daily.low < previous_nq_daily.low
+    es_swept = recent_es_daily.low < previous_es_daily.low
+
+    if nq_swept != es_swept:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "source": "daily_extreme",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_daily.low,
+            "es_level_price": previous_es_daily.low,
+            "level_timestamp": previous_nq_daily.timestamp,
+            "sweep_timestamp": recent_nq_daily.timestamp,
+        }
+
+    return bullish_smt, bearish_smt
+
+def detect_current_4h_smt(
+    historical_nq_30m,
+    historical_es_30m,
+    previous_nq_4h,
+    previous_es_4h,
+):
+    # historical_nq_30m -> last 10 30m candles
+    bullish_smt = None
+    bearish_smt = None
+
+    if not historical_nq_30m or not historical_es_30m:
+        return bullish_smt, bearish_smt
+
+    FOUR_H_START_HOURS = [22, 2, 6, 10, 14, 18]
+
+    latest_nq_30m = historical_nq_30m[-1]
+    latest_es_30m = historical_es_30m[-1]
+
+    # --------------------------------------------------
+    # Determine current 4H window start
+    # --------------------------------------------------
+    current_hour = latest_nq_30m.timestamp.hour
+
+    valid_start_hours = [
+        hour
+        for hour in FOUR_H_START_HOURS
+        if hour <= current_hour
+    ]
+
+    if valid_start_hours:
+        current_4h_start_hour = max(valid_start_hours)
+        current_4h_start = latest_nq_30m.timestamp.replace(
+            hour=current_4h_start_hour,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    else:
+        # Current time is between midnight and 01:59,
+        # so the current 4H candle started at 22:00 yesterday.
+        current_4h_start = (
+            latest_nq_30m.timestamp.replace(
+                hour=22,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            - timedelta(days=1)
+        )
+
+    current_4h_end = current_4h_start + timedelta(hours=4)
+
+    # --------------------------------------------------
+    # Filter available 30m candles to current 4H window
+    # --------------------------------------------------
+    current_nq_4h_candles = [
+        candle
+        for candle in historical_nq_30m[-10:]
+        if current_4h_start <= candle.timestamp < current_4h_end
+    ]
+
+    current_es_4h_candles = [
+        candle
+        for candle in historical_es_30m[-10:]
+        if current_4h_start <= candle.timestamp < current_4h_end
+    ]
+
+    if not current_nq_4h_candles or not current_es_4h_candles:
+        return bullish_smt, bearish_smt
+
+    # --------------------------------------------------
+    # Current developing 4H extremes
+    # --------------------------------------------------
+    current_nq_4h_high = max(
+        candle.high for candle in current_nq_4h_candles
+    )
+    current_nq_4h_low = min(
+        candle.low for candle in current_nq_4h_candles
+    )
+
+    current_es_4h_high = max(
+        candle.high for candle in current_es_4h_candles
+    )
+    current_es_4h_low = min(
+        candle.low for candle in current_es_4h_candles
+    )
+
+    # --------------------------------------------------
+    # Bearish SMT
+    # --------------------------------------------------
+    nq_swept = current_nq_4h_high > previous_nq_4h.high
+    es_swept = current_es_4h_high > previous_es_4h.high
+
+    if nq_swept != es_swept:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "source": "4h_current",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_4h.high,
+            "es_level_price": previous_es_4h.high,
+            "level_timestamp": previous_nq_4h.timestamp,
+            "sweep_timestamp": (
+                latest_nq_30m.timestamp
+                if nq_swept
+                else latest_es_30m.timestamp
+            ),
+        }
+
+    # --------------------------------------------------
+    # Bullish SMT
+    # --------------------------------------------------
+    nq_swept = current_nq_4h_low < previous_nq_4h.low
+    es_swept = current_es_4h_low < previous_es_4h.low
+
+    if nq_swept != es_swept:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "source": "4h_current",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_4h.low,
+            "es_level_price": previous_es_4h.low,
+            "level_timestamp": previous_nq_4h.timestamp,
+            "sweep_timestamp": (
+                latest_nq_30m.timestamp
+                if nq_swept
+                else latest_es_30m.timestamp
+            ),
+        }
+
+    return bullish_smt, bearish_smt
+
+
+
+def detect_current_7h_smt(
+    historical_nq_30m,
+    historical_es_30m,
+    previous_nq_7h,
+    previous_es_7h,
+    last_closed_nq_30m_candle,
+    last_closed_es_30m_candle
+):
+    # historical_nq_30m candles -> last 16 30m candles
+    bullish_smt = None
+    bearish_smt = None
+
+    if not historical_nq_30m or not historical_es_30m:
+        return bullish_smt, bearish_smt
+    nq_30m_candles = historical_nq_30m + [last_closed_nq_30m_candle]
+    es_30m_candles = historical_es_30m + [last_closed_es_30m_candle]
+
+    SEVEN_H_START_HOURS = [1, 8, 15, 18]
+
+    # --------------------------------------------------
+    # Determine current 7H window start
+    # --------------------------------------------------
+    current_hour = last_closed_nq_30m_candle.timestamp.hour
+
+    valid_start_hours = [
+        hour
+        for hour in SEVEN_H_START_HOURS
+        if hour <= current_hour
+    ]
+
+    if valid_start_hours:
+        current_7h_start_hour = max(valid_start_hours)
+        current_7h_start = last_closed_nq_30m_candle.timestamp.replace(
+            hour=current_7h_start_hour,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    else:
+        # Current time is between midnight and 00:59,
+        # so the current 7h candle started at 18:00 yesterday.
+        current_7h_start = (
+            last_closed_nq_30m_candle.timestamp.replace(
+                hour=18,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            - timedelta(days=1)
+        )
+
+    current_7h_end = current_7h_start + timedelta(hours=7)
+
+    # --------------------------------------------------
+    # Filter available 30m candles to current 7H window
+    # --------------------------------------------------
+    current_nq_7h_candles = [
+        candle
+        for candle in nq_30m_candles
+        if current_7h_start <= candle.timestamp < current_7h_end
+    ]
+
+    current_es_7h_candles = [
+        candle
+        for candle in es_30m_candles
+        if current_7h_start <= candle.timestamp < current_7h_end
+    ]
+
+    if not current_nq_7h_candles or not current_es_7h_candles:
+        return bullish_smt, bearish_smt
+
+    # --------------------------------------------------
+    # Current developing 7H extremes
+    # --------------------------------------------------
+    current_nq_7h_high = max(
+        candle.high for candle in current_nq_7h_candles
+    )
+    current_nq_7h_low = min(
+        candle.low for candle in current_nq_7h_candles
+    )
+
+    current_es_7h_high = max(
+        candle.high for candle in current_es_7h_candles
+    )
+    current_es_7h_low = min(
+        candle.low for candle in current_es_7h_candles
+    )
+
+    # --------------------------------------------------
+    # Bearish SMT
+    # --------------------------------------------------
+    nq_swept = current_nq_7h_high > previous_nq_7h.high
+    es_swept = current_es_7h_high > previous_es_7h.high
+
+    if nq_swept != es_swept:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "source": "7h_current",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_7h.high,
+            "es_level_price": previous_es_7h.high,
+            "level_timestamp": previous_nq_7h.timestamp,
+            "sweep_timestamp": (
+                last_closed_nq_30m_candle.timestamp
+                if nq_swept
+                else last_closed_es_30m_candle.timestamp
+            ),
+        }
+
+    # --------------------------------------------------
+    # Bullish SMT
+    # --------------------------------------------------
+    nq_swept = current_nq_7h_low < previous_nq_7h.low
+    es_swept = current_es_7h_low < previous_es_7h.low
+
+    if nq_swept != es_swept:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "source": "7h_current",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": previous_nq_7h.low,
+            "es_level_price": previous_es_7h.low,
+            "level_timestamp": previous_nq_7h.timestamp,
+            "sweep_timestamp": (
+                last_closed_nq_30m_candle.timestamp
+                if nq_swept
+                else last_closed_es_30m_candle.timestamp
+            ),
+        }
+
+    return bullish_smt, bearish_smt
+
+
+def detect_current_day_smt(
+    current_nq_day_high,
+    current_es_day_high,
+    current_nq_day_low,
+    current_es_day_low,
+    nq_pdh,
+    es_pdh,
+    nq_pdl,
+    es_pdl,
+    current_timestamp,
+):
+    bullish_smt = None
+    bearish_smt = None
+
+    # --------------------------------------------------
+    # Bearish SMT
+    # Current day takes previous day's high
+    # on one market but not the other
+    # --------------------------------------------------
+
+    nq_swept = current_nq_day_high > nq_pdh
+    es_swept = current_es_day_high > es_pdh
+
+    if nq_swept != es_swept:
+        bearish_smt = {
+            "type": "bearish_smt",
+            "source": "daily_current",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": nq_pdh,
+            "es_level_price": es_pdh,
+            "level_timestamp": None,
+            "sweep_timestamp": current_timestamp,
+        }
+
+    # --------------------------------------------------
+    # Bullish SMT
+    # Current day takes previous day's low
+    # on one market but not the other
+    # --------------------------------------------------
+
+    nq_swept = current_nq_day_low < nq_pdl
+    es_swept = current_es_day_low < es_pdl
+
+    if nq_swept != es_swept:
+        bullish_smt = {
+            "type": "bullish_smt",
+            "source": "daily_current",
+            "sweeper": "nq" if nq_swept else "es",
+            "nq_level_price": nq_pdl,
+            "es_level_price": es_pdl,
+            "level_timestamp": None,
+            "sweep_timestamp": current_timestamp,
+        }
+
+    return bullish_smt, bearish_smt
+
+
+def update_smt_context(
+    runtime,
+    last_closed_es,
+    last_closed_nq,
+):
+    """
+    Validate previously completed HTF SMT.
+
+    Completed HTF SMT is valid until the non-sweeper subsequently
+    sweeps the same HTF level.
+
+    This function validates:
+        - 4h_previous_bullish
+        - 4h_previous_bearish
+        - daily_previous_bullish
+        - daily_previous_bearish
+
+    Failed SMT is removed from context by setting it to None.
+    """
+
+    smt_context = runtime.smt_context
+
+    # ============================================================
+    # 4H PREVIOUS BEARISH SMT
+    # ============================================================
+
+    smt = smt_context.get("4h_previous_bearish")
+
+    if smt is not None:
+
+        sweep_timestamp = smt.get("sweep_timestamp")
+        sweeper = smt.get("sweeper")
+
+        # NQ originally swept the previous 4H high.
+        # SMT fails if ES subsequently sweeps its corresponding level.
+        if sweeper == "nq":
+
+            if (
+                last_closed_es.timestamp > sweep_timestamp
+                and last_closed_es.high > smt["es_level_price"]
+            ):
+                print(
+                    "4H previous bearish SMT invalidated: "
+                    "ES swept the previous 4H high after NQ."
+                )
+
+                smt_context["4h_previous_bearish"] = None
+
+        # ES originally swept the previous 4H high.
+        # SMT fails if NQ subsequently sweeps its corresponding level.
+        elif sweeper == "es":
+
+            if (
+                last_closed_nq.timestamp > sweep_timestamp
+                and last_closed_nq.high > smt["nq_level_price"]
+            ):
+                print(
+                    "4H previous bearish SMT invalidated: "
+                    "NQ swept the previous 4H high after ES."
+                )
+
+                smt_context["4h_previous_bearish"] = None
+
+
+    # ============================================================
+    # 4H PREVIOUS BULLISH SMT
+    # ============================================================
+
+    smt = smt_context.get("4h_previous_bullish")
+
+    if smt is not None:
+
+        sweep_timestamp = smt.get("sweep_timestamp")
+        sweeper = smt.get("sweeper")
+
+        # NQ originally swept the previous 4H low.
+        # SMT fails if ES subsequently sweeps its corresponding level.
+        if sweeper == "nq":
+
+            if (
+                last_closed_es.timestamp > sweep_timestamp
+                and last_closed_es.low < smt["es_level_price"]
+            ):
+                print(
+                    "4H previous bullish SMT invalidated: "
+                    "ES swept the previous 4H low after NQ."
+                )
+
+                smt_context["4h_previous_bullish"] = None
+
+        # ES originally swept the previous 4H low.
+        # SMT fails if NQ subsequently sweeps its corresponding level.
+        elif sweeper == "es":
+
+            if (
+                last_closed_nq.timestamp > sweep_timestamp
+                and last_closed_nq.low < smt["nq_level_price"]
+            ):
+                print(
+                    "4H previous bullish SMT invalidated: "
+                    "NQ swept the previous 4H low after ES."
+                )
+
+                smt_context["4h_previous_bullish"] = None
+    
+
+    # ============================================================
+    # 7H PREVIOUS BEARISH SMT
+    # ============================================================
+
+    smt = smt_context.get("7h_previous_bearish")
+
+    if smt is not None:
+
+        sweep_timestamp = smt.get("sweep_timestamp")
+        sweeper = smt.get("sweeper")
+
+        # NQ originally swept the previous 7H high.
+        # SMT fails if ES subsequently sweeps its corresponding level.
+        if sweeper == "nq":
+
+            if (
+                last_closed_es.timestamp > sweep_timestamp
+                and last_closed_es.high > smt["es_level_price"]
+            ):
+                print(
+                    "7H previous bearish SMT invalidated: "
+                    "ES swept the previous 7H high after NQ."
+                )
+
+                smt_context["7h_previous_bearish"] = None
+
+        # ES originally swept the previous 7H high.
+        # SMT fails if NQ subsequently sweeps its corresponding level.
+        elif sweeper == "es":
+
+            if (
+                last_closed_nq.timestamp > sweep_timestamp
+                and last_closed_nq.high > smt["nq_level_price"]
+            ):
+                print(
+                    "7H previous bearish SMT invalidated: "
+                    "NQ swept the previous 7H high after ES."
+                )
+
+                smt_context["7h_previous_bearish"] = None
+
+
+    # ============================================================
+    # 7H PREVIOUS BULLISH SMT
+    # ============================================================
+
+    smt = smt_context.get("7h_previous_bullish")
+
+    if smt is not None:
+
+        sweep_timestamp = smt.get("sweep_timestamp")
+        sweeper = smt.get("sweeper")
+
+        # NQ originally swept the previous 7H low.
+        # SMT fails if ES subsequently sweeps its corresponding level.
+        if sweeper == "nq":
+
+            if (
+                last_closed_es.timestamp > sweep_timestamp
+                and last_closed_es.low < smt["es_level_price"]
+            ):
+                print(
+                    "7H previous bullish SMT invalidated: "
+                    "ES swept the previous 7H low after NQ."
+                )
+
+                smt_context["7h_previous_bullish"] = None
+
+        # ES originally swept the previous 7H low.
+        # SMT fails if NQ subsequently sweeps its corresponding level.
+        elif sweeper == "es":
+
+            if (
+                last_closed_nq.timestamp > sweep_timestamp
+                and last_closed_nq.low < smt["nq_level_price"]
+            ):
+                print(
+                    "7H previous bullish SMT invalidated: "
+                    "NQ swept the previous 7H low after ES."
+                )
+
+                smt_context["7h_previous_bullish"] = None
+    
+    
+
+
+    # ============================================================
+    # DAILY PREVIOUS BEARISH SMT
+    # ============================================================
+
+    smt = smt_context.get("daily_previous_bearish")
+
+    if smt is not None:
+
+        sweep_timestamp = smt.get("sweep_timestamp")
+        sweeper = smt.get("sweeper")
+
+        # NQ originally swept the previous daily high.
+        # SMT fails if ES subsequently sweeps its corresponding level.
+        if sweeper == "nq":
+
+            if (
+                last_closed_es.timestamp > sweep_timestamp
+                and last_closed_es.high > smt["es_level_price"]
+            ):
+                print(
+                    "Daily previous bearish SMT invalidated: "
+                    "ES swept the previous daily high after NQ."
+                )
+
+                smt_context["daily_previous_bearish"] = None
+
+        # ES originally swept the previous daily high.
+        # SMT fails if NQ subsequently sweeps its corresponding level.
+        elif sweeper == "es":
+
+            if (
+                last_closed_nq.timestamp > sweep_timestamp
+                and last_closed_nq.high > smt["nq_level_price"]
+            ):
+                print(
+                    "Daily previous bearish SMT invalidated: "
+                    "NQ swept the previous daily high after ES."
+                )
+
+                smt_context["daily_previous_bearish"] = None
+
+
+    # ============================================================
+    # DAILY PREVIOUS BULLISH SMT
+    # ============================================================
+
+    smt = smt_context.get("daily_previous_bullish")
+
+    if smt is not None:
+
+        sweep_timestamp = smt.get("sweep_timestamp")
+        sweeper = smt.get("sweeper")
+
+        # NQ originally swept the previous daily low.
+        # SMT fails if ES subsequently sweeps its corresponding level.
+        if sweeper == "nq":
+
+            if (
+                last_closed_es.timestamp > sweep_timestamp
+                and last_closed_es.low < smt["es_level_price"]
+            ):
+                print(
+                    "Daily previous bullish SMT invalidated: "
+                    "ES swept the previous daily low after NQ."
+                )
+
+                smt_context["daily_previous_bullish"] = None
+
+        # ES originally swept the previous daily low.
+        # SMT fails if NQ subsequently sweeps its corresponding level.
+        elif sweeper == "es":
+
+            if (
+                last_closed_nq.timestamp > sweep_timestamp
+                and last_closed_nq.low < smt["nq_level_price"]
+            ):
+                print(
+                    "Daily previous bullish SMT invalidated: "
+                    "NQ swept the previous daily low after ES."
+                )
+
+                smt_context["daily_previous_bullish"] = None

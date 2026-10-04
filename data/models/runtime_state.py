@@ -21,10 +21,53 @@ class PingRuntime:
         self.es_ny_market_context = None
 
         self.smt_context = {
+            # --------------------------------
+            # Short-term / timing SMT
+            # --------------------------------
             "short_term_bullish": [],
             "short_term_bearish": [],
+
+            # --------------------------------
+            # HTF liquidity SMT
+            # --------------------------------
+            "1h_htf_bullish": None,
+            "1h_htf_bearish": None,
+
+            "4h_htf_bullish": None,
+            "4h_htf_bearish": None,
+            
+            "7h_htf_bullish": None,
+            "7h_htf_bearish": None,
+
             "long_term_bullish": [],
             "long_term_bearish": [],
+
+            # --------------------------------
+            # Completed HTF candle SMT
+            # --------------------------------
+
+            "4h_previous_bullish": None,
+            "4h_previous_bearish": None,
+
+            "7h_previous_bullish": None,
+            "7h_previous_bearish": None,
+
+            "daily_previous_bullish": None,
+            "daily_previous_bearish": None,
+
+            
+            # --------------------------------
+            # Current / developing HTF SMT
+            # --------------------------------
+            "4h_current_bullish": None,
+            "4h_current_bearish": None,
+
+            "7h_current_bullish": None,
+            "7h_current_bearish": None,
+
+            "daily_current_bullish": None,
+            "daily_current_bearish": None,
+            
         }
 
         # Weekly state

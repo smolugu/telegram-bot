@@ -185,7 +185,7 @@ def context_for_london(market_context):
         "require_smt_confirmation": require_smt_confirmation,  # update with actual logic
     }
 
-def check_for_reversal_setup_confirmation(weekly_context, market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, bullish_smt_summary, bearish_smt_summary, co_asset, co_asset_candidate, auction_engine):
+def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_context, london_context, newyork_context, seven_hour_builder_candles, liquidity_levels, candidate, last_closed_candle, current_30m_start, bullish_smt_summary, bearish_smt_summary, co_asset, co_asset_candidate, auction_engine):
     # get session time
     # bias from previous 7hr candle (ex: bearish)
     # price is below (bearish) previous 7hr candle and (or) rejecting previous 7hr ib
@@ -419,6 +419,51 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
                 is_smt = True
         return is_smt
     
+    def smt_check_v2():
+
+        is_smt = False
+
+        if look_for_shorts:
+
+            short_term_smt = bool(
+                smt_context["short_term_bearish"]
+            )
+            htf_smt = any([
+                smt_context["1h_htf_bearish"],
+                smt_context["4h_htf_bearish"],
+                smt_context["7h_htf_bearish"],
+                smt_context["4h_previous_bearish"],
+                smt_context["7h_previous_bearish"],
+                smt_context["daily_previous_bearish"],
+                smt_context["4h_current_bearish"],
+                smt_context["7h_current_bearish"],
+                smt_context["daily_current_bearish"],
+            ])
+
+            is_smt = short_term_smt and htf_smt
+
+        elif look_for_longs:
+
+            short_term_smt = bool(
+                smt_context["short_term_bullish"]
+            )
+
+            htf_smt = any([
+                smt_context["1h_htf_bullish"],
+                smt_context["4h_htf_bullish"],
+                smt_context["7h_htf_bullish"],
+                smt_context["4h_previous_bullish"],
+                smt_context["7h_previous_bullish"],
+                smt_context["daily_previous_bullish"],
+                smt_context["4h_current_bullish"],
+                smt_context["7h_current_bullish"],
+                smt_context["daily_current_bullish"],
+            ])
+
+            is_smt = short_term_smt and htf_smt
+
+        return is_smt
+    
     def london_smt_check():
         is_bearish_smt = False
         is_bullish_smt = False
@@ -539,7 +584,8 @@ def check_for_reversal_setup_confirmation(weekly_context, market_context, london
     london_context_from_market_context = context_for_london(market_context)
 
     # smt check
-    is_smt = smt_check()
+    # is_smt = smt_check()
+    is_smt = smt_check_v2()
     is_recent_bearish_smt, is_recent_bullish_smt = london_smt_check()
     print("is_recent_bearish_smt: ", is_recent_bearish_smt)
     print("is_recent_bullish_smt: ", is_recent_bullish_smt)
