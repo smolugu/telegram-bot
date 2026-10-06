@@ -248,6 +248,9 @@ def detect_ping(
     # section to update context after the end of prev candle to current last closed candles
     if dt.hour == 9 and dt.minute == 00:
         # add 8am IB CE as key level for migration structures
+        # at this point in loop, last closed 8:30 candle is not processed to store ib8
+        # so adding ib8 ce as key level to liquidity levels for migration structures
+        # at the beginning of next candle before processing it
         add_ib_ce_key_level(structure_data=runtime.nq_ny_market_context, liquidity_levels=runtime.liquidity_nq)
         add_ib_ce_key_level(structure_data=runtime.es_ny_market_context, liquidity_levels=runtime.liquidity_es)
         # add mitigation level from ny am structure

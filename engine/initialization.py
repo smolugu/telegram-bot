@@ -190,6 +190,9 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         runtime.nq_seven_hour_builder = SevenHourBuilder("NQ")
         runtime.es_seven_hour_builder = SevenHourBuilder("ES")
 
+        # reset smt context
+        runtime.reset_smt_context()
+
         runtime.nq_market_context.set_daily_atr(runtime.nq_daily_atr)
         runtime.es_market_context.set_daily_atr(runtime.es_daily_atr)
 
