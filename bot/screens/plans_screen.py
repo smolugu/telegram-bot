@@ -11,7 +11,7 @@ def plans_home_screen():
         "━━━━━━━━━━━━━━━━━━\n\n"
         
         "<b>Ping Pro</b>\n"
-        "$79/month\n\n"
+        "$250/month\n\n"
         
         "• Real-time market monitoring\n"
         "• Ping alerts when conditions are triggered\n"
@@ -24,10 +24,10 @@ def plans_home_screen():
         "The first 100 subscribers \n"
         "automatically become Founding Members.\n\n"       
 
-        "<b>$39/month — forever</b>\n\n"
+        "<b>$100/month — forever</b>\n\n"
 
         "After the first 100:\n"
-        "$79/month\n\n"
+        "$250/month\n\n"
         
         "━━━━━━━━━━━━━━━━━━\n\n"
         

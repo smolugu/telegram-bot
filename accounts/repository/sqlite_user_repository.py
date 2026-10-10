@@ -5,6 +5,10 @@ from sqlalchemy.orm import Session
 
 from accounts.models.user import UserORM
 from accounts.repository.user_repository import UserRepository
+from accounts.services.referral_service import get_or_create_referral_code
+from accounts.repository.sqlite_user_preferences_repository import (
+    SQLiteUserPreferenceRepository,
+)
 
 
 class SQLiteUserRepository(UserRepository):
@@ -54,6 +58,26 @@ class SQLiteUserRepository(UserRepository):
             )
 
             self.session.add(user)
+
+            self.session.commit()
+            self.session.refresh(user)
+
+            get_or_create_referral_code(
+                self.session,
+                user,)
+            preference_repository = SQLiteUserPreferenceRepository(
+                self.session
+            )
+
+            preference_repository.create_or_update(
+                user_id=user.id,
+                instruments=["NQ", "ES"],
+                sessions=["LONDON", "NY_AM"],
+                notifications={
+                    "enabled": True,
+                },
+            )
+            
 
         else:
 

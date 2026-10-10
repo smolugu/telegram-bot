@@ -144,7 +144,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             rr_initial_target = round(rr_initial_target, 2)
             print("rr_in1: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
-            tp1 = entry - (risk * rr)
+            # tp1 = entry - (risk * rr)
+            tp1 = entry - max(100, risk * rr)
             print("alert Payload: initial target set 101-5")
             print("tp1: ", tp1)
         else:
@@ -169,7 +170,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             rr_initial_target = round(rr_initial_target, 2)
             print("rr_in2: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
-            tp1 = entry - (risk * rr)
+            # tp1 = entry - (risk * rr)
+            tp1 = entry - max(100, risk * rr)
             print("alert Payload: initial target set 102-2")
             print("tp1 based on rr: ", tp1)
         else:
@@ -200,7 +202,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             rr_initial_target = round(rr_initial_target, 2)
             print("rr_in3: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
-            tp1 = entry - (risk * rr)
+            # tp1 = entry - (risk * rr)
+            tp1 = entry - max(100, risk * rr)
             print("alert Payload: initial target set 103-2")
             print("Using original imbalance entry. TP adjusted to:", entry)
         else:
@@ -243,7 +246,9 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
-            tp1 = entry + (risk * rr)
+            # tp1 = entry + (risk * rr)
+            tp1 = entry + risk
+            # tp1 = entry + max(100, risk * rr)
             print("alert Payload: initial target set 104-5")
             print("tp1: ", tp1)
         else:
@@ -263,6 +268,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             print("alert Payload: initial target set 105-1")
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             tp1 = entry + (risk * rr)
+            tp1 = entry + risk
+            # tp1 = entry + max(100, risk * rr)
             print("tp1 based on rr: ", tp1)
             print("alert Payload: initial target set 105-2")
         else:
@@ -279,7 +286,9 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             rr_initial_target = abs(entry - initial_target) / risk
             rr_initial_target = round(rr_initial_target, 2)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
-            tp1 = entry + (risk * rr)
+            # tp1 = entry + (risk * rr)
+            tp1 = entry + risk
+            # tp1 = entry + max(100, risk * rr)
             print("alert Payload: initial target set 106-2")
             print("Using original imbalance entry. TP adjusted to:", entry)
         else:
@@ -584,6 +593,12 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         # Reward : Risk
         # {rr_t1} : 1
         # """
+    if instrument == "NQ":
+        if abs(entry-stop) > 120:
+            return None
+    elif instrument == "ES":
+        if abs(entry-stop) > 45:
+            return None
     return alert_message
 
 

@@ -514,7 +514,8 @@ def detect_bearish_smt_key_levels(nq_swept, es_swept):
                     "sweeper": "nq",
                     "source": "key_level",
                     "level": level,
-                    "details": nq_lvl
+                    "details": nq_lvl,
+                    "sweep_timestamp": nq_lvl["sweep_timestamp"]
                 })
 
         # -------------------------
@@ -528,7 +529,8 @@ def detect_bearish_smt_key_levels(nq_swept, es_swept):
                     "source": "key_level",
                     "sweeper": "es",
                     "level": level,
-                    "details": es_lvl
+                    "details": es_lvl,
+                    "sweep_timestamp": es_lvl["sweep_timestamp"]
                 })
 
         # -------------------------
@@ -568,7 +570,8 @@ def detect_bullish_smt_key_levels(nq_swept, es_swept):
                     "source": "key_level",
                     "sweeper": "nq",
                     "level": level,
-                    "details": nq_lvl
+                    "details": nq_lvl,
+                    "sweep_timestamp": nq_lvl["sweep_timestamp"]
                 })
 
         # -------------------------
@@ -582,8 +585,10 @@ def detect_bullish_smt_key_levels(nq_swept, es_swept):
                     "source": "key_level",
                     "sweeper": "es",
                     "level": level,
-                    "details": es_lvl
+                    "details": es_lvl,
+                    "sweep_timestamp": es_lvl["sweep_timestamp"]
                 })
+                
 
 
         # -------------------------
@@ -1192,27 +1197,32 @@ def detect_daily_smt(
     return bullish_smt, bearish_smt
 
 def detect_current_4h_smt(
-    historical_nq_30m,
-    historical_es_30m,
+    nq_last_10_30m_candles,
+    es_last_10_30m_candles,
     previous_nq_4h,
     previous_es_4h,
+    last_closed_nq_30m_candle,
+    last_closed_es_30m_candle
 ):
-    # historical_nq_30m -> last 10 30m candles
     bullish_smt = None
     bearish_smt = None
 
-    if not historical_nq_30m or not historical_es_30m:
+    if not nq_last_10_30m_candles or not es_last_10_30m_candles:
         return bullish_smt, bearish_smt
 
+    if not nq_last_10_30m_candles or not es_last_10_30m_candles:
+        return bullish_smt, bearish_smt
+    nq_30m_candles = nq_last_10_30m_candles + [last_closed_nq_30m_candle]
+    es_30m_candles = es_last_10_30m_candles + [last_closed_es_30m_candle]
     FOUR_H_START_HOURS = [22, 2, 6, 10, 14, 18]
 
-    latest_nq_30m = historical_nq_30m[-1]
-    latest_es_30m = historical_es_30m[-1]
+    # latest_nq_30m = historical_nq_30m[-1]
+    # latest_es_30m = historical_es_30m[-1]
 
     # --------------------------------------------------
     # Determine current 4H window start
     # --------------------------------------------------
-    current_hour = latest_nq_30m.timestamp.hour
+    current_hour = last_closed_nq_30m_candle.timestamp.hour
 
     valid_start_hours = [
         hour
@@ -1222,7 +1232,7 @@ def detect_current_4h_smt(
 
     if valid_start_hours:
         current_4h_start_hour = max(valid_start_hours)
-        current_4h_start = latest_nq_30m.timestamp.replace(
+        current_4h_start = last_closed_nq_30m_candle.timestamp.replace(
             hour=current_4h_start_hour,
             minute=0,
             second=0,
@@ -1232,7 +1242,7 @@ def detect_current_4h_smt(
         # Current time is between midnight and 01:59,
         # so the current 4H candle started at 22:00 yesterday.
         current_4h_start = (
-            latest_nq_30m.timestamp.replace(
+            last_closed_nq_30m_candle.timestamp.replace(
                 hour=22,
                 minute=0,
                 second=0,
@@ -1248,13 +1258,13 @@ def detect_current_4h_smt(
     # --------------------------------------------------
     current_nq_4h_candles = [
         candle
-        for candle in historical_nq_30m[-10:]
+        for candle in nq_30m_candles
         if current_4h_start <= candle.timestamp < current_4h_end
     ]
 
     current_es_4h_candles = [
         candle
-        for candle in historical_es_30m[-10:]
+        for candle in es_30m_candles
         if current_4h_start <= candle.timestamp < current_4h_end
     ]
 
@@ -1293,9 +1303,9 @@ def detect_current_4h_smt(
             "es_level_price": previous_es_4h.high,
             "level_timestamp": previous_nq_4h.timestamp,
             "sweep_timestamp": (
-                latest_nq_30m.timestamp
+                last_closed_nq_30m_candle.timestamp
                 if nq_swept
-                else latest_es_30m.timestamp
+                else last_closed_es_30m_candle.timestamp
             ),
         }
 
@@ -1314,9 +1324,9 @@ def detect_current_4h_smt(
             "es_level_price": previous_es_4h.low,
             "level_timestamp": previous_nq_4h.timestamp,
             "sweep_timestamp": (
-                latest_nq_30m.timestamp
+                last_closed_nq_30m_candle.timestamp
                 if nq_swept
-                else latest_es_30m.timestamp
+                else last_closed_es_30m_candle.timestamp
             ),
         }
 
@@ -1325,8 +1335,8 @@ def detect_current_4h_smt(
 
 
 def detect_current_7h_smt(
-    historical_nq_30m,
-    historical_es_30m,
+    nq_last_16_30m_candles,
+    es_last_16_30m_candles,
     previous_nq_7h,
     previous_es_7h,
     last_closed_nq_30m_candle,
@@ -1336,10 +1346,10 @@ def detect_current_7h_smt(
     bullish_smt = None
     bearish_smt = None
 
-    if not historical_nq_30m or not historical_es_30m:
+    if not nq_last_16_30m_candles or not es_last_16_30m_candles:
         return bullish_smt, bearish_smt
-    nq_30m_candles = historical_nq_30m + [last_closed_nq_30m_candle]
-    es_30m_candles = historical_es_30m + [last_closed_es_30m_candle]
+    nq_30m_candles = nq_last_16_30m_candles + [last_closed_nq_30m_candle]
+    es_30m_candles = es_last_16_30m_candles + [last_closed_es_30m_candle]
 
     SEVEN_H_START_HOURS = [1, 8, 15, 18]
 

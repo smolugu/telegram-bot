@@ -14,16 +14,16 @@ def non_subscriber_welcome_screen():
         #         callback_data="plans:home",
         #     ),
         # ],
-        [
-            InlineKeyboardButton(
-                "🔔 Subscribe",
-                callback_data="subscribe",
-            ),
-            InlineKeyboardButton(
-                "🔕 Unsubscribe",
-                callback_data="unsubscribe",
-            ),
-        ],
+        # [
+        #     InlineKeyboardButton(
+        #         "🔔 Subscribe",
+        #         callback_data="subscribe",
+        #     ),
+        #     InlineKeyboardButton(
+        #         "🔕 Unsubscribe",
+        #         callback_data="unsubscribe",
+        #     ),
+        # ],
         [
             InlineKeyboardButton(
                 "ℹ️ What is Ping?",

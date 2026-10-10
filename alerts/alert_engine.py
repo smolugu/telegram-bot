@@ -2,7 +2,10 @@ import time as time_module
 
 from dotenv import load_dotenv
 
+from accounts.models.user import UserORM
+from accounts.models.user_preferences import UserPreferenceORM
 from config.settings import ADMIN_CHAT_LIST
+from database.session import SessionLocal
 from helpers.escape_char import escape_markdown_v2
 from state.state_cache import update_active_window, should_alert
 from bot.broadcast import broadcast_message, load_subscribers
@@ -59,9 +62,81 @@ def build_message(result):
 
 
 
+# def send_telegram_alert_to_all(message, start_up, admin_only):
+
+#     subscribers = load_subscribers()
+
+#     if not subscribers:
+#         print("No subscribers found.")
+#         return
+
+#     url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+#     active_subscribers = []
+#     if start_up or admin_only:
+#         subscribers = ADMIN_CHAT_LIST
+    
+
+#     for chat_id in subscribers:
+
+#         payload = {
+#             "chat_id": chat_id,
+#             "text": message,
+#             # "text": escape_markdown_v2(message),
+#             # "parse_mode": "Markdown"
+#             # "parse_mode": "MarkdownV2"
+#         }
+
+#         try:
+#             response = requests.post(url, data=payload, timeout=5)
+
+#             if response.status_code == 200:
+#                 active_subscribers.append(chat_id)
+#             else:
+#                 print("Telegram Error for", chat_id)
+#                 print("Status:", response.status_code)
+#                 print("Response:", response.text)
+
+#         except Exception as e:
+#             print(f"Error sending to {chat_id}: {e}")
+
+#         time_module.sleep(0.05)  # avoid Telegram rate limits
+
+#     # Save only active subscribers
+#     # save_subscribers(active_subscribers)
+
 def send_telegram_alert_to_all(message, start_up, admin_only):
 
-    subscribers = load_subscribers()
+    if start_up or admin_only:
+
+        subscribers = ADMIN_CHAT_LIST
+
+    else:
+
+        session = SessionLocal()
+
+        try:
+
+            users = (
+                session.query(UserORM.telegram_user_id)
+                .join(
+                    UserPreferenceORM,
+                    UserPreferenceORM.user_id == UserORM.id,
+                )
+                .filter(
+                    UserPreferenceORM.notifications["enabled"].as_boolean() == True
+                )
+                .all()
+            )
+
+            subscribers = [
+                user.telegram_user_id
+                for user in users
+            ]
+
+        finally:
+
+            session.close()
 
     if not subscribers:
         print("No subscribers found.")
@@ -70,34 +145,37 @@ def send_telegram_alert_to_all(message, start_up, admin_only):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
 
     active_subscribers = []
-    if start_up or admin_only:
-        subscribers = ADMIN_CHAT_LIST
-    
 
     for chat_id in subscribers:
+        print("Sending alert to", chat_id)
 
         payload = {
             "chat_id": chat_id,
             "text": message,
-            # "text": escape_markdown_v2(message),
-            # "parse_mode": "Markdown"
-            # "parse_mode": "MarkdownV2"
         }
 
         try:
-            response = requests.post(url, data=payload, timeout=5)
+
+            response = requests.post(
+                url,
+                data=payload,
+                timeout=5,
+            )
 
             if response.status_code == 200:
+
                 active_subscribers.append(chat_id)
+
             else:
+
                 print("Telegram Error for", chat_id)
                 print("Status:", response.status_code)
                 print("Response:", response.text)
 
         except Exception as e:
-            print(f"Error sending to {chat_id}: {e}")
 
-        time_module.sleep(0.05)  # avoid Telegram rate limits
+            print(
+                f"Error sending to {chat_id}: {e}"
+            )
 
-    # Save only active subscribers
-    # save_subscribers(active_subscribers)
+        time_module.sleep(0.05)

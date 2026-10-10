@@ -187,7 +187,7 @@ class ProjectXWebSocket:
 
             # print(trade)
             if self._trade_event_count % 1000 == 0:
-                print(trade)
+                print("Trade Event: ", trade)
             if self._on_trade is not None:
                 self._on_trade(trade)
 

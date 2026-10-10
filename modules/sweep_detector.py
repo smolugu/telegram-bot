@@ -108,7 +108,8 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, inside_3m_candles, 
                     "level_name": level_type,
                     "price": price,
                     "side": "buy_side",
-                    "type": "rejection"
+                    "type": "rejection",
+                    "sweep_timestamp":  last_candle.timestamp
                 })
             # elif high >= price - tolerance and close >= price:
             elif high > price and close > price:
@@ -121,7 +122,8 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, inside_3m_candles, 
                     "level_name": level_type,
                     "price": price,
                     "side": "buy_side",
-                    "type": "breakout"
+                    "type": "breakout",
+                    "sweep_timestamp":  last_candle.timestamp
                 })
             
 
@@ -176,7 +178,8 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, inside_candles_3m, t
                     "level_name": level_type,
                     "price": price,
                     "side": "sell_side",
-                    "type": "rejection"
+                    "type": "rejection",
+                    "sweep_timestamp":  last_candle.timestamp
                 })
             # elif low <= price + tolerance and close <= price:
             elif low < price and close < price:
@@ -189,7 +192,8 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, inside_candles_3m, t
                     "level_name": level_type,
                     "price": price,
                     "side": "sell_side",
-                    "type": "breakout"
+                    "type": "breakout",
+                    "sweep_timestamp":  last_candle.timestamp
                 })
             
     return sweep_at_key_level, swept_levels, sweep_type, sweep_max_level

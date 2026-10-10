@@ -1488,8 +1488,8 @@ def detect_ping(
     runtime.smt_context["4h_current_bearish"] = current_4h_bearish_smt
 
     current_7h_bullish_smt, current_7h_bearish_smt = detect_current_7h_smt(
-        nq_last_10_30m_candles = historical_nq_30m[-16:],
-        es_last_10_30m_candles = historical_es_30m[-16:],
+        nq_last_16_30m_candles = historical_nq_30m[-16:],
+        es_last_16_30m_candles = historical_es_30m[-16:],
         previous_nq_7h=nq_7h_filtered[-1],
         previous_es_7h=es_7h_filtered[-1],
         last_closed_nq_30m_candle=last_closed_nq,
@@ -1527,10 +1527,10 @@ def detect_ping(
         nq_1h_swings_low= nq_1h_valid_swing_lows,
         es_1h_swings_high= es_1h_valid_swing_highs,
         es_1h_swings_low= es_1h_valid_swing_lows,
-        previous_3_nq_30m_candle= previous_3_nq_30m_candles,
-        previous_3_es_30m_candle= previous_3_es_30m_candles,
-        previous_2_nq_1h_candle= previous_2_nq_1h_candles,
-        previous_2_es_1h_candle= previous_2_es_1h_candles,
+        previous_3_nq_30m_candles= previous_3_nq_30m_candles,
+        previous_3_es_30m_candles= previous_3_es_30m_candles,
+        previous_2_nq_1h_candles= previous_2_nq_1h_candles,
+        previous_2_es_1h_candles= previous_2_es_1h_candles,
         current_nq_candle= last_closed_nq,
         current_es_candle= last_closed_es,
     )

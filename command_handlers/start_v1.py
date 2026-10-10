@@ -28,10 +28,6 @@ async def start_command(update, context):
     telegram_username = telegram_user.username
     first_name = telegram_user.first_name
 
-    print("telegram_user_id: ", telegram_user_id)
-    print("telegram_username: ", telegram_username)
-    print("first_name: ", first_name)
-
     # --------------------------------------------------
     # 1. Check for subscription ID from Telegram deep link
     # --------------------------------------------------
@@ -50,12 +46,10 @@ async def start_command(update, context):
         if start_parameter.lower().startswith("ref_"):
 
             referral_code = start_parameter[4:].strip().upper()
-            print("referral_code: ", referral_code)
 
         else:
 
             subscription_id = start_parameter
-            print("subscription_id: ", subscription_id)
 
     session = SessionLocal()
 
@@ -116,8 +110,7 @@ async def start_command(update, context):
                 "🎉 YOU'RE ALL SET\n\n"
                 "Your Ping subscription is connected.\n\n"
                 "You're ready to receive Ping alerts.\n\n"
-                "────────\n"
-                "<b>Ping:</b> <i>It’s Time. Open Charts.</i>"
+                "It's Time. Open Charts."
             )
 
             return
@@ -129,82 +122,66 @@ async def start_command(update, context):
         user = user_repository.get_by_telegram_id(
             telegram_user_id
         )
-        print("user: ", user)
-        # --------------------------------------------------
-        # 6. Invite-only access for new users
-        # --------------------------------------------------
 
         if user is None:
 
-            # New user must arrive through a valid referral.
-            if not referral_code:
-
-                await update.message.reply_text(
-                    "🔒 <b>Ping is Invite-Only</b>\n\n"
-                    "Ping is currently available by invitation "
-                    "during our beta.\n\n"
-                    "Ask an existing Ping member to invite you.",
-                    parse_mode="HTML",
-                )
-
-                return
-
-            # Check whether the referral code is valid.
-            referrer = find_user_by_referral_code(
-                session,
-                referral_code,
-            )
-
-            if referrer is None:
-
-                await update.message.reply_text(
-                    "🔒 <b>Invitation Not Found</b>\n\n"
-                    "This Ping invitation is not valid.\n\n"
-                    "Please ask an existing Ping member "
-                    "for a new invitation.",
-                    parse_mode="HTML",
-                )
-
-                return
-
-            # Valid invitation — create the user.
             user = user_repository.create_or_update(
                 telegram_user_id=telegram_user_id,
                 telegram_username=telegram_username,
                 first_name=first_name,
             )
 
-            # Create referral attribution.
-            referral = create_referral(
+        # --------------------------------------------------
+        # 6. Process referral
+        # --------------------------------------------------
+
+        if referral_code:
+
+            referrer = find_user_by_referral_code(
                 session,
-                referrer,
-                user,
+                referral_code,
             )
 
-            if referral is not None:
+            if referrer is not None:
 
-                print(
-                    "REFERRAL CREATED:",
-                    referral_code,
-                    "REFERRER:",
-                    referrer.id,
-                    "USER:",
-                    user.id,
+                referral = create_referral(
+                    session,
+                    referrer,
+                    user,
                 )
+
+                if referral is not None:
+
+                    print(
+                        "REFERRAL CREATED:",
+                        referral_code,
+                        "REFERRER:",
+                        referrer.id,
+                        "USER:",
+                        user.id,
+                    )
+
+                else:
+
+                    print(
+                        "REFERRAL NOT CREATED:",
+                        "self-referral or existing referral",
+                        "CODE:",
+                        referral_code,
+                        "USER:",
+                        user.id,
+                    )
 
             else:
 
                 print(
-                    "REFERRAL NOT CREATED:",
-                    "self-referral or existing referral",
-                    "CODE:",
+                    "REFERRAL CODE NOT FOUND:",
                     referral_code,
-                    "USER:",
-                    user.id,
                 )
 
+
         # --------------------------------------------------
-        # 7. Existing / invited user
+        # Existing user
         # --------------------------------------------------
 
         if user.subscription_status == "active":
@@ -219,6 +196,9 @@ async def start_command(update, context):
 
             return
 
+        # await update.message.reply_text(
+        #     "Welcome back to Ping."
+        # )
         message, keyboard = non_subscriber_welcome_screen()
 
         await update.message.reply_text(

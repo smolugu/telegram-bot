@@ -8,16 +8,16 @@ def subscriber_welcome_screen():
             #     "📡 My Pings",
             #     callback_data="alerts:home",
             # ),
-            InlineKeyboardButton(
-                "Subscirbe",
-                callback_data="subscribe",
+            # InlineKeyboardButton(
+            #     "Subscirbe",
+            #     callback_data="subscribe",
 
-            ),
-            InlineKeyboardButton(
-                            "Unsubscirbe",
-                            callback_data="unsubscribe",
+            # ),
+            # InlineKeyboardButton(
+            #                 "Unsubscirbe",
+            #                 callback_data="unsubscribe",
             
-                        )
+            #             )
 
         ],
         [

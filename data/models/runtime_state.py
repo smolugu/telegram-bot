@@ -72,8 +72,8 @@ class PingRuntime:
         # Current processing state
         self.current_window = None
 
-    def _create__smt_context(self):
-        self.smt_context = {
+    def _create_smt_context(self):
+        return {
             # --------------------------------
             # Short-term / timing SMT
             # --------------------------------
