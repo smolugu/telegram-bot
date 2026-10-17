@@ -256,6 +256,14 @@ class MarketContext:
             else 0
         )
         # self.atr_usage = self.session_range / self.daily_atr
+
+        self.overnight_atr_usage = self.atr_usage
+        
+        if self.overnight_atr_usage > atr_exhaustion_threshold:
+            self.atr_context = "overnight_exhaustion"
+            self.expansion_origin = "overnight"
+            self.overnight_expansion = True
+            self.exhaustion = True
         
         # =====================================================
         # OVERNIGHT EXHAUSTION CHECK

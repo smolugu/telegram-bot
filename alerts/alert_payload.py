@@ -2,6 +2,21 @@ from datetime import datetime, timedelta, timezone
 
 from framework.models.profit_targets import get_tp_levels
 
+def get_fallback_tp1(entry, risk, rr, direction, instrument):
+    if instrument == "NQ":
+        min_distance = 100.0
+    elif instrument == "ES":
+        min_distance = 25.0
+    else:
+        min_distance = 50.0
+
+    distance = max(min_distance, risk * rr)
+
+    if direction == "bearish":
+        return entry - distance
+
+    return entry + distance
+
 def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None, daily_atr = None, current_time = None):
 
     if not candidate.fvg_confirmed and not candidate.sweep_and_ob_confirmed:
@@ -29,7 +44,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     # dt2 = datetime.fromisoformat(current_time)
     time_formatted = dt2.strftime("%b %d, %Y %I:%M %p")
     default_risk = None
-
+    side = candidate.side
+    direction = "bearish" if side == "buy_side" else "bullish"
     instrument = candidate.instrument
     initial_target = candidate.initial_target_price
     final_target = candidate.final_target_price
@@ -40,7 +56,6 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         default_risk = 20
     else:
         default_risk = 50
-    side = candidate.side
     entry = None
     risk = None
     ce_ob = None
@@ -145,7 +160,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             print("rr_in1: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             # tp1 = entry - (risk * rr)
-            tp1 = entry - max(100, risk * rr)
+            # tp1 = entry - max(100, risk * rr)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument)
             print("alert Payload: initial target set 101-5")
             print("tp1: ", tp1)
         else:
@@ -171,7 +187,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             print("rr_in2: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             # tp1 = entry - (risk * rr)
-            tp1 = entry - max(100, risk * rr)
+            # tp1 = entry - max(100, risk * rr)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument)
             print("alert Payload: initial target set 102-2")
             print("tp1 based on rr: ", tp1)
         else:
@@ -203,7 +220,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             print("rr_in3: ", rr_initial_target)
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             # tp1 = entry - (risk * rr)
-            tp1 = entry - max(100, risk * rr)
+            # tp1 = entry - max(100, risk * rr)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument)
             print("alert Payload: initial target set 103-2")
             print("Using original imbalance entry. TP adjusted to:", entry)
         else:
@@ -310,7 +328,6 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     
 
     # set stop loss based on OB or IB high or low when we have sweep with displacement
-    direction = "bearish" if side == "buy_side" else "bullish"
     tp1, tp2, tp3 = get_tp_levels(entry, stop, direction, liquidity_map, daily_atr, tp1, instrument)
 
     print("tp levels from get_tp_levels: ", tp1, tp2, tp3)
@@ -593,12 +610,12 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         # Reward : Risk
         # {rr_t1} : 1
         # """
-    if instrument == "NQ":
-        if abs(entry-stop) > 120:
-            return None
-    elif instrument == "ES":
-        if abs(entry-stop) > 45:
-            return None
+    # if instrument == "NQ":
+    #     if abs(entry-stop) > 150:
+    #         return None
+    # elif instrument == "ES":
+    #     if abs(entry-stop) > 60:
+    #         return None
     return alert_message
 
 

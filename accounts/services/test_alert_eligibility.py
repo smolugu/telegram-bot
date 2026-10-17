@@ -153,6 +153,34 @@ try:
     )
 
     # -----------------------------------------
+    # CASE 1B — INACTIVE USER DURING BETA
+    # -----------------------------------------
+
+    original_access_status = user.access_status
+
+    user.access_status = "INACTIVE"
+    session.commit()
+
+    result = can_receive_alerts(
+        session,
+        user.id,
+        now,
+    )
+
+    print(
+        "INACTIVE USER DURING BETA",
+        "| CAN RECEIVE:",
+        result,
+    )
+
+    assert result is False, (
+        "Inactive users must not receive alerts during beta."
+    )
+
+    user.access_status = original_access_status
+    session.commit()
+
+    # -----------------------------------------
     # CASE 3 — ACTIVE FREE TRIAL
     # -----------------------------------------
 

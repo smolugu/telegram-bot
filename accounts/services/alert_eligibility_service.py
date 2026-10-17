@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from accounts.models.subscription import SubscriptionORM
+from accounts.models.user import UserORM
 from accounts.models.user_preferences import UserPreferenceORM
 
 
@@ -44,7 +45,15 @@ def can_receive_alerts(
     now: datetime,
     beta_mode: bool,
 ) -> bool:
+    
+    user = (
+        session.query(UserORM)
+        .filter(UserORM.id == user_id)
+        .first()
+    )
 
+    if user is None or user.access_status != "ACTIVE":
+        return False
     # -----------------------------------------
     # Notification preference
     # -----------------------------------------

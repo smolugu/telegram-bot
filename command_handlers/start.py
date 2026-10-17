@@ -1,10 +1,8 @@
-from telegram import Update
-from telegram.ext import ContextTypes
 
 from accounts.services.whop_service import WhopService
+from alerts.notify_admin import notify_admins_new_user
 from bot.screens.non_subscriber.welcome_screen import non_subscriber_welcome_screen
-from bot.screens.subscriber.onboarding_screen import onboarding_complete_screen, onboarding_connecting_screen, onboarding_verified_screen
-from bot.screens.subscriber.welcome_screen import show_subscription_inactive, subscriber_welcome_screen
+from bot.screens.subscriber.welcome_screen import subscriber_welcome_screen
 
 from database.session import SessionLocal
 
@@ -139,6 +137,19 @@ async def start_command(update, context):
             # New user must arrive through a valid referral.
             if not referral_code:
 
+                user_repository.create_or_update(
+                    telegram_user_id=telegram_user_id,
+                    telegram_username=telegram_username,
+                    first_name=first_name,
+                    access_status="INACTIVE",
+                )
+
+                await notify_admins_new_user(
+                    context=context,
+                    telegram_user=telegram_user,
+                    access_status="INACTIVE",
+                )
+
                 await update.message.reply_text(
                     "🔒 <b>Ping is Invite-Only</b>\n\n"
                     "Ping is currently available by invitation "
@@ -156,15 +167,40 @@ async def start_command(update, context):
             )
 
             if referrer is None:
-
-                await update.message.reply_text(
-                    "🔒 <b>Invitation Not Found</b>\n\n"
-                    "This Ping invitation is not valid.\n\n"
-                    "Please ask an existing Ping member "
-                    "for a new invitation.",
-                    parse_mode="HTML",
+                
+                user_repository.create_or_update(
+                    telegram_user_id=telegram_user_id,
+                    telegram_username=telegram_username,
+                    first_name=first_name,
+                    access_status="INACTIVE",
                 )
 
+                if referral_code:
+                    
+                    message = (
+                        "🔒 <b>Invitation Not Found</b>\n\n"
+                        "This Ping invitation is not valid.\n\n"
+                        "Please ask an existing Ping member "
+                        "for a new invitation."
+                    )
+                else:
+                    message = (
+                        "🔒 <b>Ping is Invite-Only</b>\n\n"
+                        "Ping is currently available by invitation "
+                        "during our beta.\n\n"
+                        "Ask an existing Ping member to invite you."
+                    )
+                await notify_admins_new_user(
+                    context=context,
+                    telegram_user=telegram_user,
+                    referral_code=referral_code,
+                    access_status="INACTIVE",
+                )
+                await update.message.reply_text(
+                    message,
+                    parse_mode="HTML",
+                )
+            
                 return
 
             # Valid invitation — create the user.
@@ -172,6 +208,7 @@ async def start_command(update, context):
                 telegram_user_id=telegram_user_id,
                 telegram_username=telegram_username,
                 first_name=first_name,
+                access_status="ACTIVE",
             )
 
             # Create referral attribution.
@@ -179,6 +216,12 @@ async def start_command(update, context):
                 session,
                 referrer,
                 user,
+            )
+            await notify_admins_new_user(
+                context=context,
+                telegram_user=telegram_user,
+                referral_code=referral_code,
+                access_status="ACTIVE",
             )
 
             if referral is not None:
@@ -231,123 +274,3 @@ async def start_command(update, context):
 
         session.close()
 
-# async def start_command(
-#     update: Update,
-#     context: ContextTypes.DEFAULT_TYPE,
-# ):
-
-#     if update.effective_user is None:
-#         return
-
-#     telegram_user = update.effective_user
-
-#     telegram_user_id = telegram_user.id
-#     telegram_username = telegram_user.username
-#     first_name = telegram_user.first_name
-
-#     # ---------------------------------------------------------
-#     # 1. Check whether this /start contains a subscription ID
-#     # ---------------------------------------------------------
-
-#     subscription_id = None
-
-#     if context.args:
-#         subscription_id = context.args[0].strip()
-
-#     # ---------------------------------------------------------
-#     # 2. Existing user without subscription deep link
-#     # ---------------------------------------------------------
-
-#     if subscription_id is None:
-
-#         user = await user_repository.get_by_telegram_id(
-#             telegram_user_id
-#         )
-
-#         if user is None:
-
-#             message, keyboard = non_subscriber_welcome_screen()
-
-#             await update.message.reply_text(
-#                 message,
-#                 reply_markup=keyboard,
-#             )
-
-#             return
-
-#         # Existing active subscriber
-#         if user.subscription_status == "active":
-
-#             message, keyboard = subscriber_welcome_screen()
-
-#             await update.message.reply_text(
-#                 message,
-#                 reply_markup=keyboard,
-#             )
-
-#             return
-
-#         # Existing user but inactive subscription
-#         await show_subscription_inactive(update)
-
-#         return
-
-#     # ---------------------------------------------------------
-#     # 3. Deep-link onboarding
-#     # ---------------------------------------------------------
-
-#     # First acknowledge the request.
-#     message = await update.message.reply_text(
-#         onboarding_connecting_screen()
-#     )
-
-#     # ---------------------------------------------------------
-#     # 4. Validate subscription
-#     # ---------------------------------------------------------
-
-#     subscription = await whop_service.validate_subscription(
-#         subscription_id
-#     )
-
-#     if subscription is None:
-
-#         await message.edit_text(
-#             "⚠️ SUBSCRIPTION NOT FOUND\n\n"
-#             "We couldn't find an active Ping subscription "
-#             "for this link.\n\n"
-#             "Please make sure you're opening Telegram "
-#             "from your Whop purchase."
-#         )
-
-#         return
-
-#     # ---------------------------------------------------------
-#     # 5. Tell user that subscription was found
-#     # ---------------------------------------------------------
-
-#     await message.edit_text(
-#         onboarding_verified_screen()
-#     )
-
-#     # ---------------------------------------------------------
-#     # 6. Create/update Ping user
-#     # ---------------------------------------------------------
-
-#     await user_repository.upsert(
-#         telegram_user_id=telegram_user_id,
-#         telegram_username=telegram_username,
-#         first_name=first_name,
-#         whop_subscription_id=subscription.subscription_id,
-#         subscription_status=subscription.status,
-#     )
-
-#     # ---------------------------------------------------------
-#     # 7. Activation complete
-#     # ---------------------------------------------------------
-
-#     complete_message, keyboard = onboarding_complete_screen()
-
-#     await message.edit_text(
-#         complete_message,
-#         reply_markup=keyboard,
-#     )

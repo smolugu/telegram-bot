@@ -18,6 +18,7 @@ from helpers.liquidity_levels import add_1am_ob_mitigation_levels, add_8am_ib_fv
 from helpers.sessions import in_session
 from helpers.swing_points import get_valid_swings
 from helpers.time_windows import get_active_window, is_blocked_time
+from logs.log_candidates import log_auction_status
 from modules.imbalance_detector import detect_3m_imbalance_inside_ob_candle, detect_9am_fvg
 from modules.ob_detector import detect_30m_order_block
 from modules.smt_detector import detect_30m_swing_smt, detect_4h_smt, detect_7h_smt, detect_bearish_smt_key_levels, detect_bullish_smt_key_levels, detect_current_4h_smt, detect_current_7h_smt, detect_current_day_smt, detect_daily_smt, detect_daily_smt_precise, detect_htf_smt_liquidity, detect_htf_smt_precise, detect_short_term_smt, summary_smt, update_smt_context
@@ -177,6 +178,12 @@ def detect_ping(
         last_3_4h_candles=last_3_4h_es,
         last_3_7h_candles=last_3_7h_es,
         last_3_1d_candles=last_3_1d_es,
+    )
+    log_auction_status(
+        last_closed_candle = last_closed_nq,
+        smt_context = runtime.smt_context,
+        es_auction_summary = runtime.es_auction_engine.status.summary(),
+        nq_auction_summary = runtime.nq_auction_engine.status.summary(),
     )
     
     if dt.hour == 8:
@@ -1598,7 +1605,7 @@ def detect_ping(
             print("Bearish FVG detected:", fvg)
     
     if runtime.es_buy_candidate.final_ob_confirmed and not runtime.es_buy_candidate.fvg_confirmed:
-        print("Processing FVG for ES Buy candidate")
+        print("Processing FVG for NQ Buy candidate")
 
         fvg = detect_3m_imbalance_inside_ob_candle(
             # es_3m,

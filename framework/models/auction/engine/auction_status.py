@@ -15,9 +15,9 @@ def build_auction_status(context):
     # ---------------------------------------------------------
 
     for auction in (
-        context.daily,
+        # context.daily,
         context.h7,
-        context.h4,
+        # context.h4,
     ):
 
         if auction.at_htf:
@@ -43,9 +43,9 @@ def build_auction_status(context):
     # ---------------------------------------------------------
 
     for timeframe, auction in (
-        ("1d", context.daily),
+        # ("1d", context.daily),
         ("7h", context.h7),
-        ("4h", context.h4),
+        # ("4h", context.h4),
     ):
 
         if auction.confirmed:

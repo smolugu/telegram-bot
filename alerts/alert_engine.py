@@ -1,19 +1,14 @@
+from datetime import datetime, timezone
 import time as time_module
 
-from dotenv import load_dotenv
-
 from accounts.models.user import UserORM
-from accounts.models.user_preferences import UserPreferenceORM
-from config.settings import ADMIN_CHAT_LIST
+from accounts.services.alert_eligibility_service import can_receive_alerts
+from config.settings import ADMIN_CHAT_LIST, BETA_MODE, BOT_TOKEN
 from database.session import SessionLocal
-from helpers.escape_char import escape_markdown_v2
 from state.state_cache import update_active_window, should_alert
-from bot.broadcast import broadcast_message, load_subscribers
+from bot.broadcast import broadcast_message
 from utils.time_utils import today_string
-import requests, os
-
-load_dotenv()
-token = os.getenv("BOT_TOKEN")
+import requests
 
 
 async def handle_stage(result, application):
@@ -108,8 +103,10 @@ def build_message(result):
 def send_telegram_alert_to_all(message, start_up, admin_only):
 
     if start_up or admin_only:
+        print("start_up or admin_only")
 
         subscribers = ADMIN_CHAT_LIST
+        print("subscribers: ", subscribers)
 
     else:
 
@@ -118,20 +115,24 @@ def send_telegram_alert_to_all(message, start_up, admin_only):
         try:
 
             users = (
-                session.query(UserORM.telegram_user_id)
-                .join(
-                    UserPreferenceORM,
-                    UserPreferenceORM.user_id == UserORM.id,
-                )
+                session.query(UserORM)
                 .filter(
-                    UserPreferenceORM.notifications["enabled"].as_boolean() == True
+                    UserORM.access_status == "ACTIVE",
                 )
                 .all()
             )
 
+            now = datetime.now(timezone.utc)
+
             subscribers = [
                 user.telegram_user_id
                 for user in users
+                if can_receive_alerts(
+                    session=session,
+                    user_id=user.id,
+                    now=now,
+                    beta_mode=BETA_MODE,
+                )
             ]
 
         finally:
@@ -142,11 +143,12 @@ def send_telegram_alert_to_all(message, start_up, admin_only):
         print("No subscribers found.")
         return
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     active_subscribers = []
-
+    print("subscribers: ", subscribers)
     for chat_id in subscribers:
+
         print("Sending alert to", chat_id)
 
         payload = {

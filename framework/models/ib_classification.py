@@ -1778,18 +1778,25 @@ def classify_ib_structure(
     # =====================================================
     # # here there could be no gaps or atmost one gap between ibs
 
+    # if (
+    #     (
+    #         ib8["high"] < ib1["low"]
+    #         and ib18["low"] < ib1["high"] < ib18["high"]
+    #         and ib1["low"] < ib18["low"]
+    #     ) 
+    #     or 
+    #     (
+    #         ib8["high"] < ib18["low"]
+    #         and ib18["high"] > ib1["low"] > ib18["low"]
+    #         and ib1["high"] > ib18["high"]  
+    #     )
+    # ):
     if (
-        (
-            ib8["high"] < ib1["low"]
-            and ib18["low"] < ib1["high"] < ib18["high"]
-            and ib1["low"] < ib18["low"]
-        ) 
-        or 
-        (
-            ib8["high"] < ib18["low"]
-            and ib18["high"] > ib1["low"] > ib18["low"]
-            and ib1["high"] > ib18["high"]  
-        )
+        
+        ib8["high"] < ib1["low"]
+        and ib18["low"] < ib1["high"] < ib18["high"]
+        and ib1["low"] < ib18["low"]
+        
     ):
         name = None
         group = GroupEnums.ACCEPTANCE
@@ -2648,9 +2655,13 @@ def classify_ib_structure(
     # Value flip is not just reversal — it is completed opposite-side value migration
     # =====================================================
     
-
     if (
-        ib1_above_ib18
+        (
+            ib1_above_ib18
+            or (
+                ib18["low"] < ib1["low"] < ib18["high"]
+            )
+        )
         and ib8["high"] < ib18["low"]
     ):
         name = None
@@ -2727,8 +2738,13 @@ def classify_ib_structure(
     # =====================================================
 
     if (
-        ib1_below_ib18
-        and ib8["high"] > ib18["high"]
+        (
+            ib1_below_ib18
+            or (
+                ib18["low"] < ib1["high"] < ib18["high"]
+            )
+        )
+        and ib8["low"] > ib18["high"]
     ):
         name = None
         group = GroupEnums.VALUEFLIP

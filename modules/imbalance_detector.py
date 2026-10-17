@@ -322,6 +322,13 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     # distance = abs(ob_low - vi_high)
                     distance = abs(sweep_extreme_price - vi_high)
+                    print(
+                        f"VI detected: prev={prev.timestamp} "
+                        f"prev_open={prev.open} prev_close={prev.close} | "
+                        f"curr={curr.timestamp} "
+                        f"curr_open={curr.open} curr_close={curr.close} | "
+                        f"entry={curr.open}"
+                    )
 
                     candidates.append({
                         "entry": vi_high,
@@ -364,5 +371,5 @@ def detect_3m_imbalance_inside_ob_candle(
 
     # 3️⃣ Pick closest imbalance to OB boundary
     best = max(candidates, key=lambda x: x["distance"])
-
+    print("Selected imbalance:", best)
     return best

@@ -50,6 +50,15 @@ class UserORM(Base):
         nullable=True,
     )
 
+
+    access_status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="INACTIVE",
+        server_default="ACTIVE",
+    )
+
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

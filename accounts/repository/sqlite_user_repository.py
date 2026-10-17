@@ -30,6 +30,7 @@ class SQLiteUserRepository(UserRepository):
 
         return self.session.scalars(stmt).first()
 
+
     def create_or_update(
         self,
         telegram_user_id: int,
@@ -37,13 +38,12 @@ class SQLiteUserRepository(UserRepository):
         first_name: str | None,
         whop_subscription_id: str | None = None,
         subscription_status: str | None = None,
+        access_status: str | None = None,
     ) -> UserORM:
 
         now = datetime.now(timezone.utc)
 
-        user = self.get_by_telegram_id(
-            telegram_user_id
-        )
+        user = self.get_by_telegram_id(telegram_user_id)
 
         if user is None:
 
@@ -53,18 +53,17 @@ class SQLiteUserRepository(UserRepository):
                 first_name=first_name,
                 whop_subscription_id=whop_subscription_id,
                 subscription_status=subscription_status,
+                access_status=access_status or "INACTIVE",
                 created_at=now,
                 updated_at=now,
             )
 
             self.session.add(user)
-
             self.session.commit()
             self.session.refresh(user)
 
-            get_or_create_referral_code(
-                self.session,
-                user,)
+            get_or_create_referral_code(self.session, user)
+
             preference_repository = SQLiteUserPreferenceRepository(
                 self.session
             )
@@ -73,11 +72,8 @@ class SQLiteUserRepository(UserRepository):
                 user_id=user.id,
                 instruments=["NQ", "ES"],
                 sessions=["LONDON", "NY_AM"],
-                notifications={
-                    "enabled": True,
-                },
+                notifications={"enabled": True},
             )
-            
 
         else:
 
@@ -86,16 +82,86 @@ class SQLiteUserRepository(UserRepository):
             user.updated_at = now
 
             if whop_subscription_id is not None:
-                user.whop_subscription_id = (
-                    whop_subscription_id
-                )
+                user.whop_subscription_id = whop_subscription_id
 
             if subscription_status is not None:
-                user.subscription_status = (
-                    subscription_status
-                )
+                user.subscription_status = subscription_status
+
+            # Change access only when explicitly requested.
+            if access_status is not None:
+                user.access_status = access_status
 
         self.session.commit()
         self.session.refresh(user)
 
         return user
+
+    # def create_or_update(
+    #     self,
+    #     telegram_user_id: int,
+    #     telegram_username: str | None,
+    #     first_name: str | None,
+    #     whop_subscription_id: str | None = None,
+    #     subscription_status: str | None = None,
+    # ) -> UserORM:
+
+    #     now = datetime.now(timezone.utc)
+
+    #     user = self.get_by_telegram_id(
+    #         telegram_user_id
+    #     )
+
+    #     if user is None:
+
+    #         user = UserORM(
+    #             telegram_user_id=telegram_user_id,
+    #             telegram_username=telegram_username,
+    #             first_name=first_name,
+    #             whop_subscription_id=whop_subscription_id,
+    #             subscription_status=subscription_status,
+    #             created_at=now,
+    #             updated_at=now,
+    #         )
+
+    #         self.session.add(user)
+
+    #         self.session.commit()
+    #         self.session.refresh(user)
+
+    #         get_or_create_referral_code(
+    #             self.session,
+    #             user,)
+    #         preference_repository = SQLiteUserPreferenceRepository(
+    #             self.session
+    #         )
+
+    #         preference_repository.create_or_update(
+    #             user_id=user.id,
+    #             instruments=["NQ", "ES"],
+    #             sessions=["LONDON", "NY_AM"],
+    #             notifications={
+    #                 "enabled": True,
+    #             },
+    #         )
+            
+
+    #     else:
+
+    #         user.telegram_username = telegram_username
+    #         user.first_name = first_name
+    #         user.updated_at = now
+
+    #         if whop_subscription_id is not None:
+    #             user.whop_subscription_id = (
+    #                 whop_subscription_id
+    #             )
+
+    #         if subscription_status is not None:
+    #             user.subscription_status = (
+    #                 subscription_status
+    #             )
+
+    #     self.session.commit()
+    #     self.session.refresh(user)
+
+    #     return user

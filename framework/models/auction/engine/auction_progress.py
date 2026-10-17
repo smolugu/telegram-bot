@@ -218,7 +218,7 @@ def _update_timeframe_progress(
     current_candle_high = candle_30m.high
     current_candle_low = candle_30m.low
     all_levels = bullish_levels + bearish_levels
-    print("updating auction progress for :", tf_auction_progress.timeframe)
+    # print("updating auction progress for :", tf_auction_progress.timeframe)
     tf_levels = [
         level
         for level in all_levels
@@ -254,7 +254,7 @@ def _update_timeframe_progress(
                 current_price - level.price
             ),
         )
-        print("interacting with htf: ", current_htf)
+        # print("interacting with htf: ", current_htf)
 
     # =========================================================
     # 2. PRICE IS AT HTF
@@ -323,7 +323,7 @@ def _update_timeframe_progress(
                     opposing_levels,
                     key=lambda level: level.price,
                 )
-            print("previous htf: ", previous)
+            # print("previous htf: ", previous)
             tf_auction_progress.previous_origin = previous
             tf_auction_progress.previous_objective = (
                 current_htf
@@ -393,7 +393,7 @@ def _update_timeframe_progress(
 
     swept_levels = mitigated_swept_levels
     
-    print("recent swept: ", latest_swept)
+    # print("recent swept: ", latest_swept)
 
     # ---------------------------------------------------------
     # Determine direction of anticipated auction.
@@ -474,7 +474,7 @@ def _update_timeframe_progress(
     # New anticipated auction
     # ---------------------------------------------------------
 
-    print("next target: ", objective)
+    # print("next target: ", objective)
 
     tf_auction_progress.origin = latest_swept
     tf_auction_progress.current_objective = objective
@@ -606,7 +606,7 @@ def update_auction_progress(context, candle_30m):
         context.bearish_levels,
         candle_30m,
     )
-    print("\n========== AUCTION PROGRESS STATE ==========")
+    # print("\n========== AUCTION PROGRESS STATE ==========")
 
     # for progress in (
     #     context.daily,

@@ -8,6 +8,7 @@ POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 PROJECTX_API_KEY=os.getenv("PROJECTX_API_KEY")
 PROJECTX_USERNAME=os.getenv("PROJECTX_USERNAME")
 DATABASE_URL = os.getenv("DATABASE_URL")
+BETA_MODE = os.getenv("BETA_MODE")
 # Replace with YOUR Telegram chat_id(s)
 ADMIN_CHAT_IDS = {
     5287590177,   # your personal Telegram chat ID

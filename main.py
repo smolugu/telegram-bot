@@ -14,6 +14,7 @@ from database.session import SessionLocal
 from engine.detect_ping import detect_ping
 from engine.initialization import initialize_ping
 from engine.ping_flow import start_ping_flow
+from logs.log_candidates import log_test
 from market_data.api.projectx.rest.projectx_rest import ProjectXREST
 from market_data.api.projectx.websocket.projectx_websocket import ProjectXWebSocket
 from market_data.candle_builder.htf_candle_builder import HTF_1H, HTF_30M, HTF_3M, HTF_4H, HTF_7H, HTF_D, NY_TZ, UTC_TZ, HTFCandleBuilder, HTFDefinition
@@ -144,7 +145,6 @@ def main():
         # )
 
         # print("Remaining timeframe=30 rows:", count)
-
 
         contract_repo = SQLiteContractRepository(session)
         candle_repo = SQLiteCandleRepository(session)

@@ -8,7 +8,7 @@ from helpers.enums import WeeklyBiasEnums
 from helpers.ib_helpers import check_ib_rejection
 from helpers.sessions import in_session
 from helpers.time_windows import get_active_window
-
+from logs.log_candidates import log_alerted_candidate, log_reversal_candidate
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -1121,6 +1121,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         structure_bias = "bullish" if look_for_longs else "bearish"
         htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
         print("HTF WEEKLY BIAS: ", htf_weekly_bias.value)
+        print("HTF bias in weekly context bias : ", weekly_context["bias"])
+        htf_weekly_bias_enum = weekly_context["bias"] if weekly_context["bias"] is not None else WeeklyBiasEnums.NEUTRAL
         direction_context = determine_ping_direction(
             cross_alignment,
             newyork_context.structure if candidate.instrument == "NQ" else co_asset["newyork_context"].structure,
@@ -1136,6 +1138,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         # conflict handling
         allow_conflict_longs = True
         allow_conflict_shorts = True
+        # in true directional conflict structures (not neutraal structures, and not same structure names)
+        # htf bias is used to allow trades in that direction but if that direction is exhausted allow reversal
         
         if direction_context["true_directional_conflict"] and not is_atr_filter:
 
@@ -1618,9 +1622,9 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Mini Flush" if (is_atr_overextended or not rocket_triggered) else "Flush"
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
                     candidate.initial_target_price = newyork_context.ib_18["high"]
-                    candidate.final_target = "MINI" if (is_atr_overextended or not rocket_triggered) else "RL"
+                    candidate.final_target = "MINI" if is_atr_overextended else "RL"
                     candidate.final_target_price = newyork_context.ib_18["low"]
                     if candidate.ping_type == "Flush":
                         newyork_context.execution_state["flush_triggered"] = True
@@ -1673,10 +1677,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and is_rejection
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Mini Rocket" if (is_atr_overextended or not flush_triggered) else "Rocket"
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     candidate.initial_target_price = newyork_context.ib_18["low"]
                     # candidate.final_target = "DO"
-                    candidate.final_target = "MINI" if (is_atr_overextended or not flush_triggered) else "RH"
+                    candidate.final_target = "MINI" if is_atr_overextended else "RH"
                     candidate.final_target_price = newyork_context.ib_18["high"]
                     if candidate.ping_type == "Rocket":
                         newyork_context.execution_state["rocket_triggered"] = True
@@ -2547,34 +2551,35 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 WeeklyBiasEnums.BEARISH,
             )
             
+            allow_longs = True
+            allow_shorts = True
+            # if bullish_continuation:
 
-            if bullish_continuation:
+            #     allow_longs = not is_atr_filter
 
-                allow_longs = not is_atr_filter
+            #     # ATR exhaustion currently unlocks shorts.
+            #     #
+            #     # PLACEHOLDER:
+            #     # Later we will also allow shorts when the
+            #     # Daily or 7H auction reaches its objective.
+            #     #
+            #     # Example future condition:
+            #     # is_daily_or_7h_auction_complete = (
+            #     #     daily_auction_complete
+            #     #     or seven_hour_auction_complete
+            #     # )
 
-                # ATR exhaustion currently unlocks shorts.
-                #
-                # PLACEHOLDER:
-                # Later we will also allow shorts when the
-                # Daily or 7H auction reaches its objective.
-                #
-                # Example future condition:
-                # is_daily_or_7h_auction_complete = (
-                #     daily_auction_complete
-                #     or seven_hour_auction_complete
-                # )
+            #     allow_shorts = is_atr_filter
 
-                allow_shorts = is_atr_filter
+            # elif retracement_inside_bearish_bias:
 
-            elif retracement_inside_bearish_bias:
+            #     allow_longs = False
+            #     allow_shorts = True
 
-                allow_longs = False
-                allow_shorts = True
+            # else:
 
-            else:
-
-                allow_longs = False
-                allow_shorts = False
+            #     allow_longs = False
+            #     allow_shorts = False
 
             # --------------------------------------------------
             # Core pings
@@ -2582,6 +2587,9 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             # Long  -> ATR
             # Short -> DO
             # --------------------------------------------------
+            print("allow_conflict_longs: ", allow_conflict_longs)
+            print("rocket triggered: ", newyork_context.execution_state["rocket_triggered"])
+            print("flush triggered: ", newyork_context.execution_state["flush_triggered"])
 
             if (
                 look_for_longs
@@ -2610,10 +2618,19 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
             elif (
                 look_for_shorts
-                and allow_conflict_shorts
+                # and allow_conflict_shorts
+                and (
+                    market_context.directional_exhaustion == "bullish" 
+                    or co_asset["market_context"].directional_exhaustion == "bullish"
+                    or htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL_BULLISH
+                )
                 and allow_shorts
                 and not newyork_context.execution_state["flush_triggered"]
+                # and not newyork_context.execution_state["rocket_triggered"]
+                # REMOVING ALLOW_CONFLICT_LONGS AND ROCKET_TRIGGERED (not needed as at exhaustion reversal can happen
+                # and rocket already triggered)
             ):
+                print("looking for shorts")
                 if (
                     is_smt
                     and is_rejection
@@ -2641,6 +2658,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         )
 
                     newyork_context.execution_state["flush_triggered"] = True
+            else:
+                print("no filters found")
 
         # block completed - V4, including weekly bias terminology
         elif structure_name == "bearish_decompression" or structure_name == "bearish_mixed_decompression":
@@ -2680,34 +2699,35 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             #   - Longs allowed
             #   - Shorts disabled
             # --------------------------------------------------
+            allow_longs = True
+            allow_shorts = True
+            # if bearish_continuation:
 
-            if bearish_continuation:
+            #     allow_shorts = not is_atr_filter
 
-                allow_shorts = not is_atr_filter
+            #     # ATR exhaustion currently unlocks longs.
+            #     #
+            #     # PLACEHOLDER:
+            #     # Later we will also allow longs when the
+            #     # Daily or 7H auction reaches its objective.
+            #     #
+            #     # Example future condition:
+            #     # is_daily_or_7h_auction_complete = (
+            #     #     daily_auction_complete
+            #     #     or seven_hour_auction_complete
+            #     # )
 
-                # ATR exhaustion currently unlocks longs.
-                #
-                # PLACEHOLDER:
-                # Later we will also allow longs when the
-                # Daily or 7H auction reaches its objective.
-                #
-                # Example future condition:
-                # is_daily_or_7h_auction_complete = (
-                #     daily_auction_complete
-                #     or seven_hour_auction_complete
-                # )
+            #     allow_longs = is_atr_filter
 
-                allow_longs = is_atr_filter
+            # elif retracement_inside_bullish_bias:
 
-            elif retracement_inside_bullish_bias:
+            #     allow_shorts = False
+            #     allow_longs = True
 
-                allow_shorts = False
-                allow_longs = True
+            # else:
 
-            else:
-
-                allow_shorts = False
-                allow_longs = False
+            #     allow_shorts = False
+            #     allow_longs = False
 
             # --------------------------------------------------
             # Core pings
@@ -2743,10 +2763,15 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
             elif (
                 look_for_longs 
-                and allow_conflict_longs 
+                # and allow_conflict_longs 
+                and (
+                    market_context.directional_exhaustion == "bearish" 
+                    or co_asset["market_context"].directional_exhaustion == "bearish"
+                    or htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL_BEARISH
+                )
                 and allow_longs
                 and not newyork_context.execution_state["rocket_triggered"]
-                and not newyork_context.execution_state["flush_triggered"]
+                # and not newyork_context.execution_state["flush_triggered"]
 
             ):
 
@@ -2815,8 +2840,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             # Directional permissions
             # ---------------------------------------------------------
 
-            allow_longs = False
-            allow_shorts = False
+            allow_longs = True
+            allow_shorts = True
+            if market_context.no_bearish_expansion_below_open:
+                allow_shorts = False
 
             if macro_scenario == "migration":
                 # ---------------------------------------------------------
@@ -2826,21 +2853,27 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 # if weekly bias is bullish, IB1 to IB18 can be retraacement in bullish trend
                 # Weekly bias determines the allowed direction.
                 # ---------------------------------------------------------
+                # Migration is downward from IB1 toward IB18.
+                migration_direction = "bearish"
 
-                if bullish_continuation:
-                # weekly bias is bullish or bearish_neutral
-                    allow_longs = True
-                    allow_shorts = False
-
-                elif bearish_continuation:
-                    allow_longs = False
+                # Rule 2: Allow shorts when weekly direction agrees
+                # with the downward migration.
+                # if the move from ib1 to ib18 is migrating, then its only retracement
+                # when weekly bias is bullish
+                if htf_weekly_bias_enum in (
+                    WeeklyBiasEnums.BEARISH,
+                    WeeklyBiasEnums.NEUTRAL_BULLISH,
+                ):
                     allow_shorts = True
-
-                if market_context.no_bullish_expansion_above_open:
                     allow_longs = False
 
-                if market_context.no_bearish_expansion_below_open:
+                elif htf_weekly_bias_enum in (
+                    WeeklyBiasEnums.BULLISH,
+                    WeeklyBiasEnums.NEUTRAL_BEARISH
+                ):
                     allow_shorts = False
+                    allow_longs = True
+                
 
             elif macro_scenario == "consolidation":
 
@@ -2860,12 +2893,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             rocket_triggered = newyork_context.execution_state["rocket_triggered"]
             flush_triggered = newyork_context.execution_state["flush_triggered"]
             if (
-                    look_for_longs 
-                    and allow_conflict_longs 
-                    and allow_longs
-                    and not rocket_triggered
-                    and not flush_triggered
-                ):
+                look_for_longs 
+                and allow_conflict_longs 
+                and allow_longs
+                and not rocket_triggered
+                and not flush_triggered
+            ):
                 if is_smt and is_rejection and is_displacement:
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -2892,12 +2925,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                             # candidate.final_target_price = weekly_context["weekly_open"]                     
 
             elif (
-                    look_for_shorts 
-                    and allow_conflict_shorts
-                    and allow_shorts
-                    and not flush_triggered
-                    and not rocket_triggered
-                  ):
+                look_for_shorts 
+                and allow_conflict_shorts
+                and allow_shorts
+                and not flush_triggered
+                and not rocket_triggered
+            ):
                 if is_smt and is_rejection and is_displacement:
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -2947,24 +2980,39 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     "Scenario 1 - migration from IB1"
                 )
 
-            allow_longs = False
-            allow_shorts = False
+            allow_longs = True
+            allow_shorts = True
+            if market_context.no_bullish_expansion_above_open:
+                allow_longs = False
 
             if macro_scenario == "migration":
 
-                if bullish_continuation:
-                    allow_longs = True
-                    allow_shorts = False
+                # if bullish_continuation:
+                #     allow_longs = True
+                #     allow_shorts = False
 
-                elif bearish_continuation:
-                    allow_longs = False
+                # elif bearish_continuation:
+                #     allow_longs = False
+                #     allow_shorts = True
+                migration_direction = "bullish"
+                # Rule 2: Allow longs when weekly direction agrees
+                # with the migration direction.
+                # if the move from ib1 to ib18 is migrating, then its only retracement
+                # when weekly bias is bearish
+                if htf_weekly_bias_enum in (
+                    WeeklyBiasEnums.BEARISH,
+                    WeeklyBiasEnums.NEUTRAL_BULLISH,
+                ):
                     allow_shorts = True
-
-                if market_context.no_bullish_expansion_above_open:
                     allow_longs = False
 
-                if market_context.no_bearish_expansion_below_open:
+                elif htf_weekly_bias_enum in (
+                    WeeklyBiasEnums.BULLISH,
+                    WeeklyBiasEnums.NEUTRAL_BEARISH
+                ):
                     allow_shorts = False
+                    allow_longs = True
+                
 
             elif macro_scenario == "consolidation":
 
@@ -5724,6 +5772,40 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         else:
             print("ib relationship scenario not captured: ", ib_relationship)
             reversal_confirmation = False
+        
+        if reversal_confirmation:
+            log_alerted_candidate(
+                market_context=market_context,
+                candidate=candidate,
+                co_asset_candidate=co_asset_candidate,
+                co_asset=co_asset,
+                is_atr_filter=is_atr_filter,
+                is_rejection=is_rejection,
+                is_smt=is_smt,
+                weekly_context=weekly_context,
+                last_closed_candle=last_closed_candle,
+                newyork_context=newyork_context,
+                smt_context=smt_context,
+                reversal_confirmation=reversal_confirmation,
+                auction_engine=auction_engine
+    
+            )
+
+        log_reversal_candidate(
+            market_context=market_context,
+            candidate=candidate,
+            co_asset_candidate=co_asset_candidate,
+            co_asset=co_asset,
+            is_atr_filter=is_atr_filter,
+            is_rejection=is_rejection,
+            is_smt=is_smt,
+            weekly_context=weekly_context,
+            last_closed_candle=last_closed_candle,
+            newyork_context=newyork_context,
+            smt_context=smt_context,
+            reversal_confirmation=reversal_confirmation,
+            auction_engine=auction_engine
+        )
 
         
 
