@@ -635,7 +635,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
     print("OB Confirmed:", candidate.ob_confirmed, "| sweep at:", candidate.sweep_timestamp, "| sweep level:", candidate.sweep_level,
                     "| OB data:", candidate.ob_data, "| Final OB confirmed:", candidate.final_ob_confirmed)
     print("is_london_killzone: ", is_london_killzone, " | is_post_london_killzone:", is_post_london_killzone, " |  is_ny_am_killzone: ", is_ny_am_killzone, " | is_ny_lunch_time: ", is_ny_lunch_time, " | window_name: ", window_name)
-    print("market context: ", market_context.values())
+    # print("market context: ", market_context.values())
     print("bullish 1h smt: ##")
     # print("bullish 1h smt: ", market_context.bullish_smt_1h, "bearish 1h smt: ", market_context.bearish_smt_1h, "bullish 30m swing smt: ", market_context.bullish_smt_30m, "bearish 30m swing smt: ", market_context.bearish_smt_30m)
     
@@ -649,7 +649,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
     is_recent_bearish_smt, is_recent_bullish_smt = london_smt_check()
     print("is_recent_bearish_smt: ", is_recent_bearish_smt)
     print("is_recent_bullish_smt: ", is_recent_bullish_smt)
-    print("weekly_context: ", weekly_context)
+    # print("weekly_context: ", weekly_context)
     is_atr_filter = atr_filter()
     print("is_atr_filter: ", is_atr_filter)
     print("daily_atr: ", market_context.daily_atr)

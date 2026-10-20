@@ -670,6 +670,23 @@ def detect_ping(
     # get valid swing points and key levels and send to detect_30m_key_level_sweep
     nq_valid_swing_lows, nq_valid_swing_highs = get_valid_swings(historical_nq_30m)
     es_valid_swing_lows, es_valid_swing_highs = get_valid_swings(historical_es_30m)
+
+    # just before detecting new sweep, we will reset the candidates which are already sent as trade alert
+    # Reset candidates whose alerts have already been sent
+    # in the code above we are using obs from active candidates and storing the key levels
+    # so dont reste at the beginning of the loop
+    # if runtime.nq_buy_candidate.alert_sent:
+    #     runtime.nq_buy_candidate.reset()
+
+    # if runtime.nq_sell_candidate.alert_sent:
+    #     runtime.nq_sell_candidate.reset()
+
+    # if runtime.es_buy_candidate.alert_sent:
+    #     runtime.es_buy_candidate.reset()
+
+    # if runtime.es_sell_candidate.alert_sent:
+    #     runtime.es_sell_candidate.reset()
+
     # sweep detection 30m Swing points
     sweep_nq_highs, sweep_nq_lows = detect_30m_and_key_level_sweep(instrument = "NQ", valid_swing_highs=nq_valid_swing_highs, valid_swing_lows = nq_valid_swing_lows, candles_3m = last_40_candles_3_nq, inside_candles_1m = None, last_closed_candle = last_closed_nq, key_levels = runtime.liquidity_nq, current_30m_start = current_30m_start)
     sweep_es_highs, sweep_es_lows = detect_30m_and_key_level_sweep(instrument = "ES", valid_swing_highs=es_valid_swing_highs, valid_swing_lows = es_valid_swing_lows, candles_3m = last_40_candles_3_es, inside_candles_1m = None, last_closed_candle = last_closed_es, key_levels = runtime.liquidity_es, current_30m_start = current_30m_start)
@@ -844,6 +861,16 @@ def detect_ping(
         )
         
         print("sweep_validation_result: ", sweep_validation_result)
+        # if both sweeps on nq and es are not valid then skp the flow
+        if (
+            not sweep_validation_result["NQ"]["validation"]["highs"]["is_valid"]
+            and not sweep_validation_result["NQ"]["validation"]["lows"]["is_valid"]
+            and not sweep_validation_result["ES"]["validation"]["highs"]["is_valid"]
+            and not sweep_validation_result["ES"]["validation"]["lowss"]["is_valid"]
+        ):
+            return
+        
+        
         # update sweep candidates with sweep validation data
         if sweep_validation_result["NQ"]["sweep_model"] is not None:
             if sweep_nq_highs is not None:
@@ -1173,6 +1200,7 @@ def detect_ping(
 
     # if sweep_nq and sweep_nq["sweep_key_level"]:
     # if sweep_nq_highs or sweep_nq_key_level_highs
+
     
     if sweep_nq_highs or sweep_nq_highs_key_level:
         if sweep_nq_highs_key_level:
@@ -1180,22 +1208,26 @@ def detect_ping(
             # runtime.nq_sell_candidate.register_sweep(sweep_nq_highs_key_level["timestamp"], sweep_nq_highs_key_level["sweep_candle_high"], sweep_nq_highs_key_level["sweep_time"], sweep_nq_highs_key_level["sweep_and_ob_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_entry"], sweep_nq_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_highs_key_level["sweep_and_ob_ce_entry"], sweep_nq_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs_key_level["swept_levels"], "NQ", sweep_nq_highs_key_level["sweep_type"], sweep_nq_highs_key_level["sweep_candle"], sweep_nq_highs_key_level["sweep_level"], sweep_nq_highs_key_level.get("caution", False))
             if sweep_nq_highs_key_level["is_valid"]:
                 runtime.nq_sell_candidate.register_sweep(sweep_nq_highs_key_level)
+            
         elif sweep_nq_highs:
             print("SWEEP DETECTED NQ Highs:", sweep_nq_highs)
             # runtime.nq_sell_candidate.register_sweep(sweep_nq_highs["timestamp"], sweep_nq_highs["sweep_candle_high"], sweep_nq_highs["sweep_time"], sweep_nq_highs["sweep_and_ob_confirmed"], sweep_nq_highs["sweep_and_ob_entry"], sweep_nq_highs["sweep_and_ob_ce_confirmed"], sweep_nq_highs["sweep_and_ob_ce_entry"], sweep_nq_highs["sweep_and_ob_confirmation_timestamp"], sweep_nq_highs["swept_levels"], "NQ", sweep_nq_highs["sweep_type"], sweep_nq_highs["sweep_candle"], sweep_nq_highs["sweep_level"], sweep_nq_highs.get("caution", False))
             if sweep_nq_highs["is_valid"]:
                 runtime.nq_sell_candidate.register_sweep(sweep_nq_highs)
+            
     if sweep_nq_lows or sweep_nq_lows_key_level:
         if sweep_nq_lows_key_level:
             print("SWEEP DETECTED NQ Lows at Key Level:", sweep_nq_lows_key_level)
             # runtime.nq_buy_candidate.register_sweep(sweep_nq_lows_key_level["timestamp"], sweep_nq_lows_key_level["sweep_candle_low"], sweep_nq_lows_key_level["sweep_time"], sweep_nq_lows_key_level["sweep_and_ob_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_entry"], sweep_nq_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_nq_lows_key_level["sweep_and_ob_ce_entry"], sweep_nq_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows_key_level["swept_levels"], "NQ", sweep_nq_lows_key_level["sweep_type"], sweep_nq_lows_key_level["sweep_candle"], sweep_nq_lows_key_level["sweep_level"], sweep_nq_lows_key_level.get("caution", False))
             if sweep_nq_lows_key_level["is_valid"]:
                 runtime.nq_buy_candidate.register_sweep(sweep_nq_lows_key_level)
+            
         elif sweep_nq_lows:
             print("Sweep detected NQ Lows:", sweep_nq_lows)
             # runtime.nq_buy_candidate.register_sweep(sweep_nq_lows["timestamp"], sweep_nq_lows["sweep_candle_low"], sweep_nq_lows["sweep_time"], sweep_nq_lows["sweep_and_ob_confirmed"], sweep_nq_lows["sweep_and_ob_entry"], sweep_nq_lows["sweep_and_ob_ce_confirmed"], sweep_nq_lows["sweep_and_ob_ce_entry"], sweep_nq_lows["sweep_and_ob_confirmation_timestamp"], sweep_nq_lows["swept_levels"], "NQ", sweep_nq_lows["sweep_type"], sweep_nq_lows["sweep_candle"], sweep_nq_lows["sweep_level"], sweep_nq_lows.get("caution", False))
             if sweep_nq_lows["is_valid"]:
                 runtime.nq_buy_candidate.register_sweep(sweep_nq_lows)
+            
 
 
     if sweep_es_highs or sweep_es_highs_key_level:
@@ -1204,11 +1236,15 @@ def detect_ping(
             # runtime.es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"], sweep_es_highs_key_level["sweep_level"], sweep_es_highs_key_level.get("caution", False))
             if sweep_es_highs_key_level["is_valid"]:
                 runtime.es_sell_candidate.register_sweep(sweep_es_highs_key_level)
+            else:
+                runtime.es_sell_candidate.reset()
         elif sweep_es_highs:     
             print("SWEEP DETECTED ES Highs:", sweep_es_highs)
             # runtime.es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"], sweep_es_highs["sweep_level"], sweep_es_highs.get("caution", False))
             if sweep_es_highs["is_valid"]:
                 runtime.es_sell_candidate.register_sweep(sweep_es_highs)
+            else:
+                runtime.es_sell_candidate.reset()
             
     
     if sweep_es_lows or sweep_es_lows_key_level:
@@ -1217,15 +1253,26 @@ def detect_ping(
             # runtime.es_buy_candidate.register_sweep(sweep_es_lows_key_level["timestamp"], sweep_es_lows_key_level["sweep_candle_low"], sweep_es_lows_key_level["sweep_time"], sweep_es_lows_key_level["sweep_and_ob_confirmed"], sweep_es_lows_key_level["sweep_and_ob_entry"], sweep_es_lows_key_level["sweep_and_ob_ce_confirmed"], sweep_es_lows_key_level["sweep_and_ob_ce_entry"], sweep_es_lows_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_lows_key_level["swept_levels"], "ES", sweep_es_lows_key_level["sweep_type"], sweep_es_lows_key_level["sweep_candle"], sweep_es_lows_key_level["sweep_level"], sweep_es_lows_key_level.get("caution", False))
             if sweep_es_lows_key_level["is_valid"]:
                 runtime.es_buy_candidate.register_sweep(sweep_es_lows_key_level)
+            
         elif sweep_es_lows:
             print("Sweep detected ES Lows:", sweep_es_lows)
             # runtime.es_buy_candidate.register_sweep(sweep_es_lows["timestamp"], sweep_es_lows["sweep_candle_low"], sweep_es_lows["sweep_time"], sweep_es_lows["sweep_and_ob_confirmed"], sweep_es_lows["sweep_and_ob_entry"], sweep_es_lows["sweep_and_ob_ce_confirmed"], sweep_es_lows["sweep_and_ob_ce_entry"], sweep_es_lows["sweep_and_ob_confirmation_timestamp"], sweep_es_lows["swept_levels"], "ES", sweep_es_lows["sweep_type"], sweep_es_lows["sweep_candle"], sweep_es_lows["sweep_level"], sweep_es_lows.get("caution", False))
             if sweep_es_lows["is_valid"]:
                 runtime.es_buy_candidate.register_sweep(sweep_es_lows)
+            
 
     #  continue if there are no active candidates
-    if not runtime.nq_buy_candidate.active and not runtime.nq_sell_candidate.active and not runtime.es_buy_candidate.active and not runtime.es_sell_candidate.active:
+
+    
+
+    if (
+        not (runtime.nq_buy_candidate.active and not runtime.nq_buy_candidate.alert_sent) 
+        and not (runtime.nq_sell_candidate.active and not runtime.nq_sell_candidate.alert_sent)
+        and not (runtime.es_buy_candidate.active and not runtime.es_buy_candidate.alert_sent)  
+        and not (runtime.es_sell_candidate.active and not runtime.es_sell_candidate.alert_sent)
+    ):
         return
+
 
     # print for debug
     if runtime.nq_buy_candidate.active:

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from textwrap import dedent
 
 from framework.models.profit_targets import get_tp_levels
 
@@ -473,22 +474,42 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     if alert_type == "t3":
         rr_t3 = abs(entry - tp3) / risk
         rr_t3 = round(rr_t3, 2)
-        alert_message = f"""
-        ⚡️Ping Time - {candidate.ping_type}
+        # alert_message = f"""
+        # ⚡️Ping Time - {candidate.ping_type}
 
-        {instrument} • {bias}
-        Time: {time_formatted} EST
+        # {instrument} • {bias}
+        # Time: {time_formatted} EST
         
-        {zone}: {zone_start} - {zone_end}
+        # {zone}: {zone_start} - {zone_end}
+        # Sample Entry: {round(entry, 2)}
+        # Sample Stop: {round(stop, 2)}
+        # TP1 (1R): {round(tp1, 2)}
+        # TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
+        # TP3 (ATR): {round(tp3, 2)}
+        
+        # Risk: {round(abs(entry-stop), 0)} pts
+        # Reward : Risk: {rr_t3} : 1
+        # """
+        alert_message = dedent(f"""
+        ⚡ PING TIME — {candidate.ping_type}
+
+        { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
+        🕒 {time_formatted} EST
+
+        {zone}: {round(zone_start, 2)} – {round(zone_end, 2)}
         Sample Entry: {round(entry, 2)}
         Sample Stop: {round(stop, 2)}
-        TP1 (1R): {round(tp1, 2)}
-        TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
-        TP3 (ATR): {round(tp3, 2)}
-        
-        Risk: {round(abs(entry-stop), 0)} pts
+
+        🎯 TP1 (1R): {round(tp1, 2)}
+        🎯 TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
+        🎯 TP3 (ATR): {round(tp3, 2)}
+
+        Risk: {round(abs(entry - stop), 0)} pts
         Reward : Risk: {rr_t3} : 1
-        """
+
+        ──────────────────
+        Ping. Its Time. ⚡
+        """).strip()
         
         # alert_message = f"""
         # ⚡️Ping Time - {candidate.ping_type}
@@ -525,97 +546,100 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         rr_t2 = abs(entry - tp2) / risk
         rr_t2 = round(rr_t2, 2)
 
-        alert_message = f"""
-        ⚡️Ping Time - {candidate.ping_type}
-
-        {instrument} • {bias}
-        Time: {time_formatted} EST
-
-        {zone}: {zone_start} - {zone_end}
-        Sample Entry: {round(entry, 2)}
-        Sample Stop: {round(stop, 2)}
-        TP1 (1R): {round(tp1, 2)}
-        TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
-        
-        Risk: {round(abs(entry-stop), 0)} pts
-        Reward : Risk: {rr_t2} : 1
-        """
         # alert_message = f"""
         # ⚡️Ping Time - {candidate.ping_type}
 
         # {instrument} • {bias}
-        # {time_formatted} EST
+        # Time: {time_formatted} EST
+
+        # {zone}: {zone_start} - {zone_end}
+        # Sample Entry: {round(entry, 2)}
+        # Sample Stop: {round(stop, 2)}
+        # TP1 (1R): {round(tp1, 2)}
+        # TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
         
-        # {zone}
-        # {round(entry, 2)} - {round(stop, 2)}
-        
-        # Sample Entry
-        # {round(entry, 2)}
-        
-        # Sample Stop
-        # {round(stop, 2)}
-        
-        # Take Profit 1
-        # {round(tp1, 2)}
-        
-        # Take Profit 2
-        # HTF Liquidity: {round(tp2, 2) if tp2 is not None else 'N/A'}
-        
-        # Risk
-        # {round(abs(entry-stop), 0)} Pts
-        
-        # Reward : Risk
-        # {rr_t2} : 1
+        # Risk: {round(abs(entry-stop), 0)} pts
+        # Reward : Risk: {rr_t2} : 1
         # """
+        alert_message = dedent(f"""
+        ⚡ PING TIME — {candidate.ping_type}
+
+        { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
+        🕒 {time_formatted} EST
+
+        {zone}: {round(zone_start, 2)} – {round(zone_end, 2)}
+        Sample Entry: {round(entry, 2)}
+        Sample Stop: {round(stop, 2)}
+
+        🎯 TP1 (1R): {round(tp1, 2)}
+        🎯 TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
+
+        Risk: {round(abs(entry - stop), 0)} pts
+        Reward : Risk: {rr_t2} : 1
+        
+        ──────────────────
+        Ping. Its Time. ⚡
+        """).strip()
+        
 
     elif alert_type == "t1":
         rr_t1 = abs(entry - tp1) / risk
         rr_t1 = round(rr_t1, 2)
-        alert_message = f"""
-        ⚡️Ping Time - {candidate.ping_type}
-
-        {instrument} • {bias}
-        Time: {time_formatted} EST
-
-        {zone}: {zone_start} - {zone_end}
-        Sample Entry: {round(entry, 2)}
-        Sample Stop: {round(stop, 2)}
-        TP (1R): {round(tp1, 2)}
-        
-        Risk: {round(abs(entry-stop), 0)} pts
-        Reward : Risk: {rr_t1} : 1
-        """
-        
         # alert_message = f"""
         # ⚡️Ping Time - {candidate.ping_type}
 
         # {instrument} • {bias}
-        # {time_formatted} EST
+        # Time: {time_formatted} EST
+
+        # {zone}: {zone_start} - {zone_end}
+        # Sample Entry: {round(entry, 2)}
+        # Sample Stop: {round(stop, 2)}
+        # TP (1R): {round(tp1, 2)}
         
-        # {zone}
-        # {round(entry, 2)} - {round(stop, 2)}
-        
-        # Sample Entry
-        # {round(entry, 2)}
-        
-        # Sample Stop
-        # {round(stop, 2)}
-        
-        # Take Profit
-        # {round(tp1, 2)}
-        
-        # Risk
-        # {round(abs(entry-stop), 0)} Pts
-        
-        # Reward : Risk
-        # {rr_t1} : 1
+        # Risk: {round(abs(entry-stop), 0)} pts
+        # Reward : Risk: {rr_t1} : 1
         # """
+
+        alert_message = dedent(f"""
+        ⚡ PING TIME — {candidate.ping_type}
+
+        { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
+        🕒 {time_formatted} EST
+
+        {zone}: {round(zone_start, 2)} – {round(zone_end, 2)}
+        Sample Entry: {round(entry, 2)}
+        Sample Stop: {round(stop, 2)}
+
+        🎯 TP1 (1R): {round(tp1, 2)}
+
+        Risk: {round(abs(entry - stop), 2)} pts
+        Reward : Risk: {rr_t1} : 1
+        
+        ──────────────────
+        Ping. Its Time. ⚡
+        """).strip()
+        
+
+        
+        
     # if instrument == "NQ":
     #     if abs(entry-stop) > 150:
     #         return None
     # elif instrument == "ES":
     #     if abs(entry-stop) > 60:
     #         return None
+    alert_message = "\n".join(
+        "\u00A0\u00A0\u00A0" + line + "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0" if line else ""
+        for line in alert_message.splitlines()
+    )
+    # Add two blank-looking lines at the top and bottom
+    padding = "\u00A0\n"
+
+    alert_message = (
+        padding * 1
+        + alert_message
+        + "\n\u00A0" * 1
+    )
     return alert_message
 
 

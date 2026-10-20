@@ -99,4 +99,18 @@ def build_summary_alert(
     lines.append(f"{preferred_asset}")
     lines.append(reason)
 
-    return "\n".join(lines)
+    summary_alert = "\n".join(lines)
+    summary_alert = "\n".join(
+        "\u00A0\u00A0\u00A0" + line + "\u00A0\u00A0\u00A0" if line else ""
+        for line in summary_alert.splitlines()
+    )
+    # Add two blank-looking lines at the top and bottom
+    padding = "\u00A0\n"
+
+    summary_alert = (
+        padding * 1
+        + summary_alert
+        + "\n\u00A0" * 1
+    )
+
+    return summary_alert
