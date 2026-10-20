@@ -10,7 +10,7 @@ from helpers.sessions import in_session
 from helpers.time_windows import get_active_window
 from logs.log_candidates import log_alerted_candidate, log_reversal_candidate
 
-from datetime import datetime
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 # decision flow: context layer, direction layer and validation layer
@@ -674,12 +674,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
     weekly_bias = weekly_context["bias"]
     bullish_continuation = weekly_bias in (
         WeeklyBiasEnums.BULLISH,
-        WeeklyBiasEnums.NEUTRAL_BULLISH,
+        WeeklyBiasEnums.NEUTRAL_BEARISH,
     )
 
     bearish_continuation = weekly_bias in (
         WeeklyBiasEnums.BEARISH,
-        WeeklyBiasEnums.NEUTRAL_BEARISH,
+        WeeklyBiasEnums.NEUTRAL_BULLISH,
     )
 
     # -----------------------------------------------
@@ -849,6 +849,39 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
     elif is_8am_wick_window:
         # use auction direction + htf bias
         print("is 8am wick window")
+        # ny_tz = ZoneInfo("America/New_York")
+        
+        # nine_am = datetime.combine(
+        #     last_closed_candle.timestamp.date(),
+        #     time(9, 0),
+        #     tzinfo=ny_tz
+        # )
+        dt = last_closed_candle.timestamp
+        # check for compression at 8am IB
+        if dt.hour == 8 and dt.minute == 30 or dt.hour == 9 and dt.minute == 0 or dt.hour == 9 and dt.minute == 30:
+            print("compression resolution check in 8am wick window")
+            if newyork_context.structure["is_compression"] and newyork_context.structure["compression_state"]["compression_resolved"]:
+                look_for_longs = True
+                look_for_shorts = True
+                print("compression resolved")
+            elif newyork_context.structure["is_compression"] and not newyork_context.structure["compression_state"]["compression_partially_resolved"]:
+                look_for_longs = False
+                look_for_shorts = False
+                print("compression not resolved: ")
+            elif (
+                newyork_context.structure["compression_state"]["compression_partially_resolved"] 
+                and liquidity_levels["cr8am_low"]["swept"]
+            ):
+                look_for_longs = True
+                look_for_shorts = False
+                print("compression partially resolved: lows")
+            elif (
+                newyork_context.structure["compression_state"]["compression_partially_resolved"] 
+                and liquidity_levels["cr8am_high"]["swept"]
+            ):
+                look_for_longs = False
+                look_for_shorts = True
+                print("compression partially resolved: highs")
         if look_for_longs:
             if (
                 is_atr_filter
@@ -1291,6 +1324,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.final_target_price = market_context.session_open
                     
                     newyork_context.execution_state["rocket_triggered"] = True
+                    candidate.ping_type = "Rocket"
         # block completed - V4
         # todo: integrate weekly profile
         elif structure_name == "staircase_early_overlap_bullish":
@@ -1382,6 +1416,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             rocket_triggered = newyork_context.execution_state["rocket_triggered"]
             flush_triggered = newyork_context.execution_state["flush_triggered"]
             print("is_atr_filter xx: ", is_atr_filter)
+            if not liquidity_levels["cr8am_low"]["swept"]:
+                look_for_longs = False
+            if not liquidity_levels["cr8am_high"]["swept"]:
+                look_for_shorts = False
             if look_for_longs and allow_conflict_longs:
                 if bullish_continuation:
                     if (
@@ -1525,6 +1563,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             rocket_triggered = newyork_context.execution_state["rocket_triggered"]
             flush_triggered = newyork_context.execution_state["flush_triggered"]
             print("allow conflict longs: ", allow_conflict_longs)
+            if not liquidity_levels["cr8am_low"]["swept"]:
+                look_for_longs = False
+            if not liquidity_levels["cr8am_high"]["swept"]:
+                look_for_shorts = False
+
+
             if look_for_shorts and allow_conflict_shorts:
                 if bearish_continuation:
                 

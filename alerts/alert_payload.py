@@ -47,6 +47,15 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     default_risk = None
     side = candidate.side
     direction = "bearish" if side == "buy_side" else "bullish"
+    candidate_ping_type = ""
+    if candidate.ping_type is None:
+        if direction == "bearish":
+            candidate_ping_type = "Flush"
+        elif direction == "bullish":
+            candidate_ping_type = "Rocket"
+    else:
+        candidate_ping_type = candidate.ping_type
+
     instrument = candidate.instrument
     initial_target = candidate.initial_target_price
     final_target = candidate.final_target_price
@@ -490,10 +499,11 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         # Risk: {round(abs(entry-stop), 0)} pts
         # Reward : Risk: {rr_t3} : 1
         # """
+        # { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
         alert_message = dedent(f"""
-        ⚡ PING TIME — {candidate.ping_type}
-
-        { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
+        ⚡ PING TIME — {candidate_ping_type}
+        
+        { '⬇️' if bias.upper() == 'BEARISH' else '⬆️' } {instrument} · {bias}
         🕒 {time_formatted} EST
 
         {zone}: {round(zone_start, 2)} – {round(zone_end, 2)}
@@ -562,9 +572,9 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         # Reward : Risk: {rr_t2} : 1
         # """
         alert_message = dedent(f"""
-        ⚡ PING TIME — {candidate.ping_type}
+        ⚡ PING TIME — {candidate_ping_type}
 
-        { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
+        { '⬇️' if bias.upper() == 'BEARISH' else '⬆️' } {instrument} · {bias}
         🕒 {time_formatted} EST
 
         {zone}: {round(zone_start, 2)} – {round(zone_end, 2)}
@@ -601,9 +611,9 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         # """
 
         alert_message = dedent(f"""
-        ⚡ PING TIME — {candidate.ping_type}
+        ⚡ PING TIME — {candidate_ping_type}
 
-        { '🔻' if bias.upper() == 'BEARISH' else '🔺' } {instrument} · {bias}
+        { '⬇️' if bias.upper() == 'BEARISH' else '⬆️' } {instrument} · {bias}
         🕒 {time_formatted} EST
 
         {zone}: {round(zone_start, 2)} – {round(zone_end, 2)}

@@ -57,7 +57,7 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                     # breakout_sweep_ob = last_closed.close < candidate.sweep_candle["open"]
                     ob_found = {
                         "type": "bearish_ob",
-                        "confirmation_timestamp": last_closed.timestamp,
+                        "confirmation_timestamp": last_closed.timestamp + timedelta(minutes=30),
                         "ob_candle_timestamp": c.timestamp,
                         "ob_high": c.high,
                         "ob_low": c.open,
@@ -115,7 +115,7 @@ def detect_30m_order_block(candles, candidate, co_asset, co_asset_last_closed_ca
                     print("ob_level: ", c.open)
                     ob_found = {
                             "type": "bullish_ob",
-                            "confirmation_timestamp": last_closed.timestamp,
+                            "confirmation_timestamp": last_closed.timestamp + timedelta(minutes=30),
                             "ob_candle_timestamp": c.timestamp,
                             "ob_low": c.low,
                             "ob_high": c.open,

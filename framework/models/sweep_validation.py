@@ -492,10 +492,10 @@ def validate_sweeps(
                 if last_closed.low < ny_market_context.ib_8["low"]:
                     is_valid_sweep_low = True
                     if instrument == "NQ":
-                        nq_validation["lows"]["is_valid"] = is_valid_sweep_high
+                        nq_validation["lows"]["is_valid"] = is_valid_sweep_low
                         nq_validation["lows"]["caution"] = False
                     else:
-                        es_validation["lows"]["is_valid"] = is_valid_sweep_high
+                        es_validation["lows"]["is_valid"] = is_valid_sweep_low
                         es_validation["lows"]["caution"] = False
 
     # completed, review later
@@ -559,7 +559,7 @@ def validate_sweeps(
                     nq_validation["lows"]["is_valid"] = is_valid_sweep_low
                     nq_validation["lows"]["caution"] = False
                 else:
-                    es_validation["lows"]["is_valid"] = True
+                    es_validation["lows"]["is_valid"] = is_valid_sweep_low
                     es_validation["lows"]["caution"] = False
 
             # shorts

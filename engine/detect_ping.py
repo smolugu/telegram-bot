@@ -1,5 +1,6 @@
 # 
 from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 # import time
 
 from alerts.alert_payload import build_trade_alert
@@ -843,7 +844,15 @@ def detect_ping(
     # nq_compression_or_recompression = compression_flags_nq["nested_1_in_18"] or compression_flags_nq["engulfing_1_over_18"]
     # es_compression_or_recompression = compression_flags_es["nested_1_in_18"] or compression_flags_es["engulfing_1_over_18"]
     # compression or re-compression at 1am IB, trade only extremes
-    if is_post_8AM_IB:
+    ny_tz = ZoneInfo("America/New_York")
+
+    nine_am = datetime.combine(
+        last_closed_nq.timestamp.date(),
+        time(9, 0),
+        tzinfo=ny_tz
+    )
+    
+    if is_post_8AM_IB and last_closed_nq.timestamp > nine_am:
         sweep_validation_result = validate_sweeps(
             sweep_nq_highs=sweep_nq_highs,
             sweep_nq_highs_key_level=sweep_nq_highs_key_level,
@@ -862,13 +871,13 @@ def detect_ping(
         
         print("sweep_validation_result: ", sweep_validation_result)
         # if both sweeps on nq and es are not valid then skp the flow
-        if (
-            not sweep_validation_result["NQ"]["validation"]["highs"]["is_valid"]
-            and not sweep_validation_result["NQ"]["validation"]["lows"]["is_valid"]
-            and not sweep_validation_result["ES"]["validation"]["highs"]["is_valid"]
-            and not sweep_validation_result["ES"]["validation"]["lowss"]["is_valid"]
-        ):
-            return
+        # if (
+            # not sweep_validation_result["NQ"]["validation"]["highs"]["is_valid"]
+            # and not sweep_validation_result["NQ"]["validation"]["lows"]["is_valid"]
+            # and not sweep_validation_result["ES"]["validation"]["highs"]["is_valid"]
+            # and not sweep_validation_result["ES"]["validation"]["lows"]["is_valid"]
+        # ):
+            # return
         
         
         # update sweep candidates with sweep validation data
@@ -1263,15 +1272,16 @@ def detect_ping(
 
     #  continue if there are no active candidates
 
-    
-
-    if (
-        not (runtime.nq_buy_candidate.active and not runtime.nq_buy_candidate.alert_sent) 
-        and not (runtime.nq_sell_candidate.active and not runtime.nq_sell_candidate.alert_sent)
-        and not (runtime.es_buy_candidate.active and not runtime.es_buy_candidate.alert_sent)  
-        and not (runtime.es_sell_candidate.active and not runtime.es_sell_candidate.alert_sent)
-    ):
+    if not runtime.nq_buy_candidate.active and not runtime.nq_sell_candidate.active and not runtime.es_sell_candidate.active and not runtime.es_buy_candidate.active:
         return
+
+    # if (
+        # not (runtime.nq_buy_candidate.active and not runtime.nq_buy_candidate.alert_sent) 
+        # and not (runtime.nq_sell_candidate.active and not runtime.nq_sell_candidate.alert_sent)
+        # and not (runtime.es_buy_candidate.active and not runtime.es_buy_candidate.alert_sent)  
+        # and not (runtime.es_sell_candidate.active and not runtime.es_sell_candidate.alert_sent)
+    # ):
+        # return
 
 
     # print for debug
