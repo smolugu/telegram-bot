@@ -7,7 +7,7 @@ from helpers.time_windows import (
     is_in_reversal_window
 )
 def find_sweep_time_3m(inside_candles, swing_level, direction, tolerance=0.25):
-    print("calling find_sweep_time_3m")
+    # print("calling find_sweep_time_3m")
 
     for c in inside_candles:
         h = c.high
@@ -16,13 +16,13 @@ def find_sweep_time_3m(inside_candles, swing_level, direction, tolerance=0.25):
         if direction == "buy_side":
             # Upward sweep / buy-side liquidity grab
             if h >= swing_level - tolerance:           # using tolerance
-                print("swing level, timestamp: ", swing_level, c.timestamp)
+                # print("swing level, timestamp: ", swing_level, c.timestamp)
                 return c.timestamp
         
         else:  # "sell_side"
             # Downward sweep / sell-side liquidity grab
             if l <= swing_level + tolerance:
-                print("swing level, timestamp: ", swing_level, c.timestamp)
+                # print("swing level, timestamp: ", swing_level, c.timestamp)
                 return c.timestamp
 
     return None
@@ -37,13 +37,13 @@ def find_sweep_time_1m(inside_candles, swing_level, direction, tolerance=0.25):
         if direction == "buy_side":
             # Upward sweep / buy-side liquidity grab
             if h >= swing_level - tolerance:           # using tolerance
-                print("swing level, timestamp: ", swing_level, c.timestamp)
+                # print("swing level, timestamp: ", swing_level, c.timestamp)
                 return c.timestamp
         
         else:  # "sell_side"
             # Downward sweep / sell-side liquidity grab
             if l <= swing_level + tolerance:
-                print("swing level, timestamp: ", swing_level, c.timestamp)
+                # print("swing level, timestamp: ", swing_level, c.timestamp)
                 return c.timestamp
 
     return None
@@ -86,20 +86,20 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, inside_3m_candles, 
             level_swept = liquidity[level_type]["swept"]
             # update 3m sweep time
             if high > price and not level_swept:
-                print("504")
+                # print("504")
                 xyz_timestamph = find_sweep_time_3m(inside_3m_candles, price, "buy_side")
                 liquidity[level_type]["timestamp"] = xyz_timestamph
                 
             if high > price:
 
-                print("501")
+                # print("501")
                 liquidity[level_type]["swept"] = True
                 if sweep_max_level is None or price > sweep_max_level:
                     sweep_max_level = price
             # check for valid sweep (rejection off level)
             # if high >= price - tolerance and close < price:
             if high > price and close <= price:
-                print("502")
+                # print("502")
                 sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
                 sweep_type = "rejection"
@@ -113,7 +113,7 @@ def detect_key_liquidity_sweep_highs(last_candle, liquidity, inside_3m_candles, 
                 })
             # elif high >= price - tolerance and close >= price:
             elif high > price and close > price:
-                print("503")
+                # print("503")
                 # potential sweep but no rejection, still mark as swept
                 sweep_at_key_level = True
                 liquidity[level_type]["swept"] = True
@@ -202,7 +202,7 @@ def detect_key_liquidity_sweep_lows(last_candle, liquidity, inside_candles_3m, t
 
 
 def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candles_1m, last_closed_candle, current_30m_start):
-    print("calling detect_key_liquidity_sweep")
+    # print("calling detect_key_liquidity_sweep")
     sweep_highs_key_levels_info = None
     sweep_lows_key_levels_info = None
 
@@ -402,7 +402,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             inside_3m_candles = [c for c in candles_3m if c.timestamp >= sweep_candle_start and c.timestamp < sweep_candle_end]
             sweep_time = find_sweep_time_3m(inside_3m_candles, swing.high, "buy_side")
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_highs(last_closed_candle, key_levels, inside_3m_candles)
-            print("detect_key_liquidity_sweep_highs return")
+            # print("detect_key_liquidity_sweep_highs return")
             print(key_levels["asia_high"])
 
             # print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
@@ -600,8 +600,16 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
     points_tol = 3 if instrument == "NQ" else 1.5
     if candidate.side == "buy_side":
         print("checking breakout rejection for nq sell candidate")
+        sweep = candidate.sweep_key_level
+        is_breakout_rejection_wick = False
+
+        if sweep and upper_wick_ratio > 0.25:
+            is_breakout_rejection_wick = True
+        if not sweep and upper_wick_ratio > 0.45:
+            is_breakout_rejection_wick = True
         # if last_closed_candle.close < candidate.sweep_level and strong_body_ce:
-        if last_closed_candle.close < candidate.sweep_level and last_closed_is_bearish:
+        # if last_closed_candle.close < candidate.sweep_level and last_closed_is_bearish:
+        if is_breakout_rejection_wick and last_closed_is_bearish:
             candidate.is_breakout_rejection = True
             candidate.sweep_type = "rejection"
             print("breakout sweep ob confirmed for nq sell candidate")
@@ -677,10 +685,19 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
     else:
         print(f"""checking breakout rejection for {candidate.instrument} buy candidate""")
         # if last_closed_candle.close > candidate.sweep_level and strong_body_ce:
-        if last_closed_candle.close > candidate.sweep_level and last_closed_is_bullish:
+        sweep = candidate.sweep_key_level
+        is_breakout_rejection_wick = False
+
+        if sweep and lower_wick_ratio > 0.25:
+            is_breakout_rejection_wick = True
+        if not sweep and lower_wick_ratio > 0.45:
+            is_breakout_rejection_wick = True
+
+        # if last_closed_candle.close > candidate.sweep_level and last_closed_is_bullish:
+        if is_breakout_rejection_wick and last_closed_is_bullish:
             candidate.is_breakout_rejection = True
             candidate.sweep_type = "rejection"
-            print(f"""breakout sweep ob confirmed for {candidate.instrument} sell candidate""")
+            print(f"""breakout sweep ob confirmed for {candidate.instrument} buy candidate""")
             # other updates
             # sweep extreme and 3m sweep time
             if candidate.sweep_candle_extreme > last_closed_candle.low:

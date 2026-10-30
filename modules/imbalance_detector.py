@@ -230,6 +230,21 @@ def detect_3m_imbalance_inside_ob_candle(
         curr = inside[i]
         prev_close = prev.close
         curr_open = curr.open
+        curr_close = curr.close
+        # Remove previously detected imbalances invalidated by this candle
+        candidates = [
+            candidate for candidate in candidates
+            if not (
+                (
+                    candidate["type"] in ("bearish_fvg", "bearish_vi")
+                    and curr_close > candidate["invalidation_level"]
+                )
+                or (
+                    candidate["type"] in ("bullish_fvg", "bullish_vi")
+                    and curr_close < candidate["invalidation_level"]
+                )
+            )
+        ]
         
         # ==========================================================
         # 🔴 BEARISH SETUP (buy_side sweep → looking for short)
@@ -264,7 +279,8 @@ def detect_3m_imbalance_inside_ob_candle(
                         "distance": distance,
                         "type": "bearish_vi",
                         "instrument": instrument,
-                        "ce_ob": ce_ob
+                        "ce_ob": ce_ob,
+                        "invalidation_level": vi_high,
                     })
                     # print("candidates vi: ", candidates)
             
@@ -292,7 +308,8 @@ def detect_3m_imbalance_inside_ob_candle(
                             "distance": distance,
                             "type": "bearish_fvg",
                             "instrument": instrument,
-                            "ce_ob": ce_ob  
+                            "ce_ob": ce_ob,
+                            "invalidation_level": fvg_high,
                         })
                         # print("candidates fvg: ", candidates)
 
@@ -336,7 +353,8 @@ def detect_3m_imbalance_inside_ob_candle(
                         "distance": distance,
                         "type": "bullish_vi",
                         "instrument": instrument,
-                        "ce_ob": ce_ob
+                        "ce_ob": ce_ob,
+                        "invalidation_level": vi_low,
                     })
 
             # ---------------------------
@@ -361,7 +379,8 @@ def detect_3m_imbalance_inside_ob_candle(
                             "distance": distance,
                             "type": "bullish_fvg",
                             "instrument": instrument,
-                            "ce_ob": ce_ob
+                            "ce_ob": ce_ob,
+                            "invalidation_level": fvg_low,
                         })
 
     if not candidates:

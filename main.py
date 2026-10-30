@@ -10,6 +10,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from data.models.candle import Candle
+from data.models.runtime_state import PingRuntime
 from database.session import SessionLocal
 from engine.detect_ping import detect_ping
 from engine.initialization import initialize_ping
@@ -17,7 +18,7 @@ from engine.ping_flow import start_ping_flow
 from logs.log_candidates import log_test
 from market_data.api.projectx.rest.projectx_rest import ProjectXREST
 from market_data.api.projectx.websocket.projectx_websocket import ProjectXWebSocket
-from market_data.candle_builder.htf_candle_builder import HTF_1H, HTF_30M, HTF_3M, HTF_4H, HTF_7H, HTF_D, NY_TZ, UTC_TZ, HTFCandleBuilder, HTFDefinition
+from market_data.candle_builder.htf_candle_builder import HTF_15M, HTF_1H, HTF_30M, HTF_3M, HTF_4H, HTF_5M, HTF_7H, HTF_D, NY_TZ, UTC_TZ, HTFCandleBuilder, HTFDefinition
 from market_data.candle_builder.minute_candle_builder import MinuteCandleBuilder
 from market_data.contracts.contracts_mapper import ContractMapper
 from market_data.htf.htf_candle_builder import inspect_1m_gaps
@@ -25,7 +26,7 @@ from market_data.models.candle import CandleORM
 from market_data.providers.projectx_futures_provider import ProjectXFuturesProvider
 from market_data.repository.sqlite_candle_repository import SQLiteCandleRepository
 
-from backtest.quick_test import run_quick_test
+# from backtest.quick_test import run_quick_test
 from config.settings import BOT_TOKEN, POLYGON_API_KEY, PROJECTX_API_KEY, PROJECTX_USERNAME
 from market_data.api.massive_rest import MassiveREST
 from market_data.providers.massive_futures_provider import FuturesProvider, MassiveFuturesProvider
@@ -48,7 +49,7 @@ from helpers.zones import get_current_7h_open
 from alerts.alert_engine import handle_stage
 
 
-from backtest.quick_backtest import run_quick_backtest
+# from backtest.quick_backtest import run_quick_backtest
 
 
 load_dotenv()
@@ -644,10 +645,12 @@ def main():
         ping_runtime = None
         
         if start_ping:
+            runtime = PingRuntime()
             ping_runtime = start_ping_flow(
                 start_time=ping_start_time,
                 contract_repo=contract_repo,
                 candle_repo=projectx_candle_repo,
+                runtime=runtime
             )
 
         # process ping loop
@@ -914,7 +917,51 @@ def main():
             # print(
             #     f">>> 3m candle saved: {candle}"
             # )
-
+        
+        def process_5m_v3():
+            print(
+                f"[SCHEDULER] thread={threading.current_thread().name} "
+                f"id={threading.get_ident()}"
+                f"session_id={id(projectx_session)}"
+            )
+            now_utc = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+            print("now: ", now_utc)
+            # build 5m candle from last 5 1m candles
+            htf_builder.build_latest_5m_from_1m_v3(
+                instrument="NQ",
+                contract=nq_contract,
+                end_utc=now_utc,
+            )
+            htf_builder.build_latest_5m_from_1m_v3(
+                instrument="ES",
+                contract=es_contract,
+                end_utc=now_utc,
+            )
+        def process_15m_v3():
+            print(
+                f"[SCHEDULER] thread={threading.current_thread().name} "
+                f"id={threading.get_ident()}"
+                f"session_id={id(projectx_session)}"
+            )
+            now_utc = datetime.now(timezone.utc).replace(
+                second=0,
+                microsecond=0,
+            )
+            print("now: ", now_utc)
+            # build 15m candle from last 15 1m candles
+            htf_builder.build_latest_15m_from_1m_v3(
+                instrument="NQ",
+                contract=nq_contract,
+                end_utc=now_utc,
+            )
+            htf_builder.build_latest_15m_from_1m_v3(
+                instrument="ES",
+                contract=es_contract,
+                end_utc=now_utc,
+            )
         
         
         def process_30m_htf(end):
@@ -1333,6 +1380,12 @@ def main():
 
             if htf_builder.is_htf_boundary(now_utc, HTF_3M):
                 process_3m_v3()
+
+            if htf_builder.is_htf_boundary(now_utc, HTF_5M):
+                process_5m_v3()
+
+            if htf_builder.is_htf_boundary(now_utc, HTF_15M):
+                process_15m_v3()
                 
             if htf_builder.is_htf_boundary(now_utc, HTF_30M):
 
@@ -1525,6 +1578,7 @@ def main():
     register_handlers(application)
 
     application.post_init = on_startup
+    application.bot_data["runtime"] = runtime
     print("Chartless bot is running...")
     application.run_polling()
     # token = os.getenv("BOT_TOKEN")

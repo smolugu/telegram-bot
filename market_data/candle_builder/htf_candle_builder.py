@@ -21,6 +21,16 @@ HTF_3M = HTFDefinition(
     name="3m",
 )
 
+HTF_5M = HTFDefinition(
+    timeframe=5,
+    name="5m",
+)
+
+HTF_15M = HTFDefinition(
+    timeframe=15,
+    name="15m",
+)
+
 HTF_30M = HTFDefinition(
     timeframe=30,
     name="30m",
@@ -910,6 +920,8 @@ class HTFCandleBuilder:
 
         definitions = [
             HTFDefinition(3, "3m"),
+            # HTFDefinition(5, "5m"),
+            HTFDefinition(15, "15m"),
             HTFDefinition(30, "30m"),
             HTFDefinition(60, "1h"),
             HTFDefinition(240, "4h"),
@@ -974,6 +986,8 @@ class HTFCandleBuilder:
 
         definitions = [
             HTFDefinition(3, "3m"),
+            HTFDefinition(5, "5m"),
+            HTFDefinition(15, "15m"),
             HTFDefinition(30, "30m"),
             HTFDefinition(60, "1h"),
             HTFDefinition(240, "4h"),
@@ -1014,23 +1028,23 @@ class HTFCandleBuilder:
         # ---------------------------------------------------------
         # 30m: retrieve directly from ProjectX
         # ---------------------------------------------------------
-        if definition.timeframe == 3:
+        if definition.timeframe == 3 or definition.timeframe == 5 or definition.timeframe == 15:
 
             print(
-                f"Backfilling 3m from ProjectX: "
+                f"Backfilling {definition.name} from ProjectX: "
                 f"{instrument} {contract}"
             )
 
             candles = self.history_loader.provider.get_history(
                 instrument=instrument,
                 contract=contract,
-                timeframe=3,
+                timeframe=definition.timeframe,
                 start=start_utc,
                 end=end_utc,
             )
 
             if not candles:
-                print("No 3m candles returned from ProjectX")
+                print(f"No {definition.name} candles returned from ProjectX")
                 return 0
 
             # Safety: only save candles inside requested range.
@@ -1046,7 +1060,7 @@ class HTFCandleBuilder:
             self._candle_repo.save(candles)
 
             print(
-                f"3m backfill complete: "
+                f"{definition.name} backfill complete: "
                 f"{instrument} {contract} → "
                 f"{len(candles)} candles saved"
             )
@@ -1808,6 +1822,92 @@ class HTFCandleBuilder:
 
         return htf_candle
 
+    def build_latest_5m_from_1m_v3(
+        self,
+        instrument: str,
+        contract: str,
+        end_utc: datetime,
+    ) -> Candle | None:
+
+        start_utc = end_utc - timedelta(minutes=5)
+
+        candles_1m = self._candle_repo.get_between(
+            contract=contract,
+            timeframe=1,
+            start=start_utc,
+            end=end_utc - timedelta(minutes=1),
+        )
+
+        if not candles_1m:
+            print(
+                f"No 1m candles available for 5m period: "
+                f"{start_utc} → {end_utc}"
+            )
+            return None
+
+        first = candles_1m[0]
+        last = candles_1m[-1]
+
+        htf_candle = Candle(
+            instrument=instrument,
+            timeframe=5,
+            timestamp=start_utc,
+            contract=contract,
+            open=first.open,
+            high=max(c.high for c in candles_1m),
+            low=min(c.low for c in candles_1m),
+            close=last.close,
+            volume=sum(c.volume for c in candles_1m),
+        )
+        print("htf candle:", htf_candle)
+
+        self._candle_repo.save([htf_candle])
+
+        return htf_candle
+
+    def build_latest_15m_from_1m_v3(
+        self,
+        instrument: str,
+        contract: str,
+        end_utc: datetime,
+    ) -> Candle | None:
+
+        start_utc = end_utc - timedelta(minutes=15)
+
+        candles_1m = self._candle_repo.get_between(
+            contract=contract,
+            timeframe=1,
+            start=start_utc,
+            end=end_utc - timedelta(minutes=1),
+        )
+
+        if not candles_1m:
+            print(
+                f"No 1m candles available for 15m period: "
+                f"{start_utc} → {end_utc}"
+            )
+            return None
+
+        first = candles_1m[0]
+        last = candles_1m[-1]
+
+        htf_candle = Candle(
+            instrument=instrument,
+            timeframe=15,
+            timestamp=start_utc,
+            contract=contract,
+            open=first.open,
+            high=max(c.high for c in candles_1m),
+            low=min(c.low for c in candles_1m),
+            close=last.close,
+            volume=sum(c.volume for c in candles_1m),
+        )
+        print("htf candle:", htf_candle)
+
+        self._candle_repo.save([htf_candle])
+
+        return htf_candle
+
     def build_latest_30m_from_3m_v3(
         self,
         instrument: str,
@@ -2499,6 +2599,12 @@ class HTFCandleBuilder:
         
         if definition.timeframe == 3:
             return timestamp_ny.minute % 3 == 0
+
+        if definition.timeframe == 5:
+            return timestamp_ny.minute % 5 == 0
+
+        if definition.timeframe == 15:
+            return timestamp_ny.minute % 15 == 0
 
         if definition.timeframe == 30:
             return timestamp_ny.minute in (0, 30)

@@ -22,31 +22,33 @@ def send_newyork_summary(message, start_up):
     # send alert
     send_telegram_alert_to_all(message, start_up, admin_only)
 
-def execute_trade_and_log(candidate, message, start_up):
+def execute_trade_and_log(candidate, message, start_up, is_backtest):
 
     if not message:
         return
     admin_only = False
     if not is_alert_window():
         admin_only = True
-
+    # temporarily block sending alerts to users while testing
+    admin_only = True
+    start_up = True
     # 1️⃣ Send alert
     send_telegram_alert_to_all(message, start_up, admin_only)
 
     # 2️⃣ Mark candidate as alerted
     print("Marking candidate as alerted.")
     candidate.alert_sent = True
+    if not is_backtest:
+        # 3️⃣ Insert into database
+        insert_trade(candidate)
 
-    # 3️⃣ Insert into database
-    insert_trade(candidate)
+        # 4️⃣ Debug: print total trades
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
 
-    # 4️⃣ Debug: print total trades
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM trades")
+        total = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM trades")
-    total = cursor.fetchone()[0]
+        conn.close()
 
-    conn.close()
-
-    print(f"Trade inserted. Total trades in DB: {total}")
+        print(f"Trade inserted. Total trades in DB: {total}")

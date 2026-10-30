@@ -122,3 +122,4 @@ def debug_print_30m_swings(nq_30m, test_date):
     for s in progressive_lows:
         print(s.timestamp, s.low)
 
+

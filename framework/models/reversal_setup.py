@@ -9,6 +9,7 @@ from helpers.ib_helpers import check_ib_rejection
 from helpers.sessions import in_session
 from helpers.time_windows import get_active_window
 from logs.log_candidates import log_alerted_candidate, log_reversal_candidate
+from engine.helpers.start_of_day import get_start_of_trading_day
 
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
@@ -213,6 +214,26 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         look_for_longs = True
     auction_allowed_direction = allowed_auction_direction(auction_engine.status)
 
+    def determine_daily_bias():
+        bias = "neutral"
+        return bias
+
+    # daily bias
+    daily_bias = determine_daily_bias()
+    structure_bias = "bullish" if look_for_longs else "bearish"
+    htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else WeeklyBiasEnums.NEUTRAL
+    weekly_bias = weekly_context["bias"]
+
+    is_bullish_continuation = weekly_bias in (
+        WeeklyBiasEnums.BULLISH,
+        WeeklyBiasEnums.NEUTRAL_BEARISH,
+    )
+
+    is_bearish_continuation = weekly_bias in (
+        WeeklyBiasEnums.BEARISH,
+        WeeklyBiasEnums.NEUTRAL_BULLISH,
+    )
+
     # expansion type function
     def categorize_expansion():
         # types: expansion, flush, rocket
@@ -336,8 +357,124 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 is_bullish_atr_exhausted = True
         return is_bullish_atr_exhausted, is_bearish_atr_exhausted
     
+    def check_retracement_exhaustion(asset_market_context, asset_weekly_context):
+        # print("weekly_context: ", asset_weekly_context)
+        asset_weekly_bias = asset_weekly_context["bias"]
+        # print("asset_weekly_bias: ", asset_weekly_bias)
+        session_start = get_start_of_trading_day(last_closed_candle.timestamp)
+        # print("session_start: ", session_start)
 
+        def get_pre_session_cisd(active_cisds, session_start):
+            eligible_cisds = [
+                cisd for cisd in active_cisds
+                if cisd["timestamp"] < session_start
+            ]
+
+            if not eligible_cisds:
+                return None
+
+            return max(
+                eligible_cisds,
+                key=lambda cisd: cisd["timestamp"]
+            )
+        
+        asset_in_bullish_continuation = asset_weekly_bias in (
+            WeeklyBiasEnums.BULLISH,
+            WeeklyBiasEnums.NEUTRAL_BEARISH,
+        )
+    
+        asset_in_bearish_continuation = asset_weekly_bias in (
+            WeeklyBiasEnums.BEARISH,
+            WeeklyBiasEnums.NEUTRAL_BULLISH,
+        )
+        print("asset_in_bearish_continuation: ", asset_in_bearish_continuation)
+        print("asset_in_bullish_continuation: ", asset_in_bullish_continuation)
+        print("market_direction: ", asset_market_context.session_direction)
+        if (
+            asset_in_bullish_continuation
+            and asset_market_context.session_direction == "bearish"
+        ):
+            session_high = asset_market_context.session_high
+            session_low = asset_market_context.session_low
+            pre_session_cisd = get_pre_session_cisd(asset_weekly_context["active_bullish_cisds"], session_start)
+            cisd_level = pre_session_cisd["target_level"]
+            print("new_cisd_level:", cisd_level)
+            print("active_bullish_cisds: ", asset_weekly_context["active_bullish_cisds"])
+
+            retracement_range = session_high - cisd_level
+            distance_travelled = session_high - session_low
+
+        elif (
+            asset_in_bearish_continuation
+            and asset_market_context.session_direction == "bullish"
+        ):
+            session_high = asset_market_context.session_high
+            session_low = asset_market_context.session_low
+            cisd_level = asset_weekly_context["new_bearish_cisd"]["target_level"]
+            print("new_bearish_cisd_level:", cisd_level)
+            print("active_bearish_cisds: ", asset_weekly_context["active_bearish_cisds"])
+
+            retracement_range = cisd_level - session_low
+            distance_travelled = session_high - session_low
+
+        else:
+            return False
+
+        if retracement_range <= 0:
+            return False
+
+        return distance_travelled / retracement_range > 0.95
+    
     def atr_filter():
+        allow_shorts = True
+        allow_longs = True
+        filters_passed = False
+        print("overnight_expansion: ", market_context.overnight_expansion)
+        print("exhaustion: ", market_context.exhaustion)
+        print("direction: ", market_context.session_direction)
+        print("atr_usage: ", market_context.atr_usage)
+        # 1. Check existing ATR exhaustion first.
+        is_atr_exhausted = (
+            market_context.overnight_expansion
+            or market_context.exhaustion
+            or co_asset["market_context"].overnight_expansion
+            or co_asset["market_context"].exhaustion
+        )
+        # 2. Only check retracement exhaustion when ATR is not exhausted.
+        is_retracement_exhausted = False
+        print("atr filter function")
+        print("is_atr_exhasuted: ", is_atr_exhausted)
+        if not is_atr_exhausted:
+            asset_re = check_retracement_exhaustion(market_context, weekly_context)
+            co_asset_re = check_retracement_exhaustion(co_asset["market_context"], co_asset["weekly_context"])
+            print("asset_re: ", asset_re)
+            print("co_asset_re: ", co_asset_re)
+            is_retracement_exhausted = (
+                asset_re or co_asset_re
+            )
+            
+        print("is_retracement_exhausted: ", is_retracement_exhausted)
+        # Existing direction-filter behavior.
+        if is_atr_exhausted or is_retracement_exhausted:
+            if market_context.session_direction == "bearish":
+                allow_shorts = False
+            elif market_context.session_direction == "bullish":
+                allow_longs = False
+        else:
+            if market_context.session_direction == "bearish":
+                allow_longs = False
+            elif market_context.session_direction == "bullish":
+                allow_shorts = False
+
+        if look_for_longs and allow_longs:
+            filters_passed = True
+        if look_for_shorts and allow_shorts:
+            filters_passed = True
+
+        return filters_passed, is_retracement_exhausted
+
+
+    def atr_filter_old():
         allow_shorts = True
         allow_longs = True
         filters_passed = False
@@ -550,9 +687,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         # bearish reintegration
 
 
-    def determine_daily_bias():
-        bias = "neutral"
-        return bias
+    
     # sweep candle in totally below ib
     def below_ib(last_closed_candle, ib_low):
         if last_closed_candle.high < ib_low:
@@ -650,7 +785,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
     print("is_recent_bearish_smt: ", is_recent_bearish_smt)
     print("is_recent_bullish_smt: ", is_recent_bullish_smt)
     # print("weekly_context: ", weekly_context)
-    is_atr_filter = atr_filter()
+    is_atr_filter, is_retracement_exhausted = atr_filter()
     print("is_atr_filter: ", is_atr_filter)
     print("daily_atr: ", market_context.daily_atr)
     is_bullish_atr_exhausted, is_bearish_atr_exhausted = direction_atr_exhaustion()
@@ -667,20 +802,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
     is_sweep_rejection = candidate.fvg_confirmed or candidate.sweep_and_ob_confirmed or is_displacement
 
-    # daily bias
-    daily_bias = determine_daily_bias()
-    structure_bias = "bullish" if look_for_longs else "bearish"
-    htf_weekly_bias = weekly_context["bias"] if weekly_context["bias"] is not None else structure_bias
-    weekly_bias = weekly_context["bias"]
-    bullish_continuation = weekly_bias in (
-        WeeklyBiasEnums.BULLISH,
-        WeeklyBiasEnums.NEUTRAL_BEARISH,
-    )
-
-    bearish_continuation = weekly_bias in (
-        WeeklyBiasEnums.BEARISH,
-        WeeklyBiasEnums.NEUTRAL_BULLISH,
-    )
+    
 
     # -----------------------------------------------
     # disable or allow longs and shorts based on atr_usage and smt
@@ -711,7 +833,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         london_context.execution_state["rocket_triggered"] = True
 
                 elif (
-                    bullish_continuation
+                    is_bullish_continuation
                     and is_smt
                     and is_rejection
                     and is_displacement
@@ -749,7 +871,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         london_context.execution_state["flush_triggered"] = True
                 
                 elif (
-                    bearish_continuation
+                    is_bearish_continuation
                     and is_smt
                     and is_rejection
                     and is_displacement
@@ -790,7 +912,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         london_context.execution_state["rocket_triggered"] = True
                 elif (
                     # auction_direction == AuctionDirection.BULLISH
-                    bullish_continuation
+                    is_bullish_continuation
                     and is_smt
                     and is_rejection
                     and is_displacement
@@ -829,7 +951,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 
                 elif (
                     # auction_direction == AuctionDirection.BEARISH
-                    bearish_continuation
+                    is_bearish_continuation
                     and is_smt
                     and is_rejection
                     and is_displacement
@@ -897,12 +1019,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 candidate.final_target = "MINI" if is_atr_overextended else final_target_text
                 candidate.final_target_price = bullish_atr_target_price
                 
-                if candidate.ping_type == "Rocket":
-                    newyork_context.execution_state["rocket_triggered"] = True
+                # if candidate.ping_type == "Rocket":
+                #     newyork_context.execution_state["rocket_triggered"] = True
     
             elif (
                 # auction_direction == AuctionDirection.BULLISH and htf_weekly_bias == "bullish"
-                bullish_continuation
+                is_bullish_continuation
                 and is_smt
                 and is_rejection
             ):
@@ -916,7 +1038,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.final_target_price = auction_engine.status.active_objective
                 else:
                     candidate.final_target_price = bullish_atr_target_price 
-                newyork_context.execution_state["rocket_triggered"] = True
+                # snewyork_context.execution_state["rocket_triggered"] = True
 
 
         elif look_for_shorts:
@@ -934,13 +1056,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 candidate.final_target = "MINI" if is_atr_overextended else final_target_text
                 candidate.final_target_price = bearish_atr_target_price
                 
-                if candidate.ping_type == "Flush":
-                    newyork_context.execution_state["flush_triggered"] = True
+                # if candidate.ping_type == "Flush":
+                #     newyork_context.execution_state["flush_triggered"] = True
     
             elif (
                 
                 # auction_direction == AuctionDirection.BEARISH and htf_weekly_bias == "bearish"
-                bearish_continuation
+                is_bearish_continuation
                 and is_smt
                 and is_rejection
             ):
@@ -954,7 +1076,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.final_target_price = auction_engine.status.active_objective
                 else:
                     candidate.final_target_price = bearish_atr_target_price 
-                newyork_context.execution_state["flush_triggered"] = True
+                # newyork_context.execution_state["flush_triggered"] = True
 
     elif is_post_1AM_IB:
         # get IB zones
@@ -1174,13 +1296,14 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         # in true directional conflict structures (not neutraal structures, and not same structure names)
         # htf bias is used to allow trades in that direction but if that direction is exhausted allow reversal
         
-        if direction_context["true_directional_conflict"] and not is_atr_filter:
+        # TODO: pausing conflict shorts and longs flags. review later
+        # if direction_context["true_directional_conflict"] and not is_atr_filter:
 
-            if direction_context["conflict_resolution_direction"] == "bullish":
-                allow_conflict_shorts = False
+        #     if direction_context["conflict_resolution_direction"] == "bullish":
+        #         allow_conflict_shorts = False
 
-            elif direction_context["conflict_resolution_direction"] == "bearish":
-                allow_conflict_longs = False
+        #     elif direction_context["conflict_resolution_direction"] == "bearish":
+        #         allow_conflict_longs = False
                 
         # base confidence scoring
         base_confidence_modifier = 0
@@ -1235,8 +1358,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Rocket"
                     # continuation target
                     candidate.initial_target_price = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bullish_atr_target_price
+                    # if htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL_BULLISH:
+                    if is_bearish_continuation:
+                        candidate.final_target = "LIQUIDITY"
+                    else:
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bullish_atr_target_price
                     newyork_context.execution_state["rocket_triggered"] = True
 
 
@@ -1287,6 +1414,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 # expect mitigation into latest migration gap
                 if (
                     is_smt
+                    # and not is_atr_filter
                     and is_rejection
                     and (liquidity_levels["ob8_mtl_high"]["swept"] or liquidity_levels["mr8am_mtl_high"]["swept"])
                     and candidate.ob_level <
@@ -1297,13 +1425,19 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Flush"
                     # continuation target
                     candidate.initial_target_price = newyork_context.structure["range_low"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bearish_atr_target_price
+                    # final target is atr or bullish cisd in weekly state inside neutral bearish
+                    # if htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL_BEARISH:
+                    if is_bullish_continuation:
+                        candidate.final_target = "LIQUIDITY"
+                        
+                    else:
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bearish_atr_target_price
                     newyork_context.execution_state["flush_triggered"] = True
 
             elif look_for_longs and allow_conflict_longs:
                 # only allow longs after:
-                # downside ATR exhaustion
+                # downside ATR exhaustion or retracement exhaustion inside a bullish weekly state
                 # SMT divergence
                 if (
                     is_atr_filter
@@ -1325,8 +1459,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     
                     newyork_context.execution_state["rocket_triggered"] = True
                     candidate.ping_type = "Rocket"
-        # block completed - V4
-        # todo: integrate weekly profile
+        
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "staircase_early_overlap_bullish":
             print("structure : staircase_early_overlap_bullish")
             # ideal trades:
@@ -1366,8 +1500,11 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Rocket"
                     # target opposite end of active migration range
                     candidate.initial_target_price = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bullish_atr_target_price
+                    if is_bearish_continuation:
+                        candidate.final_target = "LIQUIDITY"
+                    else:
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bullish_atr_target_price
                     newyork_context.execution_state["rocket_triggered"] = True
 
             elif look_for_shorts and allow_conflict_shorts:
@@ -1379,6 +1516,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_atr_filter
                     and is_smt
                     and is_rejection
+                    and not flush_triggered
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
@@ -1407,7 +1545,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     if candidate.ping_type == "Flush":
                         newyork_context.execution_state["flush_triggered"] = True
 
-        # block completed - V4
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "staircase_late_overlap_bullish":
             print("structure xx : staircase_late_overlap_bullish")
             # core pings: 
@@ -1421,7 +1559,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             if not liquidity_levels["cr8am_high"]["swept"]:
                 look_for_shorts = False
             if look_for_longs and allow_conflict_longs:
-                if bullish_continuation:
+                if is_bullish_continuation:
                     if (
                         is_smt 
                         and is_rejection
@@ -1437,14 +1575,15 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.final_target_price = bullish_atr_target_price
                         newyork_context.execution_state["rocket_triggered"] = True
                 
-                if bearish_continuation:
+                if is_bearish_continuation:
                     reversal_confirmation = False
 
             elif look_for_shorts and allow_conflict_shorts:
                 if (
-                    (is_atr_filter or bearish_continuation)
+                    is_atr_filter
                     and is_smt
                     and is_rejection
+                    and not flush_triggered
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
@@ -1455,10 +1594,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.final_target = "MINI" if is_atr_overextended else final_target_text
                     candidate.final_target_price = market_context.session_open if final_target_text == "DO" else bearish_atr_target_price
                     
-                    if candidate.ping_type == "Flush":
-                        newyork_context.execution_state["flush_triggered"] = True
+                    # if candidate.ping_type == "Flush":
+                    newyork_context.execution_state["flush_triggered"] = True
 
-        # block completed - V4
+        # block completed - V5 with retracement exhaustion
         # TODO: intergrate weekly profile
         elif structure_name == "staircase_early_overlap_bearish":
             print("structure : staircase_early_overlap_bearish")
@@ -1502,7 +1641,6 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and not rocket_triggered
                     
                 ):
-                    print("shorts passed filters")
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     # target opposite end of active migration range
@@ -1523,6 +1661,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and is_smt
                     and is_rejection
                     and is_displacement
+                    and not rocket_triggered
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
@@ -1552,7 +1691,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         newyork_context.execution_state["rocket_triggered"] = True
 
             
-        # block completed - V4
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "staircase_late_overlap_bearish":
             print("structure : staircase_late_overlap_bearish")
             print("allow_conflict_longs: ", allow_conflict_longs)
@@ -1570,7 +1709,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
 
             if look_for_shorts and allow_conflict_shorts:
-                if bearish_continuation:
+                if is_bearish_continuation:
                 
                     if (
                         is_smt 
@@ -1587,7 +1726,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
                         newyork_context.execution_state["flush_triggered"] = True
-                if bullish_continuation:
+                if is_bullish_continuation:
                     reversal_confirmation = False
 
             elif look_for_longs and allow_conflict_longs:
@@ -1595,9 +1734,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 print("is_smt: ", is_smt)
                 print("is_rejection: ", is_rejection)
                 if (
-                    is_atr_filter or bullish_continuation
+                    is_atr_filter
                     and is_smt
                     and is_rejection
+                    and not rocket_triggered
                 ):
                     reversal_confirmation = True
                     print("is_atr_overextended: ", is_atr_overextended)
@@ -1610,10 +1750,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.final_target_price = market_context.session_open if final_target_text == "DO" else bullish_atr_target_price
                     candidate.final_target = "MINI" if is_atr_overextended else "DO"
 
-                    if candidate.ping_type == "Rocket":
-                        newyork_context.execution_state["rocket_triggered"] = True
+                    # if candidate.ping_type == "Rocket":
+                    newyork_context.execution_state["rocket_triggered"] = True
 
-        # block completed - V3
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "staircase_bullish":
             print("structure : staircase_bullish")
             # continuous overlap bullish migration and equilibrium constantly rebuilding upward
@@ -1644,12 +1784,15 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.ob_level > newyork_context.structure["mitigation_level"]
                         or candidate.ob_level > newyork_context.structure["compression_low"]
                         )
+                    and not flush_triggered
+                    and not rocket_triggered
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     candidate.initial_target_price = newyork_context.structure["range_high"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bullish_atr_target_price
+                    candidate.final_target = "ATR" if is_bullish_continuation else "LIQUIDITY"
+                    if is_bullish_continuation:
+                        candidate.final_target_price = bullish_atr_target_price
                     newyork_context.execution_state["rocket_triggered"] = True
 
             elif look_for_shorts and allow_conflict_shorts:
@@ -1664,6 +1807,20 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_atr_filter
                     and is_smt
                     and is_rejection
+                    and not flush_triggered
+                ):
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
+                    candidate.initial_target_price = newyork_context.ib_18["high"]
+                    candidate.final_target = "MINI" if is_atr_overextended else "RL"
+                    candidate.final_target_price = newyork_context.ib_18["low"]
+                    if candidate.ping_type == "Flush":
+                        newyork_context.execution_state["flush_triggered"] = True
+                elif (
+                    is_smt
+                    and is_rejection
+                    and not flush_triggered
+                    and not rocket_triggered
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
@@ -1674,7 +1831,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         newyork_context.execution_state["flush_triggered"] = True
 
 
-        # block completed - V3
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "staircase_bearish":
             print("structure : staircase_bearish")
             # continuous overlap bearish migration and equilibrium constantly rebuilding downward
@@ -1688,11 +1845,20 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             rocket_triggered = newyork_context.execution_state["rocket_triggered"]
             flush_triggered = newyork_context.execution_state["flush_triggered"]
 
+            print("rocket triggered: ", rocket_triggered)
+            print("flush triggered: ", flush_triggered)
+            print(";ook for shorts: ", look_for_shorts)
+            print("allow_conflict_shorts: ", allow_conflict_shorts)
             if look_for_shorts and allow_conflict_shorts:
 
                 # continuation possible
                 # but lower quality than staircase gap structures
-
+                print("look for shorts101")
+                print("is_smt: ", is_smt)
+                print("is_rejection: ", is_rejection)
+                print("candidate.ob_level > newyork_context.structure['range_low']: ", candidate.ob_level > newyork_context.structure["range_low"])
+                print('candidate.ob_level < newyork_context.structure["mitigation_level"]:', candidate.ob_level < newyork_context.structure["mitigation_level"])
+                print('candidate.ob_level < newyork_context.structure["compression_high"]: ', candidate.ob_level < newyork_context.structure["compression_high"])
                 if (
                     # not is_atr_filter
                     is_smt
@@ -1702,24 +1868,48 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.ob_level < newyork_context.structure["mitigation_level"]
                         or candidate.ob_level < newyork_context.structure["compression_high"]
                         )
+                    and not flush_triggered
+                    and not rocket_triggered
                 ):
+                    print("staircase bearish shorts")
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     candidate.initial_target_price = newyork_context.structure["range_low"]
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bearish_atr_target_price
+                    candidate.final_target = "ATR" if is_bearish_continuation else "LIQUIDITY"
+                    if is_bearish_continuation:
+                        candidate.final_target_price = bearish_atr_target_price
                     newyork_context.execution_state["flush_triggered"] = True
 
             elif look_for_longs and allow_conflict_longs:
 
                 # ideal setup:
                 # exhaustion reversal after grinding migration
+                print("loog for longs")
+                print("is_atr_filter: ", is_atr_filter)
+                print("is_rejection: ", is_rejection)
+                print("rocket triggered: ", rocket_triggered)
 
                 if (
                     is_atr_filter
                     and is_smt
                     and is_rejection
+                    and not rocket_triggered
                 ):
+                    print("staircase bearish longs: is_atr_filter: ")
+                    reversal_confirmation = True
+                    candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
+                    candidate.initial_target_price = newyork_context.ib_18["low"]
+                    # candidate.final_target = "DO"
+                    candidate.final_target = "MINI" if is_atr_overextended else "RH"
+                    candidate.final_target_price = newyork_context.ib_18["high"]
+                    if candidate.ping_type == "Rocket":
+                        newyork_context.execution_state["rocket_triggered"] = True
+                elif (
+                    is_smt
+                    and is_rejection
+                    and not rocket_triggered
+                ):
+                    print("staircase bearish longs: is_atr_filter is false ")
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     candidate.initial_target_price = newyork_context.ib_18["low"]
@@ -1734,7 +1924,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         # TODO: candidate.fvg_confirmed may not be always true, need sweep_and_ob or fvg_confirmed or sweep rejection
         # at compression sweep
         # =====================================================
-        # block completed - V4, flows looks ok check during forward testing
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "bullish_acceptance_compression":
             print("structure : bullish_acceptance_compression")
 
@@ -1781,15 +1971,19 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bullish_atr_target_price
+                    if is_bullish_continuation:
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bullish_atr_target_price
+                    else:
+                        candidate.final_target = "LIQUIDITY"
+                        
                     newyork_context.execution_state["rocket_triggered"] = True
 
 
@@ -1826,7 +2020,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     if candidate.ping_type == "Flush":
                         newyork_context.execution_state["flush_triggered"] = True
 
-        # block completed - V4, flows looks ok check during forward testing
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "bearish_acceptance_compression":
             print("structure : bearish_acceptance_compression")
             
@@ -1847,6 +2041,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             rocket_triggered = newyork_context.execution_state["rocket_triggered"]
             flush_triggered = newyork_context.execution_state["flush_triggered"]
             if look_for_shorts and allow_conflict_shorts:
+                print("longs 101: look for shorts")
 
                 # primary setup:
                 # bearish release after compression sweep
@@ -1860,6 +2055,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and liquidity_levels["cr8am_high"]["swept"]
                     and not newyork_context.structure["compression_state"]["compression_resolved"]
                 ):
+                    print("shorts 101: high swept")
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Flush"
                     candidate.initial_target_price = newyork_context.structure["range_low"]
@@ -1868,21 +2064,26 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                 ):
+                    print("shorts 101: second sweep: high swept")
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
-                    candidate.final_target = "ATR"
-                    candidate.final_target_price = bearish_atr_target_price
+                    if is_bearish_continuation:
+                        candidate.final_target = "ATR"
+                        candidate.final_target_price = bearish_atr_target_price
+                    else:
+                        candidate.final_target = "LIQUIDITY"
+                        
                     newyork_context.execution_state["flush_triggered"] = True
 
                 
 
             elif look_for_longs and allow_conflict_longs:
-
+                print("longs 101")
                 # only allow longs after:
                 # failed bearish compression
                 # downside ATR exhaustion
@@ -1894,6 +2095,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and liquidity_levels["cr8am_low"]["swept"]
                     and not newyork_context.structure["compression_state"]["compression_resolved"]
                 ):
+                    print("longs 101")
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket"
                     candidate.initial_target_price = (
@@ -1906,6 +2108,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     and is_smt
                     and is_rejection
                 ):
+                    print("longs 101: atr filter")
                     reversal_confirmation = True
                     candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
                     candidate.initial_target_price = newyork_context.structure["mitigation_level"]
@@ -1975,7 +2178,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
 
                 ):
                     reversal_confirmation = True
@@ -2018,7 +2221,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                     and candidate.ob_level < newyork_context.structure["mitigation_level"]
                 ):
                     reversal_confirmation = True
@@ -2082,7 +2285,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
 
                 ):
                     reversal_confirmation = True
@@ -2126,7 +2329,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                     and candidate.ob_level > newyork_context.structure["mitigation_level"]
                 ):
                     reversal_confirmation = True
@@ -2147,7 +2350,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         # optional but not required: displacement, 30m ob is acceptance failure
         # cross asset structure alignment?
         # ping type : Flush (failed continuation after trapped positioning)
-        # block completed - V4, flows looks ok check during forward testing
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "bullish_reintegration":
             print("structure : bullish reintegration")
             # weakened bullish structure
@@ -2183,7 +2386,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         is_smt
                         and is_rejection 
                         and newyork_context.structure["compression_state"]["compression_resolved"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                         and not rocket_triggered
                     ):
                         reversal_confirmation = True
@@ -2212,14 +2415,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.final_target = "ATR" if is_atr_filter else "MINI"
                         if candidate.ping_type == "Rocket":
                             candidate.final_target_price = bullish_atr_target_price
-                            newyork_context.execution_state["rocket_triggered"] = True
-
-                        
+                            newyork_context.execution_state["rocket_triggered"] = True     
                     elif (
                         is_smt
                         and is_rejection
                         and newyork_context.structure["compression_state"]["compression_resolved"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                         and not flush_triggered
                     ):
                         reversal_confirmation = True
@@ -2230,19 +2431,15 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                             newyork_context.execution_state["rocket_triggered"] = True   
             else:
                 if look_for_shorts and allow_conflict_shorts:
-                    # atr not exhausted
-                    # classic protraction: london high, ny continuation - ATR used above open is low. 
-                    # expect short flush from mitigation level or after sweep of compression high
-                    # here atr could be close to exhaustion when reinterating, can retrace and push up higher
-                    # dont use atr filter, user atr for targets
-                    if (
-                        is_smt 
+                    # classic protraction when is_bearish_continuation
+                    
+                    if(
+                        (is_bearish_continuation or htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL)
+                        and is_smt
                         and is_rejection
                         and (liquidity_levels["cr8am_high"]["swept"] or co_asset["liquidity_levels"]["cr8am_high"]["swept"])
-                        # and not newyork_context.structure["compression_state"]["compression_resolved"]
                         and candidate.ob_level < newyork_context.structure["mitigation_level"]
-                        and not rocket_triggered
-                        
+                        and not flush_triggered
                     ):
                         reversal_confirmation = True
                         candidate.ping_type = "Flush"
@@ -2250,14 +2447,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
                         newyork_context.execution_state["flush_triggered"] = True
-                        
-                # for longs we want to use atr_filter, because the bearish move into reintegration should exhaust
-                # for ideal flush
                 elif look_for_longs and allow_conflict_longs:
                     if (
                         is_atr_filter
                         and is_smt
                         and is_rejection
+                        and not rocket_triggered
                     ):
                         reversal_confirmation = True
                         candidate.ping_type = "Mini Rocket" if is_atr_overextended else "Rocket"
@@ -2267,16 +2462,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         final_target_text = "DO" if is_bearish_atr_exhausted else "ATR"
                         candidate.final_target = "MINI" if is_atr_overextended else final_target_text
                         candidate.final_target_price = market_context.session_open if final_target_text == "DO" else bullish_atr_target_price
-                      
+                        
                         newyork_context.execution_state["rocket_triggered"] = True
-
-                # bullish reintegration reversed to ib1 ce or high
-                # at this point dont allow 30m OB as it is still in expansion
-                print("candidate.sweep level: ", candidate.sweep_level)
-                if look_for_shorts and candidate.ob_level > market_context.session_open:
-                    print("at this point dont allow 30m OB as it is still in expansion")
-                    reversal_confirmation = False
-        # block completed - V4, flows looks ok check during forward testing
+                
+        # block completed - V5 with retracement exhaustion
         elif structure_name == "bearish_reintegration":
             print("structure : bearish reintegration")
             # TODO: separate sections for strong and weak compression
@@ -2320,7 +2509,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         is_smt
                         and is_rejection 
                         and newyork_context.structure["compression_state"]["compression_resolved"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                         and not flush_triggered
                     ):
                         reversal_confirmation = True
@@ -2363,7 +2552,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         is_smt
                         and is_rejection
                         and newyork_context.structure["compression_state"]["compression_resolved"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                         and not rocket_triggered
                     ):
                         reversal_confirmation = True
@@ -2377,18 +2566,25 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             else:
                 print("bearish reintegration with migration")
                 # for bullish structures, Dont trigger Rocket after Flush triggered from is_atr_filter
+                print("allow conflict longs: ", allow_conflict_longs)
                 if look_for_longs and allow_conflict_longs:
                     # atr not exhausted
                     # classic protraction: london low, ny continuation - ATR used below open is low. 
                     # expect long expansion from mitigation level or after sweep of compression low
                     # here atr could be close to exhaustion when reinterating, can retrace and push up higher
                     # dont use atr filter, user atr for targets
+                    print("is_bullish_continuation: ", is_bullish_continuation)
+                    print("is_smt: ", is_smt)
+                    print("is_rejection: ", is_rejection)
+                    print("swept: ", liquidity_levels["cr8am_low"]["swept"])
+                    print("ob level: ", candidate.ob_level > newyork_context.structure["mitigation_level"])
                     if (
-                        is_smt
+                        (is_bullish_continuation or htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL)
+                        and is_smt
                         and is_rejection
                         and liquidity_levels["cr8am_low"]["swept"]
                         and candidate.ob_level > newyork_context.structure["mitigation_level"]
-                        and not flush_triggered
+                        and not rocket_triggered
                     ):
                         reversal_confirmation = True
                         candidate.ping_type = "Rocket"
@@ -2402,8 +2598,11 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 elif look_for_shorts and allow_conflict_shorts:
                     if (
                         is_atr_filter
+                        # is_bearish_continuation
+                        # and is_retracement_exhausted
                         and is_smt
                         and is_rejection
+                        and not flush_triggered
                     ):
                         reversal_confirmation = True
                         candidate.ping_type = "Mini Flush" if is_atr_overextended else "Flush"
@@ -2415,12 +2614,12 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.final_target_price = market_context.session_open if final_target_text == "DO" else bearish_atr_target_price
                         newyork_context.execution_state["flush_triggered"] = True
 
-                # bearish reintegration reversed to ib1 ce or low
-                # at this point dont allow 30m OB as it is still in expansion
-                print("candidate.sweep level: ", candidate.sweep_level)
-                if look_for_longs and candidate.ob_level < market_context.session_open:
-                    print("at this point dont allow 30m OB as it is still in expansion")
-                    reversal_confirmation = False
+                # # bearish reintegration reversed to ib1 ce or low
+                # # at this point dont allow 30m OB as it is still in expansion
+                # print("candidate.sweep level: ", candidate.sweep_level)
+                # if look_for_longs and candidate.ob_level < market_context.session_open:
+                #     print("at this point dont allow 30m OB as it is still in expansion")
+                #     reversal_confirmation = False
             
         # ====================================
         # value flip confirmations
@@ -2597,7 +2796,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             
             allow_longs = True
             allow_shorts = True
-            # if bullish_continuation:
+            # if is_bullish_continuation:
 
             #     allow_longs = not is_atr_filter
 
@@ -2690,7 +2889,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                             newyork_context.structure["range_low"]
                         )
 
-                    elif bullish_continuation and is_atr_filter:
+                    elif is_bullish_continuation and is_atr_filter:
                         # Short is a counter-directional trade
                         # after ATR exhaustion
                         candidate.final_target = "DO"
@@ -2745,7 +2944,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             # --------------------------------------------------
             allow_longs = True
             allow_shorts = True
-            # if bearish_continuation:
+            # if is_bearish_continuation:
 
             #     allow_shorts = not is_atr_filter
 
@@ -2834,7 +3033,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         candidate.initial_target_price = newyork_context.structure["range_high"]
                         newyork_context.execution_state["rocket_triggered"] = True
 
-                    elif bearish_continuation and is_atr_filter:
+                    elif is_bearish_continuation and is_atr_filter:
                         # Long is a counter-directional trade after ATR exhaustion
                         candidate.final_target = "DO"
                         candidate.final_target_price = market_context.session_open
@@ -2957,13 +3156,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     elif macro_scenario == "consolidation":
 
                         # if weekly_bias in ("bullish", "bearish_neutral"):
-                        if bullish_continuation:
+                        if is_bullish_continuation:
                             # Bullish expansion agrees with weekly bias
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bullish_atr_target_price
                             newyork_context.execution_state["rocket_triggered"] = True
 
-                        elif bearish_continuation:
+                        elif is_bearish_continuation:
                             # Bullish expansion is counter to weekly bias
                             candidate.final_target = "LIQUIDITY"
                             # candidate.final_target_price = weekly_context["weekly_open"]                     
@@ -2987,14 +3186,14 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
                     elif macro_scenario == "consolidation":
 
-                        if bearish_continuation:
+                        if is_bearish_continuation:
                             # Bearish expansion agrees with weekly bias
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bearish_atr_target_price
                             newyork_context.execution_state["flush_triggered"] = True
 
                         # elif weekly_bias in ("bullish", "bearish_neutral"):
-                        elif bullish_continuation:
+                        elif is_bullish_continuation:
                             # Bearish expansion is counter to weekly bias
                             candidate.final_target = "LIQUIDITY"
                             # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3031,11 +3230,11 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
             if macro_scenario == "migration":
 
-                # if bullish_continuation:
+                # if is_bullish_continuation:
                 #     allow_longs = True
                 #     allow_shorts = False
 
-                # elif bearish_continuation:
+                # elif is_bearish_continuation:
                 #     allow_longs = False
                 #     allow_shorts = True
                 migration_direction = "bullish"
@@ -3090,13 +3289,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
                     elif macro_scenario == "consolidation":
 
-                        if bullish_continuation:
+                        if is_bullish_continuation:
 
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bullish_atr_target_price
                             newyork_context.execution_state["rocket_triggered"] = True
 
-                        elif bearish_continuation:
+                        elif is_bearish_continuation:
 
                             candidate.final_target = "LIQUIDITY"
                             # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3126,13 +3325,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
                     elif macro_scenario == "consolidation":
 
-                        if bearish_continuation:
+                        if is_bearish_continuation:
 
                             candidate.final_target = "ATR"
                             candidate.final_target_price = bearish_atr_target_price
                             newyork_context.execution_state["flush_triggered"] = True
 
-                        elif bullish_continuation:
+                        elif is_bullish_continuation:
 
                             candidate.final_target = "LIQUIDITY"
                             # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3161,13 +3360,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Rocket"
                     candidate.initial_target_price = market_context.session_high
 
-                    if bullish_continuation:
+                    if is_bullish_continuation:
                         # IB8 direction agrees with weekly bias
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bullish_atr_target_price
                         newyork_context.execution_state["rocket_triggered"] = True
 
-                    elif bearish_continuation:
+                    elif is_bearish_continuation:
                         # IB8 direction is counter to weekly bias
                         candidate.final_target = "LIQUIDITY"
                         # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3193,13 +3392,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Flush"
                     candidate.initial_target_price = market_context.session_low
 
-                    if bearish_continuation:
+                    if is_bearish_continuation:
                         # IB8 direction agrees with weekly bias
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
                         newyork_context.execution_state["flush_triggered"] = True
 
-                    elif bullish_continuation:
+                    elif is_bullish_continuation:
                         # IB8 direction is counter to weekly bias
                         candidate.final_target = "LIQUIDITY"
                         # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3228,13 +3427,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Flush"
                     candidate.initial_target_price = market_context.session_low
 
-                    if bearish_continuation:
+                    if is_bearish_continuation:
                         # IB8 direction agrees with weekly bias
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bearish_atr_target_price
                         newyork_context.execution_state["flush_triggered"] = True
 
-                    elif bullish_continuation:
+                    elif is_bullish_continuation:
                         # IB8 direction is counter to weekly bias
                         candidate.final_target = "LIQUIDITY"
                         # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3261,13 +3460,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.ping_type = "Rocket"
                     candidate.initial_target_price = market_context.session_high
 
-                    if bullish_continuation:
+                    if is_bullish_continuation:
                         # IB8 direction agrees with weekly bias
                         candidate.final_target = "ATR"
                         candidate.final_target_price = bullish_atr_target_price
                         newyork_context.execution_state["rocket_triggered"] = True
 
-                    elif bearish_continuation:
+                    elif is_bearish_continuation:
                         # IB8 direction is counter to weekly bias
                         candidate.final_target = "LIQUIDITY"
                         # candidate.final_target_price = weekly_context["weekly_open"]
@@ -3629,7 +3828,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -3684,7 +3883,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_high"]["swept"])
                     and liquidity_levels["cr8am_low"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'high'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'high' or is_bearish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -3841,7 +4040,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -3889,7 +4088,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_low"]["swept"])
                     and liquidity_levels["cr8am_high"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'low'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'low' or is_bullish_continuation)
                 ):
 
                     reversal_confirmation = True
@@ -4101,7 +4300,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         is_smt
                         and is_rejection
                         and newyork_context.structure["compression_state"]["compression_resolved"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                         and not rocket_triggered
                     ):
                         reversal_confirmation = True
@@ -4171,7 +4370,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         and is_rejection
                         and liquidity_levels["cr8am_high"]["swept"]
                         and liquidity_levels["cr8am_low"]["swept"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                         # since rocket is a high probability, make sure rocket hasnt triggered
                         and not rocket_triggered
                     ):
@@ -4359,7 +4558,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         is_smt
                         and is_rejection
                         and newyork_context.structure["compression_state"]["compression_resolved"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                         and not flush_triggered
                     ):
                         reversal_confirmation = True
@@ -4422,7 +4621,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         and is_rejection
                         and liquidity_levels["cr8am_high"]["swept"]
                         and liquidity_levels["cr8am_low"]["swept"]
-                        and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                        and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                         # since rocket is a high probability, make sure rocket hasnt triggered
                         and not flush_triggered
                     ):
@@ -4539,7 +4738,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -4617,7 +4816,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_high"]["swept"])
                     and liquidity_levels["cr8am_low"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'high'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'high' or is_bearish_continuation)
                 ):
 
                     reversal_confirmation = True
@@ -4811,7 +5010,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -4887,7 +5086,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_low"]["swept"])
                     and liquidity_levels["cr8am_high"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'low'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'low' or is_bullish_continuation)
                 ):
 
                     reversal_confirmation = True
@@ -5077,7 +5276,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -5134,7 +5333,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     reversal_confirmation = True
                     if (
                         newyork_context.ib_8["is_strong_body"]
-                        and htf_weekly_bias == "bullish"
+                        # and htf_weekly_bias == "bullish"
+                        and is_bullish_continuation
                         # and candidate.ob_level > newyork_context.structure["range_high"]
                     ):
                         reversal_confirmation = False
@@ -5159,7 +5359,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_high"]["swept"])
                     and liquidity_levels["cr8am_low"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'high'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'high' or is_bearish_continuation)
                 ):
 
                     reversal_confirmation = True
@@ -5262,7 +5462,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     # ideally co_asset ready for rocket. coasset reached mtl
                 ):
                     reversal_confirmation = True
-                    candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
+                    # candidate.ping_type = "Flush" if htf_weekly_bias == "bearish" else "Mini Flush"
+                    candidate.ping_type = "Flush" if is_bearish_continuation else "Mini Flush"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_low"]
                     )
@@ -5279,7 +5480,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "high"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "high" or is_bearish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Flush"
@@ -5325,11 +5526,13 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     reversal_confirmation = True
                     if (
                         newyork_context.ib_8["is_strong_body"]
-                        and htf_weekly_bias == "bearish"
+                        # and htf_weekly_bias == "bearish"
+                        and is_bearish_continuation
                         # and candidate.ob_level < newyork_context.structure["range_low"]
                     ):
                         reversal_confirmation = False
-                    candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
+                    # candidate.ping_type = "Rocket" if htf_weekly_bias == "bullish" else "Mini Rocket"
+                    candidate.ping_type = "Rocket" if is_bullish_continuation else "Mini Rocket"
                     candidate.initial_target_price = (
                         newyork_context.structure["compression_high"]
                     )
@@ -5349,7 +5552,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_low"]["swept"])
                     and liquidity_levels["cr8am_high"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'low'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'low' or is_bullish_continuation)
                 ):
 
                     reversal_confirmation = True
@@ -5434,7 +5637,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     is_smt
                     and is_rejection 
                     and newyork_context.structure["compression_state"]["compression_resolved"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == "low"
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == "low" or is_bullish_continuation)
                 ):
                     reversal_confirmation = True
                     candidate.ping_type = "Rocket"
@@ -5487,7 +5690,7 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                         # co_asset at mtl or atr exhaustion
                         liquidity_levels["cr8am_high"]["swept"])
                     and liquidity_levels["cr8am_low"]["swept"]
-                    and newyork_context.structure["compression_state"]["second_sweep"] == 'high'
+                    and (newyork_context.structure["compression_state"]["second_sweep"] == 'high' or is_bearish_continuation)
                 ):
 
                     reversal_confirmation = True

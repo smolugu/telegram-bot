@@ -1,18 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
-import time
 
-from data.models.runtime_state import PingRuntime
 from engine.detect_ping import detect_ping
 from engine.helpers.start_of_day import get_start_of_trading_day
-from framework.models.auction.engine.auction_engine import initialize_auction
-from framework.models.auction.models.auction_engine import AuctionEngine
-from framework.models.london_market_context import LondonMarketContext
-from framework.models.market_context import MarketContext
-from framework.models.nyam_market_context import NewYorkMarketContext
-from framework.state.weekly_state import build_weekly_state
-from engine.helpers.atr import calculate_daily_atr
-from helpers.atr import calculate_atr
-from helpers.liquidity_levels import get_liquidity_values, reset_liquidity
 from market_data.candle_builder.htf_candle_builder import NY_TZ, UTC_TZ
 
 def get_previous_trading_day(start_time_ny: datetime) -> date:
@@ -29,7 +18,7 @@ def get_previous_trading_day(start_time_ny: datetime) -> date:
 
     return previous_trading_day
 
-def  start_ping_flow(start_time, contract_repo, candle_repo):
+def  start_ping_flow(start_time, contract_repo, candle_repo, runtime):
         print(">>> starting Ping Flow")
         print(">>> Ping start time:", start_time)
         if start_time.tzinfo is None:
@@ -37,7 +26,8 @@ def  start_ping_flow(start_time, contract_repo, candle_repo):
         start_time_ny = start_time.astimezone(NY_TZ)
         
         
-        runtime = PingRuntime()
+        
+        
         runtime.start_time = start_time_ny
         # get active contract info
         # ---------------------------------------------------------

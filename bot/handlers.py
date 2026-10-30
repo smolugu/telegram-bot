@@ -6,6 +6,7 @@ from command_handlers.debug import debug_callback
 from command_handlers.help import help_callback, help_command
 from command_handlers.home import home_callback, home_command
 from command_handlers.invite import invite_callback
+from command_handlers.market_context import market_context_callback
 from command_handlers.plans import plans_callback
 from command_handlers.settings import settings_callback, settings_command
 from command_handlers.start import start_command
@@ -119,6 +120,13 @@ def register_handlers(application):
     application.add_handler(
         CallbackQueryHandler(
             debug_callback,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "mc",
+            market_context_callback,
         )
     )
 

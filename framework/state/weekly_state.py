@@ -114,6 +114,7 @@ def _detect_latest_fvg(candles):
             "ce": (c1.high + c3.low) / 2,
             "state": "open",
             "timestamp": c3.timestamp,
+            "target_level": c3.low,
         }
 
     #
@@ -129,6 +130,7 @@ def _detect_latest_fvg(candles):
             "ce": (c3.high + c1.low) / 2,
             "state": "open",
             "timestamp": c3.timestamp,
+            "target_level": c3.high,
         }
 
     return bullish_fvg, bearish_fvg
@@ -294,15 +296,16 @@ def update_weekly_1h_structure(
         and last_closed.close > recent_bearish.open
         and last_closed.timestamp != recent_bearish.timestamp
     ):
-
+        cisd_level = recent_bearish.open
         bullish_cisd = {
             "timestamp": last_closed.timestamp,
-            "cisd_level": recent_bearish.open,
+            "cisd_level": cisd_level,
             "invalidate_below": (
                 recent_bearish.close
                 if recent_bearish.close < last_closed.open
                 else last_closed.open
             ),
+            "target_level": cisd_level
         }
 
         print("Bullish CISD detected:", bullish_cisd)
@@ -348,15 +351,16 @@ def update_weekly_1h_structure(
         and last_closed.close < recent_bullish.open
         and last_closed.timestamp != recent_bullish.timestamp
     ):
-
+        cisd_level =  recent_bullish.open
         bearish_cisd = {
             "timestamp": last_closed.timestamp,
-            "cisd_level": recent_bullish.open,
+            "cisd_level": cisd_level,
             "invalidate_above": (
                 recent_bullish.close
                 if recent_bullish.close > last_closed.open
                 else last_closed.open
             ),
+            "target_level": cisd_level
         }
 
         print("Bearish CISD detected:", bearish_cisd)
@@ -778,7 +782,15 @@ def update_weekly_1h_structure(
 
         if bullish_structure:
 
-            if bearish_structure_exists:
+            if weekly_state["new_bullish_cisd"] is not None:
+                weekly_state["bias"] = WeeklyBiasEnums.BULLISH
+                weekly_state["bias_reason"] = (
+                    "Bullish CISD and FVG formed below weekly open with "
+                    "additional new cisd formed "
+                    "while bearish structure remains."
+                )
+
+            elif bearish_structure_exists:
                 weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL_BULLISH
                 weekly_state["bias_reason"] = (
                     "Bullish CISD and FVG formed below weekly open "
@@ -823,7 +835,14 @@ def update_weekly_1h_structure(
 
         if bearish_structure:
 
-            if bullish_structure_exists:
+            if weekly_state["new_bearish_cisd"] is not None:
+                weekly_state["bias"] = WeeklyBiasEnums.BEARISH
+                weekly_state["bias_reason"] = (
+                    "Bearish CISD and FVG formed above weekly open with "
+                    "additional new bearish cisd formed "
+                    "while bullish structure remains."
+                )
+            elif bullish_structure_exists:
                 weekly_state["bias"] = WeeklyBiasEnums.NEUTRAL_BEARISH
                 weekly_state["bias_reason"] = (
                     "Bearish CISD and FVG formed above weekly open "

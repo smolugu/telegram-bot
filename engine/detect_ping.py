@@ -196,7 +196,7 @@ def detect_ping(
     # update weekly state a the end of new 1h candle
     nq_1h_candles = None
     es_1h_candles = None
-    if dt_current.hour==0 and dt_current.hour !=18:
+    if dt_current.minute==0 and dt_current.hour !=18:
         
         nq_weekly_1h_candles = candle_repo.get_between(
             contract=runtime.nq_contract,
@@ -343,18 +343,24 @@ def detect_ping(
             
     # invalidate failed candidates
     # invalidate of ob is confirmed
-    if runtime.nq_buy_candidate.active and runtime.nq_buy_candidate.final_ob_confirmed and runtime.nq_buy_candidate.sweep_candle_extreme > last_closed_nq.low:
-        runtime.nq_buy_candidate.reset()
-        runtime.es_buy_candidate.reset()
-    if runtime.nq_sell_candidate.active and runtime.nq_sell_candidate.final_ob_confirmed and runtime.nq_sell_candidate.sweep_candle_extreme < last_closed_nq.high:
-        runtime.nq_sell_candidate.reset()
-        runtime.nq_sell_candidate.reset()
-    if runtime.es_buy_candidate.active and runtime.es_buy_candidate.final_ob_confirmed and runtime.es_buy_candidate.sweep_candle_extreme > last_closed_es.low:
-        runtime.es_buy_candidate.reset()
-        runtime.nq_buy_candidate.reset()
-    if runtime.es_sell_candidate.active and runtime.es_sell_candidate.final_ob_confirmed and runtime.es_sell_candidate.sweep_candle_extreme < last_closed_es.high:
-        runtime.es_sell_candidate.reset()
-        runtime.nq_sell_candidate.reset()
+    # disabling resetting of candidates as there can be multiple sweeps before a 
+    # a candidate becomes ready for alert
+    # if runtime.nq_buy_candidate.active and runtime.nq_buy_candidate.final_ob_confirmed and runtime.nq_buy_candidate.sweep_candle_extreme > last_closed_nq.low:
+    #     print("invalidating failed nq, es buy candaidates")
+    #     runtime.nq_buy_candidate.reset()
+    #     # runtime.es_buy_candidate.reset()
+    # if runtime.nq_sell_candidate.active and runtime.nq_sell_candidate.final_ob_confirmed and runtime.nq_sell_candidate.sweep_candle_extreme < last_closed_nq.high:
+    #     print("invalidating failed nq, es sell candaidates")
+    #     runtime.nq_sell_candidate.reset()
+    #     runtime.es_sell_candidate.reset()
+    # if runtime.es_buy_candidate.active and runtime.es_buy_candidate.final_ob_confirmed and runtime.es_buy_candidate.sweep_candle_extreme > last_closed_es.low:
+    #     print("invalidating failed nq, es buy candaidates 2")
+    #     runtime.es_buy_candidate.reset()
+    #     runtime.nq_buy_candidate.reset()
+    # if runtime.es_sell_candidate.active and runtime.es_sell_candidate.final_ob_confirmed and runtime.es_sell_candidate.sweep_candle_extreme < last_closed_es.high:
+    #     print("invalidating failed nq, es sell candaidates 2")
+    #     runtime.es_sell_candidate.reset()
+    #     runtime.nq_sell_candidate.reset()
     
     # update 7hr candle through seven hour builder
     # he 18:00 7hr candle is not complete with the first 3 30m candles
@@ -1245,15 +1251,15 @@ def detect_ping(
             # runtime.es_sell_candidate.register_sweep(sweep_es_highs_key_level["timestamp"], sweep_es_highs_key_level["sweep_candle_high"], sweep_es_highs_key_level["sweep_time"], sweep_es_highs_key_level["sweep_and_ob_confirmed"], sweep_es_highs_key_level["sweep_and_ob_entry"], sweep_es_highs_key_level["sweep_and_ob_ce_confirmed"], sweep_es_highs_key_level["sweep_and_ob_ce_entry"], sweep_es_highs_key_level["sweep_and_ob_confirmation_timestamp"], sweep_es_highs_key_level["swept_levels"], "ES", sweep_es_highs_key_level["sweep_type"], sweep_es_highs_key_level["sweep_candle"], sweep_es_highs_key_level["sweep_level"], sweep_es_highs_key_level.get("caution", False))
             if sweep_es_highs_key_level["is_valid"]:
                 runtime.es_sell_candidate.register_sweep(sweep_es_highs_key_level)
-            else:
-                runtime.es_sell_candidate.reset()
+            # else:
+            #     runtime.es_sell_candidate.reset()
         elif sweep_es_highs:     
             print("SWEEP DETECTED ES Highs:", sweep_es_highs)
             # runtime.es_sell_candidate.register_sweep(sweep_es_highs["timestamp"], sweep_es_highs["sweep_candle_high"], sweep_es_highs["sweep_time"], sweep_es_highs["sweep_and_ob_confirmed"], sweep_es_highs["sweep_and_ob_entry"], sweep_es_highs["sweep_and_ob_ce_confirmed"], sweep_es_highs["sweep_and_ob_ce_entry"], sweep_es_highs["sweep_and_ob_confirmation_timestamp"], sweep_es_highs["swept_levels"], "ES", sweep_es_highs["sweep_type"], sweep_es_highs["sweep_candle"], sweep_es_highs["sweep_level"], sweep_es_highs.get("caution", False))
             if sweep_es_highs["is_valid"]:
                 runtime.es_sell_candidate.register_sweep(sweep_es_highs)
-            else:
-                runtime.es_sell_candidate.reset()
+            # else:
+            #     runtime.es_sell_candidate.reset()
             
     
     if sweep_es_lows or sweep_es_lows_key_level:
@@ -1662,7 +1668,7 @@ def detect_ping(
             print("Bearish FVG detected:", fvg)
     
     if runtime.es_buy_candidate.final_ob_confirmed and not runtime.es_buy_candidate.fvg_confirmed:
-        print("Processing FVG for NQ Buy candidate")
+        print("Processing FVG for ES Buy candidate")
 
         fvg = detect_3m_imbalance_inside_ob_candle(
             # es_3m,
@@ -1772,7 +1778,7 @@ def detect_ping(
             print("Market Context: ", runtime.nq_market_context.values())
             message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.nq_contract, candidate = runtime.nq_sell_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.nq_sell_candidate, message, start_up)
+                execute_trade_and_log(runtime.nq_sell_candidate, message, start_up, runtime.is_backtest)
                 # send_telegram_alert_to_all(message)
                 # runtime.nq_sell_candidate.alert_sent = True
                 # insert_trade(nq_sell_candidate)
@@ -1815,7 +1821,7 @@ def detect_ping(
             # send alert for NQ buy candidate
             message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.nq_contract, candidate = runtime.nq_buy_candidate, liquidity_map = runtime.liquidity_nq, daily_atr = runtime.nq_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.nq_buy_candidate, message, start_up)
+                execute_trade_and_log(runtime.nq_buy_candidate, message, start_up, runtime.is_backtest)
                 # send_telegram_alert_to_all(message)
                 # runtime.nq_buy_candidate.alert_sent = True
                 # insert_trade(nq_buy_candidate)
@@ -1871,7 +1877,7 @@ def detect_ping(
             # send alert for ES sell candidate
             message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.es_contract, candidate = runtime.es_sell_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.es_sell_candidate, message, start_up)
+                execute_trade_and_log(runtime.es_sell_candidate, message, start_up, runtime.is_backtest)
                 # send_telegram_alert_to_all(message)
                 # runtime.es_sell_candidate.alert_sent = True
                 # insert_trade(es_sell_candidate)
@@ -1909,7 +1915,7 @@ def detect_ping(
             # send alert for ES buy candidate
             message = build_trade_alert(candle_repo = candle_repo, contract_id = runtime.es_contract, candidate = runtime.es_buy_candidate, liquidity_map = runtime.liquidity_es, daily_atr = runtime.es_daily_atr, current_time = current_30m_start)
             if message:
-                execute_trade_and_log(runtime.es_buy_candidate, message, start_up)
+                execute_trade_and_log(runtime.es_buy_candidate, message, start_up, runtime.is_backtest)
                 # send_telegram_alert_to_all(message)
                 # runtime.es_buy_candidate.alert_sent = True
                 # insert_trade(es_buy_candidate)

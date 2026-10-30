@@ -2,14 +2,15 @@ from datetime import datetime, timedelta, timezone
 from textwrap import dedent
 
 from framework.models.profit_targets import get_tp_levels
+from framework.models.retracement_risk import get_retracement_risk
 
-def get_fallback_tp1(entry, risk, rr, direction, instrument):
+def get_fallback_tp1(entry, risk, rr, direction, instrument, final_target):
     if instrument == "NQ":
-        min_distance = 100.0
+        min_distance = 100.0 if final_target == "ATR" else 70
     elif instrument == "ES":
-        min_distance = 25.0
+        min_distance = 25.0 if final_target == "ATR" else 20
     else:
-        min_distance = 50.0
+        min_distance = 40.0
 
     distance = max(min_distance, risk * rr)
 
@@ -38,6 +39,12 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     dt = ts + timedelta(minutes=30)
     time_formatted = dt.strftime("%b %d, %Y %I:%M %p")
     dt2=None
+    mss_end_time = current_time
+    mss_start_time = mss_end_time - timedelta(minutes=120)
+    side = candidate.side
+    direction = "bearish" if side == "buy_side" else "bullish"
+    retracement_risk = get_retracement_risk(direction, candle_repo, mss_end_time, contract_id, mss_start_time, None)
+
     if isinstance(current_time, str):
         dt2 = datetime.fromisoformat(current_time)
     else:
@@ -45,8 +52,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     # dt2 = datetime.fromisoformat(current_time)
     time_formatted = dt2.strftime("%b %d, %Y %I:%M %p")
     default_risk = None
-    side = candidate.side
-    direction = "bearish" if side == "buy_side" else "bullish"
+    
     candidate_ping_type = ""
     if candidate.ping_type is None:
         if direction == "bearish":
@@ -171,7 +177,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             # tp1 = entry - (risk * rr)
             # tp1 = entry - max(100, risk * rr)
-            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument, candidate.final_target)
             print("alert Payload: initial target set 101-5")
             print("tp1: ", tp1)
         else:
@@ -198,7 +204,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             # tp1 = entry - (risk * rr)
             # tp1 = entry - max(100, risk * rr)
-            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument, candidate.final_target)
             print("alert Payload: initial target set 102-2")
             print("tp1 based on rr: ", tp1)
         else:
@@ -231,7 +237,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         if (initial_target is not None and rr_initial_target < 1) or initial_target is None:
             # tp1 = entry - (risk * rr)
             # tp1 = entry - max(100, risk * rr)
-            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument, candidate.final_target)
             print("alert Payload: initial target set 103-2")
             print("Using original imbalance entry. TP adjusted to:", entry)
         else:
@@ -277,6 +283,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             # tp1 = entry + (risk * rr)
             tp1 = entry + risk
             # tp1 = entry + max(100, risk * rr)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument, candidate.final_target)
             print("alert Payload: initial target set 104-5")
             print("tp1: ", tp1)
         else:
@@ -298,6 +305,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             tp1 = entry + (risk * rr)
             tp1 = entry + risk
             # tp1 = entry + max(100, risk * rr)
+            tp1 = get_fallback_tp1(entry, risk, rr, direction, instrument, candidate.final_target)
             print("tp1 based on rr: ", tp1)
             print("alert Payload: initial target set 105-2")
         else:
@@ -514,6 +522,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         🎯 TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
         🎯 TP3 (ATR): {round(tp3, 2)}
 
+        Retracement Risk: {retracement_risk}
         Risk: {round(abs(entry - stop), 0)} pts
         Reward : Risk: {rr_t3} : 1
 
@@ -584,6 +593,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
         🎯 TP1 (1R): {round(tp1, 2)}
         🎯 TP2 (HTF Liquidity): {round(tp2, 2) if tp2 is not None else 'N/A'}
 
+        Retracement Risk: {retracement_risk}
         Risk: {round(abs(entry - stop), 0)} pts
         Reward : Risk: {rr_t2} : 1
         
@@ -622,6 +632,7 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
 
         🎯 TP1 (1R): {round(tp1, 2)}
 
+        Retracement Risk: {retracement_risk}
         Risk: {round(abs(entry - stop), 2)} pts
         Reward : Risk: {rr_t1} : 1
         

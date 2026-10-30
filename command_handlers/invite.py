@@ -75,21 +75,3 @@ async def invite_callback(update, context):
         parse_mode="HTML",
     )
 
-# async def invite_callback(update, context):
-
-#     query = update.callback_query
-
-#     await query.answer()
-
-#     if query.data == "invite:home":
-
-#         message, keyboard = invite_home_screen()
-
-#     else:
-#         return
-
-#     await query.edit_message_text(
-#         text=message,
-#         reply_markup=keyboard,
-#         parse_mode="HTML",
-#     )
