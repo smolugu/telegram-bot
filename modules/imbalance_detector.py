@@ -73,10 +73,10 @@ def detect_9am_fvg(
         )
 
         if len(candles) != 3:
-            print(
-                f">>> {instrument}: expected 3 candles "
-                f"for 7:30–9:00, found {len(candles)}"
-            )
+            # print(
+            #     f">>> {instrument}: expected 3 candles "
+            #     f"for 7:30–9:00, found {len(candles)}"
+            # )
             results[instrument] = None
             continue
 
@@ -84,12 +84,12 @@ def detect_9am_fvg(
         c2 = candles[1]   # 8:00
         c3 = candles[2]   # 8:30
 
-        print(
-            f">>> {instrument} 9AM FVG check:"
-            f"\n    7:30 H={c1.high} L={c1.low}"
-            f"\n    8:00 H={c2.high} L={c2.low}"
-            f"\n    8:30 H={c3.high} L={c3.low}"
-        )
+        # print(
+        #     f">>> {instrument} 9AM FVG check:"
+        #     f"\n    7:30 H={c1.high} L={c1.low}"
+        #     f"\n    8:00 H={c2.high} L={c2.low}"
+        #     f"\n    8:30 H={c3.high} L={c3.low}"
+        # )
 
         fvg = None
 
@@ -149,7 +149,7 @@ def detect_3m_imbalance_inside_ob_candle(
 ):
 
     if not candidate.final_ob_confirmed:
-        print("return none as final ob not confirmed")
+        # print("return none as final ob not confirmed")
         return None
     confirmation_ts=None
     if candidate.ob_data is not None:
@@ -172,7 +172,7 @@ def detect_3m_imbalance_inside_ob_candle(
         else:
             confirmation_ts = last_closed_candle.timestamp
         ce_ob = (ob_high + ob_low) / 2
-    print("ob_low: ", ob_low)
+    # print("ob_low: ", ob_low)
 
     # we are detecting imbalances in the current candle which created the OB
     # last_closed_candle_ts = datetime.fromisoformat(last_closed_candle.timestamp)
@@ -339,13 +339,13 @@ def detect_3m_imbalance_inside_ob_candle(
 
                     # distance = abs(ob_low - vi_high)
                     distance = abs(sweep_extreme_price - vi_high)
-                    print(
-                        f"VI detected: prev={prev.timestamp} "
-                        f"prev_open={prev.open} prev_close={prev.close} | "
-                        f"curr={curr.timestamp} "
-                        f"curr_open={curr.open} curr_close={curr.close} | "
-                        f"entry={curr.open}"
-                    )
+                    # print(
+                    #     f"VI detected: prev={prev.timestamp} "
+                    #     f"prev_open={prev.open} prev_close={prev.close} | "
+                    #     f"curr={curr.timestamp} "
+                    #     f"curr_open={curr.open} curr_close={curr.close} | "
+                    #     f"entry={curr.open}"
+                    # )
 
                     candidates.append({
                         "entry": vi_high,
@@ -390,5 +390,5 @@ def detect_3m_imbalance_inside_ob_candle(
 
     # 3️⃣ Pick closest imbalance to OB boundary
     best = max(candidates, key=lambda x: x["distance"])
-    print("Selected imbalance:", best)
+    # print("Selected imbalance:", best)
     return best

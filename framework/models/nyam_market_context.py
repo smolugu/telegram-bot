@@ -152,7 +152,7 @@ class NewYorkMarketContext:
         self.ib_8["ce"] = seven_hour_candle_8am["ib_ce"]
         self.ib_8["open"] = seven_hour_candle_8am["ib_open"]
         self.ib_8["close"] = seven_hour_candle_8am["ib_close"]
-        print("setting ib8am: ", self.ib_8)
+        # print("setting ib8am: ", self.ib_8)
         self.ib_18 = ib_18
         self.ib_1 = ib_1
         self.update_ib_relationships()
@@ -166,7 +166,7 @@ class NewYorkMarketContext:
         self.ib_10["direction"] = "bullish" if last_closed.open < last_closed.close else "bearish"
     
     def update_ib_relationships(self):
-        print(" updating ib_8 relationships: ", self.instrument)
+        # print(" updating ib_8 relationships: ", self.instrument)
         ib18_high = self.ib_18["high"]
         ib18_low = self.ib_18["low"]
         ib1_high = self.ib_1["high"]
@@ -182,7 +182,7 @@ class NewYorkMarketContext:
         upper_wick = ib8_high - max(ib8_open, ib8_close)
         lower_wick = min(ib8_open, ib8_close) - ib8_low
         wick_ratio = min(upper_wick, lower_wick) / max(upper_wick, lower_wick)
-        print("body rangexx: ", body/range_)
+        # print("body rangexx: ", body/range_)
         is_strong_body = body/range_ > 0.75
         ib_body_range = body/range_
         body_pct = body / range_
@@ -218,9 +218,9 @@ class NewYorkMarketContext:
             self.ib_18["low"] > self.ib_1["low"] and
             self.ib_18["high"] > self.ib_1["high"]
         )
-        print("ib18_above_ib1: ", self.structure["ib18_above_ib1"])
-        print("ib18_low, ib1_low: ", self.ib_18["low"], self.ib_1["low"])
-        print("ib18_high, ib1_high: ", self.ib_18["high"], self.ib_1["high"])
+        # print("ib18_above_ib1: ", self.structure["ib18_above_ib1"])
+        # print("ib18_low, ib1_low: ", self.ib_18["low"], self.ib_1["low"])
+        # print("ib18_high, ib1_high: ", self.ib_18["high"], self.ib_1["high"])
 
         self.structure["ib18_below_ib1"] = (
             self.ib_18["low"] < self.ib_1["low"] and

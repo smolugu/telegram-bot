@@ -24,7 +24,7 @@ def _add_htf_level(
     # ---------------------------------------------------------
     # Prevent duplicate levels
     # --------------------------------------------------------- 
-    print("adding new level: ", level)
+    
     all_levels = (
         context.bullish_levels
         + context.bearish_levels

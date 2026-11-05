@@ -58,7 +58,9 @@ def detect_ping(
     last_closed_nq = candle_30m_nq
     last_closed_es = candle_30m_es
     last_closed_candle_timestamp = candle_30m_nq.timestamp
+    print("\n=======================================")
     print("Last closed timestamp: ", last_closed_candle_timestamp)
+    print("\n=======================================")
     # UTC converted timestamps for db queries
     current_30m_start_utc = current_30m_start.astimezone(timezone.utc)
     last_closed_candle_utc = last_closed_candle_timestamp.astimezone(timezone.utc)
@@ -183,12 +185,15 @@ def detect_ping(
     log_auction_status(
         last_closed_candle = last_closed_nq,
         smt_context = runtime.smt_context,
-        es_auction_summary = runtime.es_auction_engine.status.summary(),
-        nq_auction_summary = runtime.nq_auction_engine.status.summary(),
+        es_auction_summary = runtime.es_auction_engine.status.h7summary(),
+        
+        nq_auction_summary = runtime.nq_auction_engine.status.h7summary(),
+        
     )
     
     if dt.hour == 8:
-        print("nq auction engine status: ", runtime.nq_auction_engine.status.summary())
+        # print("nq auction engine status: ", runtime.nq_auction_engine.status.summary())
+        print("nq auction engine status at 8am, commenting")
         
         
     # continue
@@ -330,16 +335,37 @@ def detect_ping(
     #                             end=current_30m_start_utc,
     #                             n=40,
     #                         )
+    historical_start_ny = last_closed_nq.timestamp - timedelta(days=14)
+    historical_start_utc = historical_start_ny.astimezone(timezone.utc)
+    historical_end_ny = last_closed_nq.timestamp - timedelta(minutes=30)
+    historical_end_utc = historical_end_ny.astimezone(timezone.utc)
+
+    historical_nq_30m = candle_repo.get_between(
+        contract=runtime.nq_contract,
+        timeframe=30,
+        start=historical_start_utc,
+        end=historical_end_utc,
+    )
+    # print("length 30m candles: ", len(historical_nq_30m))
+    historical_es_30m = candle_repo.get_between(
+        contract=runtime.es_contract,
+        timeframe=30,
+        start=historical_start_utc,
+        end=historical_end_utc,
+    )
+    # print("length es 30m candles: ", len(historical_es_30m))
+    previous_nq_30m_candle = historical_nq_30m[-1]
+    previous_es_30m_candle = historical_es_30m[-1]
     last_40_candles_3_nq=nq_candles_3m_for_auction
     last_40_candles_3_es=es_candles_3m_for_auction
     if runtime.nq_buy_candidate.active and runtime.nq_buy_candidate.check_breakout_rejection:
-        update_sweep_info(runtime.nq_buy_candidate, last_40_candles_3_nq, last_closed_nq)
+        update_sweep_info(runtime.nq_buy_candidate, last_40_candles_3_nq, last_closed_nq, previous_nq_30m_candle)
     if runtime.nq_sell_candidate.active and runtime.nq_sell_candidate.check_breakout_rejection:
-        update_sweep_info(runtime.nq_sell_candidate, last_40_candles_3_nq, last_closed_nq)
+        update_sweep_info(runtime.nq_sell_candidate, last_40_candles_3_nq, last_closed_nq, previous_nq_30m_candle)
     if runtime.es_buy_candidate.active and runtime.es_buy_candidate.check_breakout_rejection:
-        update_sweep_info(runtime.es_buy_candidate, last_40_candles_3_es, last_closed_es)
+        update_sweep_info(runtime.es_buy_candidate, last_40_candles_3_es, last_closed_es, previous_es_30m_candle)
     if runtime.es_sell_candidate.active and runtime.es_sell_candidate.check_breakout_rejection:
-        update_sweep_info(runtime.es_sell_candidate, last_40_candles_3_es, last_closed_es)
+        update_sweep_info(runtime.es_sell_candidate, last_40_candles_3_es, last_closed_es, previous_es_30m_candle)
             
     # invalidate failed candidates
     # invalidate of ob is confirmed
@@ -391,8 +417,8 @@ def detect_ping(
 
     if last_closed_candle_timestamp.hour < 18:
         session_start -= timedelta(days=1)
-    print("last_closed_candle_timestamp: ", last_closed_candle_timestamp)
-    print("session_start: ", session_start)
+    # print("last_closed_candle_timestamp: ", last_closed_candle_timestamp)
+    # print("session_start: ", session_start)
 
     # historical_nq = nq_30m[:i]
     # historical_nq = candle_repo.get_between(
@@ -401,27 +427,8 @@ def detect_ping(
     #     start=session_start.astimezone(timezone.utc),
     #     end=(last_closed_candle_timestamp - timedelta(minutes=30)).astimezone(timezone.utc),
     # )
-    historical_start_ny = last_closed_nq.timestamp - timedelta(days=14)
-    historical_start_utc = historical_start_ny.astimezone(timezone.utc)
-    historical_end_ny = last_closed_nq.timestamp - timedelta(minutes=30)
-    historical_end_utc = historical_end_ny.astimezone(timezone.utc)
-
-    historical_nq_30m = candle_repo.get_between(
-        contract=runtime.nq_contract,
-        timeframe=30,
-        start=historical_start_utc,
-        end=historical_end_utc,
-    )
-    print("length 30m candles: ", len(historical_nq_30m))
-    historical_es_30m = candle_repo.get_between(
-        contract=runtime.es_contract,
-        timeframe=30,
-        start=historical_start_utc,
-        end=historical_end_utc,
-    )
-    print("length es 30m candles: ", len(historical_es_30m))
-    previous_nq_30m_candle = historical_nq_30m[-1]
-    previous_es_30m_candle = historical_es_30m[-1]
+    
+    
     previous_3_nq_30m_candles = historical_nq_30m[-3:]
     previous_3_es_30m_candles = historical_es_30m[-3:]
     #  gather session liquidity
@@ -498,8 +505,8 @@ def detect_ping(
         # runtime.es_sell_candidate.reset()
     # update new york context with IBs
     if dt_current.hour == 9 and dt_current.minute == 00:
-        print("nq ibs: ")
-        print("ib18: ",  runtime.nq_seven_hour_builder.candles["6PM"].values())
+        # print("nq ibs: ")
+        # print("ib18: ",  runtime.nq_seven_hour_builder.candles["6PM"].values())
         runtime.nq_ny_market_context.set_8am_ib(runtime.nq_seven_hour_builder.candles, runtime.nq_london_market_context.ib_18, runtime.nq_london_market_context.ib_1)
         runtime.es_ny_market_context.set_8am_ib(runtime.es_seven_hour_builder.candles, runtime.es_london_market_context.ib_18, runtime.es_london_market_context.ib_1)
         if runtime.nq_ny_market_context.structure["name"] in ["bullish_macro_decompression", "bearish_macro_decompression"]:
@@ -540,7 +547,7 @@ def detect_ping(
             runtime.es_ny_market_context.candles_30m_6to730 = es_candles_30m_6_to_730
         # print("test 1: ", runtime.nq_ny_market_context.structure)
         # print("rest es: ", runtime.es_ny_market_context.structure)
-        print("add new mitigation or equilibrium level to liquidity key levels")
+        # print("add new mitigation or equilibrium level to liquidity key levels")
         # print("xxib8am: ",  runtime.nq_seven_hour_builder.candles["8AM"].values())
         # print("xxib8am: ",  runtime.es_seven_hour_builder.candles["8AM"].values())
 
@@ -701,14 +708,15 @@ def detect_ping(
     # sweep detection at key levels
     sweep_nq_highs_key_level, sweep_nq_lows_key_level = detect_key_liquidity_sweep(instrument = "NQ", key_levels = runtime.liquidity_nq, candles_3m = last_40_candles_3_nq, inside_candles_1m = None, last_closed_candle = last_closed_nq, current_30m_start = current_30m_start)
     sweep_es_highs_key_level, sweep_es_lows_key_level = detect_key_liquidity_sweep(instrument = "ES", key_levels = runtime.liquidity_es, candles_3m = last_40_candles_3_es, inside_candles_1m = None, last_closed_candle = last_closed_es, current_30m_start = current_30m_start)
-    print("sweep_nq_highs: ", sweep_nq_highs)
-    print("sweep_nq_lows: ", sweep_nq_lows)
-    print("sweep_es_highs: ", sweep_es_highs)
-    print("sweep_es_lows: ", sweep_es_lows)
-    print("sweep_nq_highs_key_level: ", sweep_nq_highs_key_level)
-    print("sweep_nq_lows_key_level: ", sweep_nq_lows_key_level)
-    print("sweep_es_highs_key_level: ", sweep_es_highs_key_level)
-    print("sweep_es_lows_key_level: ", sweep_es_lows_key_level)
+    print("pausing sweep infos")
+    # print("sweep_nq_highs: ", sweep_nq_highs)
+    # print("sweep_nq_lows: ", sweep_nq_lows)
+    # print("sweep_es_highs: ", sweep_es_highs)
+    # print("sweep_es_lows: ", sweep_es_lows)
+    # print("sweep_nq_highs_key_level: ", sweep_nq_highs_key_level)
+    # print("sweep_nq_lows_key_level: ", sweep_nq_lows_key_level)
+    # print("sweep_es_highs_key_level: ", sweep_es_highs_key_level)
+    # print("sweep_es_lows_key_level: ", sweep_es_lows_key_level)
     
     # we have detected a sweep at this point.
     # clear sweeps after the formation of new IB, for example if 8am IB is sandwich or inside IB, clear sweeps before this session
@@ -1347,17 +1355,17 @@ def detect_ping(
             runtime.es_buy_candidate.register_ob(es_ob)
 
     if runtime.nq_sell_candidate.active or runtime.es_sell_candidate.active:
-        print("calling detect 30m OB")
+        # print("calling detect 30m OB")
         nq_ob = detect_30m_order_block(last_30_candles_nq, runtime.nq_sell_candidate, runtime.es_sell_candidate, last_closed_es)
-        print("nq ob: ", nq_ob)
+        # print("nq ob: ", nq_ob)
         if nq_ob:
             runtime.nq_sell_candidate.register_ob(nq_ob)
 
         es_ob = detect_30m_order_block(last_30_candles_es, runtime.es_sell_candidate, runtime.nq_sell_candidate, last_closed_nq)
-        print("es ob: ", es_ob)
+        # print("es ob: ", es_ob)
         if es_ob:
             runtime.es_sell_candidate.register_ob(es_ob)
-            print("es sell candidate OB: ", runtime.es_sell_candidate.ob_data)
+            # print("es sell candidate OB: ", runtime.es_sell_candidate.ob_data)
         
     #  confirmation of sweep on or actual ob detection
     
@@ -1390,13 +1398,15 @@ def detect_ping(
     if bullish_30m_swing_smt is None and bearish_30m_swing_smt is None:
         print('no smt result')
     else:
-        print("30m swing bullish smt, bearish smt: ", bullish_30m_swing_smt, bearish_30m_swing_smt)
+        # print("30m swing bullish smt, bearish smt: ", bullish_30m_swing_smt, bearish_30m_swing_smt)
+        print("30m swing bullish smt, bearish smt: commenting details")
     
     if key_level_bullish_smt_result is None and key_level_bearish_smt_result is None:
         print("no key level smt")
     else:
-        print("key_level_bullish_smt_result: ", key_level_bullish_smt_result)
-        print("key_level_bearish_smt_result: ", key_level_bearish_smt_result)
+        # print("key_level_bullish_smt_result: ", key_level_bullish_smt_result)
+        # print("key_level_bearish_smt_result: ", key_level_bearish_smt_result)
+        print("key level smt resut commenting")
     # detect smt at key level
     # print("nq keys: ", nq.keys())
     # nq_1h_filtered = filter_htf_candles(nq["1h"], current_30m_start)

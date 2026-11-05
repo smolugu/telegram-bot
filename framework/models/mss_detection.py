@@ -13,11 +13,14 @@ def get_highest_swing_between(swing_highs, start_timestamp, end_timestamp):
     return max(highs_between, key=lambda swing: swing.high)
 
 def get_lowest_swing_between(swing_lows, start_timestamp, end_timestamp):
+    # print("swing lows: ", swing_lows)
+    # print("getting lows between: ", start_timestamp, end_timestamp)
     lows_between = [
         swing
         for swing in swing_lows
         if start_timestamp < swing.timestamp < end_timestamp
     ]
+    # print("lows between: ", lows_between)
 
     if not lows_between:
         return None
@@ -106,7 +109,7 @@ def get_valid_swing_points_before(
                 for candle in subsequent_candles
             )
             
-            print("swept: ", swept)
+            # print("swept: ", swept)
         elif direction == "high":
             swept = any(
                 candle.high > swing.high
@@ -114,10 +117,10 @@ def get_valid_swing_points_before(
             )
         else:
             raise ValueError("direction must be 'low' or 'high'")
-        print("swept: ", swept)
+        # print("swept: ", swept)
         if not swept:
             valid_swing_points.append(swing)
-            print("valid swing points: ", valid_swing_points)
+            # print("valid swing points: ", valid_swing_points)
 
     return valid_swing_points
 
@@ -126,7 +129,7 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
     swing_lows = find_swing_lows(candles)
     swing_highs = find_swing_highs(candles)
 
-    print("swing lows 101: ", swing_lows)
+    # print("swing lows 101: ", swing_lows)
 
     # Find the 3m candle that first swept the 30m range
     sweep_index = next(
@@ -138,7 +141,7 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
     )
 
     if sweep_index is None:
-        print(f"No 3m candle found at sweep time: {sweep_time}")
+        # print(f"No 3m candle found at sweep time: {sweep_time}")
         return None
 
     # Find the lowest low from the sweep candle through
@@ -153,8 +156,8 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
     # Use the actual lowest low as the potential sweeping low
     potential_low = lowest_candle
 
-    print("Sweep level: ", sweep_level)
-    print("Lowest sweeping candle: ", potential_low)
+    # print("Sweep level: ", sweep_level)
+    # print("Lowest sweeping candle: ", potential_low)
 
     # Reference lows must be earlier than the actual lowest low
     valid_swing_lows = get_valid_swing_points_before(
@@ -165,25 +168,25 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
         "low",
     )
 
-    print("Potential low timestamp:", potential_low.timestamp)
-    print("Total swing lows:", len(swing_lows))
-    print("All swing low timestamps:", [
-        low.timestamp for low in swing_lows
-    ])
-    print("Valid swing lows:", valid_swing_lows)
+    # print("Potential low timestamp:", potential_low.timestamp)
+    # print("Total swing lows:", len(swing_lows))
+    # print("All swing low timestamps:", [
+    #     low.timestamp for low in swing_lows
+    # ])
+    # print("Valid swing lows:", valid_swing_lows)
 
     reference_lows = [
         low for low in valid_swing_lows
         if low.timestamp < potential_low.timestamp
     ]
-    print("reference lows:", reference_lows)
+    # print("reference lows:", reference_lows)
 
     # Keep reference lows swept by the potential low
     swept_lows = [
         low for low in reference_lows
         if potential_low.low < low.low
     ]
-    print("swept lows: ", swept_lows)
+    # print("swept lows: ", swept_lows)
 
     if not swept_lows:
         return None
@@ -193,7 +196,7 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
         swept_lows,
         key=lambda swing: swing.low,
     )
-    print("reference low: ", reference_low)
+    # print("reference low: ", reference_low)
 
     # Highest swing high between the reference and sweeping lows
     mss_swing_high_candle = get_highest_swing_between(
@@ -201,7 +204,7 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
         reference_low.timestamp,
         potential_low.timestamp,
     )
-    print("mss high: ", mss_swing_high_candle)
+    # print("mss high: ", mss_swing_high_candle)
 
     if mss_swing_high_candle is None:
         return None
@@ -219,8 +222,8 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
     else:
         mss_status = "NOT_TOUCHED"
 
-    print("MSS level:", mss_swing_high_candle.high)
-    print("MSS status:", mss_status)
+    # print("MSS level:", mss_swing_high_candle.high)
+    # print("MSS status:", mss_status)
 
     return {
         "mss_level": mss_swing_high_candle.high,
@@ -236,7 +239,7 @@ def find_bullish_mss_level(candles, sweep_time, sweep_level):
 def find_bullish_mss_level_v1(candles):
     swing_lows = find_swing_lows(candles)
     swing_highs = find_swing_highs(candles)
-    print("swing lows 101: ", swing_lows)
+    # print("swing lows 101: ", swing_lows)
 
     # Loop backward: newest potential sweeping swing low first
     for potential_low in reversed(swing_lows):
@@ -247,21 +250,21 @@ def find_bullish_mss_level_v1(candles):
             swing_lows,
             "low",
         )
-        print("valid swing lows: ", valid_swing_lows)
+        # print("valid swing lows: ", valid_swing_lows)
 
         # Reference lows must be earlier than the potential low
         reference_lows = [
             low for low in valid_swing_lows
             if low.timestamp < potential_low.timestamp
         ]
-        print("reference lows:", reference_lows)
+        # print("reference lows:", reference_lows)
 
         # Keep reference lows swept by the potential low
         swept_lows = [
             low for low in reference_lows
             if potential_low.low < low.low
         ]
-        print("swept lows: ", swept_lows)
+        # print("swept lows: ", swept_lows)
 
         if not swept_lows:
             continue
@@ -271,7 +274,7 @@ def find_bullish_mss_level_v1(candles):
             swept_lows,
             key=lambda swing: swing.low,
         )
-        print("reference low: ", reference_low)
+        # print("reference low: ", reference_low)
 
         # Highest swing high between the reference and sweeping lows
         mss_swing_high = get_highest_swing_between(
@@ -279,7 +282,7 @@ def find_bullish_mss_level_v1(candles):
             reference_low.timestamp,
             potential_low.timestamp,
         )
-        print("mss high: ", mss_swing_high)
+        # print("mss high: ", mss_swing_high)
 
         if mss_swing_high is None:
             continue
@@ -298,11 +301,83 @@ def find_bullish_mss_level_v1(candles):
 
 
 
+# def find_bullish_mss_level_swing_points(candles):
+#     swing_lows = find_swing_lows(candles)
+#     swing_highs = find_swing_highs(candles)
+
+#     print("Swing lows:", swing_lows)
+
+#     # Search from the most recent swing low backward.
+#     # Each swing low is a potential sweeping point.
+#     for potential_low in reversed(swing_lows):
+
+#         valid_swing_lows = filter_valid_swing_lows(
+#             swing_lows,
+#             potential_low,
+#         )
+
+#         # Earlier swing lows that were swept by this potential low
+#         swept_lows = [
+#             low for low in valid_swing_lows
+#             if potential_low.low < low.low
+#         ]
+
+#         print("Potential sweeping low:", potential_low)
+#         print("Swept reference lows:", swept_lows)
+
+#         if not swept_lows:
+#             continue
+
+#         # Select the deepest reference low swept
+#         reference_low = min(
+#             swept_lows,
+#             key=lambda swing: swing.low,
+#         )
+
+#         # Find the highest swing high between reference and sweep
+#         mss_swing_high = get_highest_swing_between(
+#             swing_highs,
+#             reference_low.timestamp,
+#             potential_low.timestamp,
+#         )
+
+#         if mss_swing_high is None:
+#             continue
+
+#         mss_level = mss_swing_high.high
+
+#         # Determine MSS status using completed candles
+#         relevant_candles = [
+#             candle for candle in candles
+#             if candle.timestamp > potential_low.timestamp
+#         ]
+
+#         if any(candle.close > mss_level for candle in relevant_candles):
+#             mss_status = "CONFIRMED"
+#         elif any(candle.high > mss_level for candle in relevant_candles):
+#             mss_status = "WICK_ONLY"
+#         else:
+#             mss_status = "NOT_TOUCHED"
+
+#         return {
+#             "mss_level": mss_level,
+#             "mss_timestamp": mss_swing_high.timestamp,
+#             "reference_low": reference_low.low,
+#             "reference_low_timestamp": reference_low.timestamp,
+#             "sweeping_low": potential_low.low,
+#             "sweeping_low_timestamp": potential_low.timestamp,
+#             "mss_status": mss_status
+#         }
+
+#     return None
+
+
+
 def find_bullish_mss_level_swing_points(candles):
     swing_lows = find_swing_lows(candles)
     swing_highs = find_swing_highs(candles)
 
-    print("Swing lows:", swing_lows)
+    # print("Swing lows:", swing_lows)
 
     # Search from the most recent swing low backward.
     # Each swing low is a potential sweeping point.
@@ -319,8 +394,8 @@ def find_bullish_mss_level_swing_points(candles):
             if potential_low.low < low.low
         ]
 
-        print("Potential sweeping low:", potential_low)
-        print("Swept reference lows:", swept_lows)
+        # print("Potential sweeping low:", potential_low)
+        # print("Swept reference lows:", swept_lows)
 
         if not swept_lows:
             continue
@@ -343,40 +418,68 @@ def find_bullish_mss_level_swing_points(candles):
 
         mss_level = mss_swing_high.high
 
-        # Determine MSS status using completed candles
-        relevant_candles = [
-            candle for candle in candles
-            if candle.timestamp > potential_low.timestamp
-        ]
+        # Process completed candles chronologically
+        relevant_candles = sorted(
+            [
+                candle for candle in candles
+                if candle.timestamp > potential_low.timestamp
+            ],
+            key=lambda candle: candle.timestamp,
+        )
 
-        if any(candle.close > mss_level for candle in relevant_candles):
-            mss_status = "CONFIRMED"
-        elif any(candle.high > mss_level for candle in relevant_candles):
-            mss_status = "WICK_ONLY"
-        else:
-            mss_status = "NOT_TOUCHED"
+        mss_status = "NOT_TOUCHED"
+        mss_confirmed_timestamp = None
+        mss_mitigated = False
+        mss_mitigation_timestamp = None
+
+        for candle in relevant_candles:
+
+            # MSS is not yet confirmed
+            if mss_confirmed_timestamp is None:
+
+                if candle.close > mss_level:
+                    # Candle closes above MSS level
+                    mss_status = "CONFIRMED"
+                    mss_confirmed_timestamp = candle.timestamp
+
+                elif candle.high > mss_level:
+                    # Wick breaks above, but candle doesn't close above
+                    mss_status = "WICK_ONLY"
+
+            else:
+                # Only subsequent candles can mitigate MSS
+                if candle.low <= mss_level:
+                    mss_mitigated = True
+                    mss_mitigation_timestamp = candle.timestamp
+                    mss_status = "MITIGATED"
+                    break
 
         return {
             "mss_level": mss_level,
             "mss_timestamp": mss_swing_high.timestamp,
+
             "reference_low": reference_low.low,
             "reference_low_timestamp": reference_low.timestamp,
+
             "sweeping_low": potential_low.low,
             "sweeping_low_timestamp": potential_low.timestamp,
-            "mss_status": mss_status
+
+            "mss_status": mss_status,
+            "mss_confirmed_timestamp": mss_confirmed_timestamp,
+            "mss_mitigated": mss_mitigated,
+            "mss_mitigation_timestamp": mss_mitigation_timestamp,
         }
 
     return None
 
-
 def find_bearish_mss_level_swing_points(candles):
     swing_lows = find_swing_lows(candles)
+    # print("candles: ", candles)
+    # print("swing lows bb: ", swing_lows)
     swing_highs = find_swing_highs(candles)
 
-    print("Swing highs:", swing_highs)
+    # print("Swing highs:", swing_highs)
 
-    # Search from the most recent swing high backward.
-    # Each swing high is a potential sweeping point.
     for potential_high in reversed(swing_highs):
 
         valid_swing_highs = filter_valid_swing_highs(
@@ -384,25 +487,19 @@ def find_bearish_mss_level_swing_points(candles):
             potential_high,
         )
 
-        # Earlier swing highs that were swept by this potential high
         swept_highs = [
             high for high in valid_swing_highs
             if potential_high.high > high.high
         ]
 
-        print("Potential sweeping high:", potential_high)
-        print("Swept reference highs:", swept_highs)
-
         if not swept_highs:
             continue
 
-        # Select the deepest reference highlow swept
         reference_high = max(
             swept_highs,
             key=lambda swing: swing.high,
         )
 
-        # Find the lowest swing low between reference and sweep
         mss_swing_low = get_lowest_swing_between(
             swing_lows,
             reference_high.timestamp,
@@ -414,27 +511,125 @@ def find_bearish_mss_level_swing_points(candles):
 
         mss_level = mss_swing_low.low
 
-        # Determine MSS status using completed candles
-        relevant_candles = [
-            candle for candle in candles
-            if candle.timestamp > potential_high.timestamp
-        ]
+        relevant_candles = sorted(
+            [
+                candle for candle in candles
+                if candle.timestamp > potential_high.timestamp
+            ],
+            key=lambda candle: candle.timestamp,
+        )
 
-        if any(candle.close < mss_level for candle in relevant_candles):
-            mss_status = "CONFIRMED"
-        elif any(candle.high < mss_level for candle in relevant_candles):
-            mss_status = "WICK_ONLY"
-        else:
-            mss_status = "NOT_TOUCHED"
+        mss_status = "NOT_TOUCHED"
+        mss_confirmed_timestamp = None
+        mss_mitigated = False
+        mss_mitigation_timestamp = None
+
+        for candle in relevant_candles:
+
+            # MSS is not yet confirmed
+            if mss_confirmed_timestamp is None:
+
+                if candle.close < mss_level:
+                    # Candle closes below MSS level
+                    mss_status = "CONFIRMED"
+                    mss_confirmed_timestamp = candle.timestamp
+
+                elif candle.low < mss_level:
+                    # Wick breaks below, but candle does not close below
+                    mss_status = "WICK_ONLY"
+
+            else:
+                # Only candles AFTER confirmation can mitigate MSS
+                if candle.high >= mss_level:
+                    mss_mitigated = True
+                    mss_mitigation_timestamp = candle.timestamp
+                    mss_status = "MITIGATED"
+                    break
 
         return {
             "mss_level": mss_level,
             "mss_timestamp": mss_swing_low.timestamp,
+
             "reference_high": reference_high.high,
             "reference_high_timestamp": reference_high.timestamp,
+
             "sweeping_high": potential_high.high,
             "sweeping_high_timestamp": potential_high.timestamp,
-            "mss_status": mss_status
+
+            "mss_status": mss_status,
+            "mss_confirmed_timestamp": mss_confirmed_timestamp,
+            "mss_mitigated": mss_mitigated,
+            "mss_mitigation_timestamp": mss_mitigation_timestamp,
         }
 
     return None
+
+# def find_bearish_mss_level_swing_points(candles):
+#     swing_lows = find_swing_lows(candles)
+#     swing_highs = find_swing_highs(candles)
+
+#     print("Swing highs:", swing_highs)
+
+#     # Search from the most recent swing high backward.
+#     # Each swing high is a potential sweeping point.
+#     for potential_high in reversed(swing_highs):
+
+#         valid_swing_highs = filter_valid_swing_highs(
+#             swing_highs,
+#             potential_high,
+#         )
+
+#         # Earlier swing highs that were swept by this potential high
+#         swept_highs = [
+#             high for high in valid_swing_highs
+#             if potential_high.high > high.high
+#         ]
+
+#         print("Potential sweeping high:", potential_high)
+#         print("Swept reference highs:", swept_highs)
+
+#         if not swept_highs:
+#             continue
+
+#         # Select the deepest reference highlow swept
+#         reference_high = max(
+#             swept_highs,
+#             key=lambda swing: swing.high,
+#         )
+
+#         # Find the lowest swing low between reference and sweep
+#         mss_swing_low = get_lowest_swing_between(
+#             swing_lows,
+#             reference_high.timestamp,
+#             potential_high.timestamp,
+#         )
+
+#         if mss_swing_low is None:
+#             continue
+
+#         mss_level = mss_swing_low.low
+
+#         # Determine MSS status using completed candles
+#         relevant_candles = [
+#             candle for candle in candles
+#             if candle.timestamp > potential_high.timestamp
+#         ]
+
+#         if any(candle.close < mss_level for candle in relevant_candles):
+#             mss_status = "CONFIRMED"
+#         elif any(candle.high < mss_level for candle in relevant_candles):
+#             mss_status = "WICK_ONLY"
+#         else:
+#             mss_status = "NOT_TOUCHED"
+
+#         return {
+#             "mss_level": mss_level,
+#             "mss_timestamp": mss_swing_low.timestamp,
+#             "reference_high": reference_high.high,
+#             "reference_high_timestamp": reference_high.timestamp,
+#             "sweeping_high": potential_high.high,
+#             "sweeping_high_timestamp": potential_high.timestamp,
+#             "mss_status": mss_status
+#         }
+
+#     return None

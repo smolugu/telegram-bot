@@ -158,14 +158,14 @@ class SevenHourBuilder:
     def update(self, candle):
 
         label = get_7h_label(candle.timestamp)
-        print("label: ", label)
+        # print("label: ", label)
 
         if label is None:
             return
 
         # new 7h block starting
         if label != self.current_label:
-            print("7h new block: ", label)
+            # print("7h new block: ", label)
 
             if self.current_label is not None:
                 self.candles[self.current_label].compute_bias()

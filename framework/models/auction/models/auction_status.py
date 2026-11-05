@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from framework.models.auction.models.auction_progress import AuctionProgress
 from framework.models.auction.models.auction_snapshot import AuctionSnapshot
@@ -31,6 +32,10 @@ class AuctionStatus:
     h7: AuctionProgress | None = None
     h4: AuctionProgress | None = None
 
+    h7_status: dict[str, Any] = field(default_factory=dict)
+    h4_status: dict[str, Any] = field(default_factory=dict)
+    daily_status: dict[str, Any] = field(default_factory=dict)
+
     # ---------------------------------------------------------
     # Historical auction snapshots
     # ---------------------------------------------------------
@@ -38,7 +43,6 @@ class AuctionStatus:
     snapshot_1am: AuctionSnapshot | None = None
     snapshot_8am: AuctionSnapshot | None = None
     snapshot_3pm: AuctionSnapshot | None = None
-
 
     # previous_direction: AuctionDirection = (
     #         AuctionDirection.NEUTRAL
@@ -52,16 +56,36 @@ class AuctionStatus:
     #         AuctionDirection.NEUTRAL
     #     )
     #     active_progress: float = 0.0
-    def summary(self) -> dict:
+    def h7summary(self) -> dict:
         return {
-            "final at_htf": self.at_htf,
-            "final at_htf_level": self.at_htf_level,
-            "final previous direction": self.previous_direction,
-            "final active timeframe": self.active_timeframe,
-            "final active direction": self.active_direction,
-            "final active progress": self.active_progress,
+            # "final at_htf": self.at_htf,
+            # "final at_htf_level": self.at_htf_level,
+            # "final previous direction": self.previous_direction,
+            # "final active timeframe": self.active_timeframe,
+            # "final active direction": self.active_direction,
+            # "final active progress": self.active_progress,
 
-            "daily": self.daily.summary(),
-            "h7": self.h7.summary(),
-            "h4": self.h4.summary(),
+            # "daily": self.daily.summary() if self.daily else None,
+            "h7": self.h7.summary() if self.h7 else None,
+            # "h4": self.h4.summary() if self.h4 else None,
+            "h7_status": self.h7_status,
+            # "h4_status": self.h4_status,
+            # "daily_status": self.daily_status,
+        }
+    
+    def h4summary(self) -> dict:
+        return {
+            # "final at_htf": self.at_htf,
+            # "final at_htf_level": self.at_htf_level,
+            # "final previous direction": self.previous_direction,
+            # "final active timeframe": self.active_timeframe,
+            # "final active direction": self.active_direction,
+            # "final active progress": self.active_progress,
+
+            # "daily": self.daily.summary() if self.daily else None,
+            # "h7": self.h7.summary() if self.h7 else None,
+            "h4": self.h4.summary() if self.h4 else None,
+            # "h7_status": self.h7_status,
+            "h4_status": self.h4_status,
+            # "daily_status": self.daily_status,
         }

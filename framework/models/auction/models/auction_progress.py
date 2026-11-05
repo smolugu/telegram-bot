@@ -28,6 +28,10 @@ class AuctionProgress:
         AuctionDirection.NEUTRAL
     )
 
+    anticipated_direction: AuctionDirection = (
+        AuctionDirection.NEUTRAL
+    )
+
     # ---------------------------------------------------------
     # HTF state
     # ---------------------------------------------------------
@@ -45,6 +49,16 @@ class AuctionProgress:
 
     completed: bool = False
 
+    continuation_direction: AuctionDirection = (
+        AuctionDirection.NEUTRAL
+    )
+    continuation_objective: float | None = None
+
+    reversal_direction: AuctionDirection = (
+        AuctionDirection.NEUTRAL
+    )
+    reversal_objective: float | None = None
+
     def summary(self) -> dict:
         return {
             "timeframe": self.timeframe,
@@ -52,6 +66,9 @@ class AuctionProgress:
             "confirmed": self.confirmed,
             "confirmed_direction": self.confirmed_direction,
             "previous_direction": self.previous_direction,
+            "anticipated_direction": self.anticipated_direction,
             "at_htf": self.at_htf,
             "at_htf_level": self.at_htf_level,
+            "continuation_objective": self.continuation_objective,
+            "reversal_objective": self.reversal_objective,
         }

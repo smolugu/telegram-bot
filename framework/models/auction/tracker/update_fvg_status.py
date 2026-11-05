@@ -151,7 +151,7 @@ def update_fvg_status(
                 # potentially the first interaction with the FVG.
                 # -------------------------------------------------
 
-                if previous_candle.low > fvg.upper:
+                if previous_candle.low >= fvg.upper:
 
                     # ---------------------------------------------
                     # Exact touch of upper boundary
@@ -268,7 +268,7 @@ def update_fvg_status(
                 # Previous candle completely BELOW the FVG
                 # -------------------------------------------------
 
-                if previous_candle.high < fvg.lower:
+                if previous_candle.high <= fvg.lower:
 
                     # ---------------------------------------------
                     # Exact touch of lower boundary

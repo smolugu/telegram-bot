@@ -41,9 +41,10 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     dt2=None
     mss_end_time = current_time
     mss_start_time = mss_end_time - timedelta(minutes=120)
+    mss_15m_start_time = mss_end_time -timedelta(minutes=360)
     side = candidate.side
     direction = "bearish" if side == "buy_side" else "bullish"
-    retracement_risk = get_retracement_risk(direction, candle_repo, mss_end_time, contract_id, mss_start_time, None)
+    retracement_risk, unmitigated_mss_level = get_retracement_risk(direction, candle_repo, mss_end_time, contract_id, mss_start_time, mss_15m_start_time, None)
 
     if isinstance(current_time, str):
         dt2 = datetime.fromisoformat(current_time)
@@ -75,8 +76,26 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     entry = None
     risk = None
     ce_ob = None
+    if unmitigated_mss_level is not None:
+        entry = unmitigated_mss_level
+    if retracement_risk == "HIGH":
+        if candidate.ob_data is not None:
+            entry = (candidate.ob_data["confirmation_high"] + candidate.ob_data["confirmation_low"]) / 2
+        else:
+            if direction == "bearish":
+                if instrument == "NQ":
+                    entry = candidate.sweep_candle_extreme - 30
+                else:
+                    entry = candidate.sweep_candle_extreme - 5
+            else:
+                if instrument == "NQ":
+                    entry = candidate.sweep_candle_extreme + 30
+                else:
+                    entry = candidate.sweep_candle_extreme + 5
+
     if candidate.fvg_data is not None:
-        entry = candidate.fvg_data["entry"]
+        if entry is None:
+            entry = candidate.fvg_data["entry"]
         risk = candidate.fvg_data["distance"]
         ce_ob = candidate.fvg_data["ce_ob"]
     ce_confirmation_candle_price = None
@@ -144,11 +163,12 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     elif side == "sell_side" and instrument == "NQ":
         stop = stop - 10
     rr = 1
+    
     if side == "buy_side" and candidate.sweep_and_ob_confirmed:
         print("alert Payload: initial target set 101")
         if candidate.sweep_and_ob_ce_confirmed:
-            
-            entry = candidate.sweep_and_ob_ce_entry
+            if unmitigated_mss_level is None:
+                entry = candidate.sweep_and_ob_ce_entry
             print("alert Payload: initial target set 101-1")
             print("entry1 buyside: ", entry)
             rr = 2
@@ -188,7 +208,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             
 
     elif side == "buy_side" and entry < ce_confirmation_candle_price and risk > default_risk:
-        entry = ce_confirmation_candle_price
+        if unmitigated_mss_level is None:
+            entry = ce_confirmation_candle_price
 
         print("Adjusting entry to CE confirmation candle price:", entry)
         print("alert Payload: initial target set 102")
@@ -250,7 +271,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
     elif side == "sell_side" and candidate.sweep_and_ob_confirmed:
         print("alert Payload: initial target set 104")
         if candidate.sweep_and_ob_ce_confirmed:
-            entry = candidate.sweep_and_ob_ce_entry
+            if unmitigated_mss_level is None:
+                entry = candidate.sweep_and_ob_ce_entry
             print("alert Payload: initial target set 104-1")
             print("entry1: ", entry)
             rr = 2
@@ -293,7 +315,8 @@ def build_trade_alert(candle_repo, contract_id, candidate, liquidity_map = None,
             print("tp1 based on initial target and rr_initial_target: ", tp1, rr_initial_target)
         
     elif side == "sell_side" and entry > ce_confirmation_candle_price and risk > default_risk:
-        entry = ce_confirmation_candle_price
+        if unmitigated_mss_level is None:
+            entry = ce_confirmation_candle_price
         print("alert Payload: initial target set 105")
         print("Adjusting entry to CE confirmation candle price:", entry)
         rr = 1.5

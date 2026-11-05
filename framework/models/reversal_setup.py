@@ -397,6 +397,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             session_high = asset_market_context.session_high
             session_low = asset_market_context.session_low
             pre_session_cisd = get_pre_session_cisd(asset_weekly_context["active_bullish_cisds"], session_start)
+            if pre_session_cisd is None:
+                return False
             cisd_level = pre_session_cisd["target_level"]
             print("new_cisd_level:", cisd_level)
             print("active_bullish_cisds: ", asset_weekly_context["active_bullish_cisds"])
@@ -410,7 +412,10 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
         ):
             session_high = asset_market_context.session_high
             session_low = asset_market_context.session_low
+            if asset_weekly_context["new_bearish_cisd"] is None:
+                return False
             cisd_level = asset_weekly_context["new_bearish_cisd"]["target_level"]
+
             print("new_bearish_cisd_level:", cisd_level)
             print("active_bearish_cisds: ", asset_weekly_context["active_bearish_cisds"])
 
@@ -454,22 +459,52 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             )
             
         print("is_retracement_exhausted: ", is_retracement_exhausted)
+
+        # check for 7h auction completion
+
+        is_7h_auction_complete = False
+        print("auction 7h status: ", auction_engine.status.h7_status)
+        print("auction 4h status: ", auction_engine.status.h4_status)
+        print("co asset 7h state: ", co_asset["auction_engine"].status.h7_status)
+        print("co asset 4h state: ", co_asset["auction_engine"].status.h4_status)
+        print("session direction:", market_context.session_direction)
+        if auction_engine.status.h7_status["state"] == "at_htf":
+            print("x01")
+            if market_context.session_direction == "bullish" and auction_engine.status.h7_status["direction"] == AuctionDirection.BULLISH:
+                print("x02")
+                is_7h_auction_complete = True
+            elif market_context.session_direction == "bearish" and auction_engine.status.h7_status["direction"] == AuctionDirection.BEARISH:
+                print("x03")
+                is_7h_auction_complete = True
+
+        # if is_7h_auction_complete:
+
+            # print("co asset 7h state: ", co_asset["auction_engine"].status.h7_status)
+            # print("co asset 4h state: ", co_asset["auction_engine"].status.h4_status)
+
         # Existing direction-filter behavior.
-        if is_atr_exhausted or is_retracement_exhausted:
+        if is_atr_exhausted or is_retracement_exhausted or is_7h_auction_complete:
+            print("101")
             if market_context.session_direction == "bearish":
                 allow_shorts = False
+                print("102")
             elif market_context.session_direction == "bullish":
                 allow_longs = False
+                print("103")
         else:
             if market_context.session_direction == "bearish":
                 allow_longs = False
+                print("104")
             elif market_context.session_direction == "bullish":
                 allow_shorts = False
+                print("106")
 
         if look_for_longs and allow_longs:
             filters_passed = True
+            print("107")
         if look_for_shorts and allow_shorts:
             filters_passed = True
+            print("108") 
 
         return filters_passed, is_retracement_exhausted
 
@@ -1674,14 +1709,16 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                     candidate.final_target_price = market_context.session_open if final_target_text == "DO" else bullish_atr_target_price
                     if candidate.ping_type == "Rocket":
                         newyork_context.execution_state["rocket_triggered"] = True
-                
+
+                # disallow mini trades
+                # setting reversal_confirmation to False
                 elif (
                     is_smt
                     and is_rejection
                     and is_displacement
                     and not flush_triggered
                 ):
-                    reversal_confirmation = True
+                    reversal_confirmation = False
                     candidate.ping_type = "Mini Rocket"
                     # retracement/reversal target - mitigation of structure
                     candidate.initial_target_price = newyork_context.structure["mitigation_level"]
@@ -2845,7 +2882,9 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
                 # Rocket expansion / bullish continuation
                 # --------------------------------------------------
                 if (
+
                     is_smt
+                    and is_atr_filter
                     and is_rejection
                     and is_displacement
                 ):
@@ -2861,12 +2900,14 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
 
             elif (
                 look_for_shorts
+                
                 # and allow_conflict_shorts
-                and (
-                    market_context.directional_exhaustion == "bullish" 
-                    or co_asset["market_context"].directional_exhaustion == "bullish"
-                    or htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL_BULLISH
-                )
+                # replace with is_atr_filter with auction completion
+                # and (
+                #     market_context.directional_exhaustion == "bullish" 
+                #     or co_asset["market_context"].directional_exhaustion == "bullish"
+                #     or htf_weekly_bias_enum == WeeklyBiasEnums.NEUTRAL_BULLISH
+                # )
                 and allow_shorts
                 and not newyork_context.execution_state["flush_triggered"]
                 # and not newyork_context.execution_state["rocket_triggered"]
@@ -2875,7 +2916,8 @@ def check_for_reversal_setup_confirmation(smt_context, weekly_context, market_co
             ):
                 print("looking for shorts")
                 if (
-                    is_smt
+                    is_atr_filter
+                    and is_smt
                     and is_rejection
                     and is_displacement
                 ):

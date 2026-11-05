@@ -1,6 +1,13 @@
 from framework.models.auction.models.auction_progress import AuctionDirection
 from framework.models.auction.models.auction_status import AuctionStatus
 
+# def check_auction_status(
+#     auction_status: AuctionStatus,
+# ) -> bool:
+#     state = auction_status.h7_status["state"]
+#     direction = auction_status.h7_status["direction"]
+
+
 
 def get_auction_direction(
         auction_status: AuctionStatus,

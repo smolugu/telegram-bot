@@ -357,7 +357,7 @@ def detect_key_liquidity_sweep(instrument, key_levels, candles_3m, inside_candle
     return sweep_highs_key_levels_info, sweep_lows_key_levels_info
 
 def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lows, candles_3m, inside_candles_1m, last_closed_candle, key_levels, current_30m_start):
-    print("calling detect_30m_and_key_level_sweep")
+    # print("calling detect_30m_and_key_level_sweep")
     sweep_highs_info = None
     sweep_lows_info = None
 
@@ -407,7 +407,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
 
             # print(f"{instrument} Sweep highs, Swept levels:", sweep, levels)
             wick_ratio = abs(close - high) / abs(high - low)
-            print("wick ratio: ", wick_ratio)
+            # print("wick ratio: ", wick_ratio)
             if sweep_type_kl is not None:
                 sweep_type = sweep_type_kl
 
@@ -417,14 +417,14 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 nq_sweep_and_ob_confirmed = close < open + points_tol or (sweep_type_kl == "rejection" and not bullish_strong_body) 
     
                 if nq_sweep_and_ob_confirmed:
-                    print("sweep and ob confirmed")
+                    # print("sweep and ob confirmed")
                     nq_sweep_and_ob_entry = open if close < open else close
                     # confirmation timestamp is current timestamp
                     nq_sweep_and_ob_confirmation_timestamp = last_closed_candle.timestamp
             
                 # if last_closed_candle.close < last_closed_candle.open and (last_closed_candle.open - last_closed_candle.close) > 60:
                 if nq_sweep_and_ob_confirmed and strong_body_ce and last_closed_is_bearish:
-                    print("nq sweep and ob confirmed with strong body")
+                    # print("nq sweep and ob confirmed with strong body")
                     nq_sweep_and_ob_ce_entry = (open + close) / 2
                     nq_sweep_and_ob_ce_confirmed = True
                 ob_level = nq_sweep_and_ob_entry if nq_sweep_and_ob_confirmed else None
@@ -438,7 +438,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
                 # nq_sweep_and_ob_confirmed = close < open or wick_ratio > 0.6
                 nq_sweep_and_ob_confirmed = close < open or (sweep_type == "rejection" and not bullish_strong_body)
                 if nq_sweep_and_ob_confirmed:
-                    print("2024")
+                    # print("2024")
                     nq_sweep_and_ob_entry = open
                     # confirmation timestamp is current timestamp
                     nq_sweep_and_ob_confirmation_timestamp = last_closed_candle.timestamp
@@ -500,7 +500,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
             sweep, levels, sweep_type_kl, max_swl = detect_key_liquidity_sweep_lows(last_closed_candle, key_levels, inside_3m_candles)
             # print(f"{instrument} Sweep lows, Swept levels:", sweep, levels)
             wick_ratio = abs(close - low) / abs(high - low)
-            print("wick ration: ", wick_ratio)
+            # print("wick ration: ", wick_ratio)
 
             if sweep_type_kl is not None:
                 sweep_type = sweep_type_kl
@@ -572,7 +572,7 @@ def detect_30m_and_key_level_sweep(instrument, valid_swing_highs, valid_swing_lo
 
     return sweep_highs_info, sweep_lows_info
 
-def update_sweep_info(candidate, candles_3m, last_closed_candle):
+def update_sweep_info(candidate, candles_3m, last_closed_candle, breakout_candle):
     # 1. breakout rejection check
     # 2. sweep extreme check
     # 3. sweep time on 3m tf
@@ -588,6 +588,7 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
     body_ratio = body_size / range_size
     strong_body = body_size/range_size > 0.5
     strong_body_ce = body_size/range_size > 0.4
+    breakout_candle_ce = (breakout_candle.high + breakout_candle.low) /2
 
     upper_wick_ratio = (
             high - max(open, close)
@@ -602,6 +603,9 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
         print("checking breakout rejection for nq sell candidate")
         sweep = candidate.sweep_key_level
         is_breakout_rejection_wick = False
+        is_breakour_body_rejection = False
+        if last_closed_candle.close < breakout_candle_ce:
+            is_breakour_body_rejection = True
 
         if sweep and upper_wick_ratio > 0.25:
             is_breakout_rejection_wick = True
@@ -609,7 +613,7 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
             is_breakout_rejection_wick = True
         # if last_closed_candle.close < candidate.sweep_level and strong_body_ce:
         # if last_closed_candle.close < candidate.sweep_level and last_closed_is_bearish:
-        if is_breakout_rejection_wick and last_closed_is_bearish:
+        if (is_breakout_rejection_wick and last_closed_is_bearish) or is_breakour_body_rejection:
             candidate.is_breakout_rejection = True
             candidate.sweep_type = "rejection"
             print("breakout sweep ob confirmed for nq sell candidate")
@@ -687,6 +691,9 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
         # if last_closed_candle.close > candidate.sweep_level and strong_body_ce:
         sweep = candidate.sweep_key_level
         is_breakout_rejection_wick = False
+        is_breakour_body_rejection = False
+        if last_closed_candle.close > breakout_candle_ce:
+            is_breakour_body_rejection = True
 
         if sweep and lower_wick_ratio > 0.25:
             is_breakout_rejection_wick = True
@@ -694,7 +701,7 @@ def update_sweep_info(candidate, candles_3m, last_closed_candle):
             is_breakout_rejection_wick = True
 
         # if last_closed_candle.close > candidate.sweep_level and last_closed_is_bullish:
-        if is_breakout_rejection_wick and last_closed_is_bullish:
+        if (is_breakout_rejection_wick and last_closed_is_bullish) or is_breakour_body_rejection:
             candidate.is_breakout_rejection = True
             candidate.sweep_type = "rejection"
             print(f"""breakout sweep ob confirmed for {candidate.instrument} buy candidate""")

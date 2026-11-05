@@ -17,8 +17,7 @@ def build_auction_context(levels, auction_engine):
                 auction_engine.context.bullish_levels.append(level)
             else:
                 auction_engine.context.bearish_swings.append(level)
-                auction_engine.context.bearish_levels.append(level)
-                
+                auction_engine.context.bearish_levels.append(level)         
         #
         # FVG
         #

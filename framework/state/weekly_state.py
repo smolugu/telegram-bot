@@ -122,7 +122,7 @@ def _detect_latest_fvg(candles):
     #
 
     elif c3.high < c1.low:
-        print("c3 high < c1 low")
+        # print("c3 high < c1 low")
 
         bearish_fvg = {
             "low": c3.high,
@@ -169,9 +169,9 @@ def build_weekly_state(
     weekly_state = initialize_weekly_state(instrument)
     
     # week_start_ny = get_week_start(current_day_start_ny)
-    print("current_day_start_ny:", current_day_start_ny)
-    print("WEEK START:", week_start_ny)
-    print("WEEK START UTC:", week_start_ny.astimezone(UTC_TZ))
+    # print("current_day_start_ny:", current_day_start_ny)
+    # print("WEEK START:", week_start_ny)
+    # print("WEEK START UTC:", week_start_ny.astimezone(UTC_TZ))
 
     
     week_open_candle = None
@@ -184,7 +184,7 @@ def build_weekly_state(
         None,
     ) 
     
-    print("weekly_open_candle: ", week_open_candle)
+    # print("weekly_open_candle: ", week_open_candle)s
     weekly_state["weekly_open"] = week_open_candle.open
 
     history = []
@@ -270,9 +270,9 @@ def update_weekly_1h_structure(
     
     current_price = candles_1h[-1].close
     last_closed = candles_1h[-1]
-    print("===========================")
-    print("last_closed: ", last_closed)
-    print("===========================")
+    # print("===========================")
+    # print("last_closed: ", last_closed)
+    # print("===========================")
 
     #
     # Weekly Open Location
@@ -308,7 +308,7 @@ def update_weekly_1h_structure(
             "target_level": cisd_level
         }
 
-        print("Bullish CISD detected:", bullish_cisd)
+        # print("Bullish CISD detected:", bullish_cisd)
 
         # First bullish CISD = anchor
         if weekly_state["bullish_cisd"] is None:
@@ -319,10 +319,10 @@ def update_weekly_1h_structure(
                 bullish_cisd
             )
 
-            print(
-                "Weekly Bullish CISD anchor formed:",
-                weekly_state["bullish_cisd"]
-            )
+            # print(
+            #     "Weekly Bullish CISD anchor formed:",
+            #     weekly_state["bullish_cisd"]
+            # )
 
         else:
 
@@ -333,10 +333,10 @@ def update_weekly_1h_structure(
 
             weekly_state["new_bullish_cisd"] = bullish_cisd
 
-            print(
-                "Weekly New Bullish CISD formed:",
-                weekly_state["new_bullish_cisd"]
-            )
+            # print(
+            #     "Weekly New Bullish CISD formed:",
+            #     weekly_state["new_bullish_cisd"]
+            # )
 
     # --------------------------------------------------
     # Detect Bearish CISD
@@ -363,7 +363,7 @@ def update_weekly_1h_structure(
             "target_level": cisd_level
         }
 
-        print("Bearish CISD detected:", bearish_cisd)
+        # print("Bearish CISD detected:", bearish_cisd)
 
         # First bearish CISD = anchor
         if weekly_state["bearish_cisd"] is None:
@@ -374,10 +374,10 @@ def update_weekly_1h_structure(
                 bearish_cisd
             )
 
-            print(
-                "Weekly Bearish CISD anchor formed:",
-                weekly_state["bearish_cisd"]
-            )
+            # print(
+            #     "Weekly Bearish CISD anchor formed:",
+            #     weekly_state["bearish_cisd"]
+            # )
 
         else:
 
@@ -388,10 +388,10 @@ def update_weekly_1h_structure(
 
             weekly_state["new_bearish_cisd"] = bearish_cisd
 
-            print(
-                "Weekly New Bearish CISD formed:",
-                weekly_state["new_bearish_cisd"]
-            )
+            # print(
+            #     "Weekly New Bearish CISD formed:",
+            #     weekly_state["new_bearish_cisd"]
+            # )
 
 
 
@@ -403,8 +403,8 @@ def update_weekly_1h_structure(
         candles_1h
     )
 
-    print("bullish fvg:", bullish_fvg)
-    print("bearish fvg:", bearish_fvg)
+    # print("bullish fvg:", bullish_fvg)
+    # print("bearish fvg:", bearish_fvg)
 
     # --------------------------------------------------
     # Store Bullish FVG
@@ -412,7 +412,7 @@ def update_weekly_1h_structure(
 
     if bullish_fvg is not None:
 
-        print("Fresh bullish FVG detected")
+        # print("Fresh bullish FVG detected")
 
         # First bullish FVG = anchor
         if weekly_state["bullish_fvg"] is None:
@@ -423,10 +423,10 @@ def update_weekly_1h_structure(
                 bullish_fvg
             )
 
-            print(
-                "Weekly Bullish FVG anchor formed:",
-                weekly_state["bullish_fvg"]
-            )
+            # print(
+            #     "Weekly Bullish FVG anchor formed:",
+            #     weekly_state["bullish_fvg"]
+            # )
 
         else:
 
@@ -437,10 +437,10 @@ def update_weekly_1h_structure(
 
             weekly_state["new_bullish_fvg"] = bullish_fvg
 
-            print(
-                "Weekly New Bullish FVG formed:",
-                weekly_state["new_bullish_fvg"]
-            )
+            # print(
+            #     "Weekly New Bullish FVG formed:",
+            #     weekly_state["new_bullish_fvg"]
+            # )
 
     # --------------------------------------------------
     # Store Bearish FVG
@@ -448,7 +448,7 @@ def update_weekly_1h_structure(
 
     if bearish_fvg is not None:
 
-        print("Fresh bearish FVG detected")
+        # print("Fresh bearish FVG detected")
 
         # First bearish FVG = anchor
         if weekly_state["bearish_fvg"] is None:
@@ -459,10 +459,10 @@ def update_weekly_1h_structure(
                 bearish_fvg
             )
 
-            print(
-                "Weekly Bearish FVG anchor formed:",
-                weekly_state["bearish_fvg"]
-            )
+            # print(
+            #     "Weekly Bearish FVG anchor formed:",
+            #     weekly_state["bearish_fvg"]
+            # )
 
         else:
 
@@ -473,10 +473,10 @@ def update_weekly_1h_structure(
 
             weekly_state["new_bearish_fvg"] = bearish_fvg
 
-            print(
-                "Weekly New Bearish FVG formed:",
-                weekly_state["new_bearish_fvg"]
-            )
+            # print(
+            #     "Weekly New Bearish FVG formed:",
+            #     weekly_state["new_bearish_fvg"]
+            # )
 
     # ==================================================
     # INVALIDATE / RECLAIM CISDs
@@ -492,10 +492,10 @@ def update_weekly_1h_structure(
 
         if last_closed.close < cisd["invalidate_below"]:
 
-            print(
-                "Bullish CISD invalidated:",
-                cisd
-            )
+            # print(
+            #     "Bullish CISD invalidated:",
+            #     cisd
+            # )
 
             bullish_cisds.remove(cisd)
 
@@ -535,10 +535,10 @@ def update_weekly_1h_structure(
 
         if last_closed.close > cisd["invalidate_above"]:
 
-            print(
-                "Bearish CISD invalidated:",
-                cisd
-            )
+            # print(
+            #     "Bearish CISD invalidated:",
+            #     cisd
+            # )
 
             bearish_cisds.remove(cisd)
 
@@ -588,10 +588,10 @@ def update_weekly_1h_structure(
             and fvg["state"] != "reclaimed"
         ):
 
-            print(
-                "Weekly Bullish FVG reclaimed:",
-                fvg
-            )
+            # print(
+            #     "Weekly Bullish FVG reclaimed:",
+            #     fvg
+            # )
 
             fvg["state"] = "reclaimed"
 
@@ -619,10 +619,10 @@ def update_weekly_1h_structure(
             weekly_state["rocket"]["status"] = True
             weekly_state["rocket"]["time"] = last_closed.timestamp
 
-            print(
-                "Weekly Bullish FVG mitigated:",
-                fvg
-            )
+            # print(
+            #     "Weekly Bullish FVG mitigated:",
+            #     fvg
+            # )
 
     # Determine latest surviving bullish FVG
     if weekly_state["bullish_fvg"] is not None:
@@ -663,10 +663,10 @@ def update_weekly_1h_structure(
             and fvg["state"] != "reclaimed"
         ):
 
-            print(
-                "Weekly Bearish FVG reclaimed:",
-                fvg
-            )
+            # print(
+            #     "Weekly Bearish FVG reclaimed:",
+            #     fvg
+            # )
 
             fvg["state"] = "reclaimed"
 
@@ -693,10 +693,10 @@ def update_weekly_1h_structure(
             weekly_state["flush"]["status"] = True
             weekly_state["flush"]["time"] = last_closed.timestamp
 
-            print(
-                "Weekly Bearish FVG mitigated:",
-                fvg
-            )
+            # print(
+            #     "Weekly Bearish FVG mitigated:",
+            #     fvg
+            # )
 
     # Determine latest surviving bearish FVG
     if weekly_state["bearish_fvg"] is not None:

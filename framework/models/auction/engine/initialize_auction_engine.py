@@ -42,16 +42,6 @@ def initialize_auction_engine(auction_engine, candles_for_auction):
     h7_fvgs = detect_fvg(h7_candles,timeframe="7h",)
     h7_vis = detect_vi(h7_candles,timeframe="7h",)
 
-    # for candle in h4_candles:
-    #     if candle.timestamp.date().isoformat() == "2026-08-16":
-    #         print("+=+=+=")
-    #         print(
-    #             candle.timestamp,
-    #             candle.open,
-    #             candle.high,
-    #             candle.low,
-    #             candle.close
-    #         )
     h4_swings = detect_swings(h4_candles,timeframe="4h",)
     h4_fvgs = detect_fvg(h4_candles,timeframe="4h",)
     h4_vis = detect_vi(h4_candles,timeframe="4h",)

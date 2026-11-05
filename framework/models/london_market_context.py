@@ -223,13 +223,13 @@ class LondonMarketContext:
     # =========================================
     def update_position(self, candle):
         close = candle.close
-        print("ib_18 xyz: ", self.instrument, "|",  self.ib_18)
+        # print("ib_18 xyz: ", self.instrument, "|",  self.ib_18)
         if close > self.ib_18["high"]:
             self.structure["position_vs_18"] = "above"
         elif close < self.ib_18["low"]:
             self.structure["position_vs_18"] = "below"
         else:
-            print("insidexxx")
+            # print("insidexxx")
             self.structure["position_vs_18"] = "inside"
 
     # =========================================

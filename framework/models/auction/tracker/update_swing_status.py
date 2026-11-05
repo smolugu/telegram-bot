@@ -6,7 +6,7 @@ from framework.models.auction.models.htf_swing import HTFSwing, SwingType
 
 def update_swing_status(
     swings: list[HTFSwing],
-    candles: list[Candle],
+    ltf_candles: list[Candle],
     htf_candles: list[Candle],
 ) -> None:
     """
@@ -39,11 +39,11 @@ def update_swing_status(
     Status is updated in-place.
     """
 
-    if not swings or not candles:
+    if not swings or not ltf_candles:
         return
 
     # Ensure chronological order
-    candles = sorted(candles, key=lambda c: c.timestamp)
+    ltf_candles = sorted(ltf_candles, key=lambda c: c.timestamp)
 
     for swing in swings:
 
@@ -89,10 +89,10 @@ def update_swing_status(
         # =========================================================
         # 1. LTF interaction with levels
         # =========================================================
-        for i in range(1, len(candles)):
+        for i in range(1, len(ltf_candles)):
 
-            previous_candle = candles[i - 1]
-            candle = candles[i]
+            previous_candle = ltf_candles[i - 1]
+            candle = ltf_candles[i]
 
             # Ignore candles before the swing was confirmed
             if candle.timestamp <= swing_confirmation_time:
@@ -125,7 +125,7 @@ def update_swing_status(
                 # -> SWEPT
                 # -------------------------------------------------
 
-                if previous_candle.high < swing.price:
+                if previous_candle.high <= swing.price:
 
                     # ---------------------------------------------
                     # Exact touch
@@ -183,7 +183,7 @@ def update_swing_status(
                 # -> SWEPT
                 # -------------------------------------------------
 
-                if previous_candle.low > swing.price:
+                if previous_candle.low >= swing.price:
 
                     # ---------------------------------------------
                     # Exact touch

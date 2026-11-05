@@ -34,7 +34,6 @@ def update_new_htf_levels(
     latest_candle = candles[-1]
 
     latest_timestamp = latest_candle.timestamp
-
     # ---------------------------------------------------------
     # Detect levels using the last 3 candles
     # ---------------------------------------------------------
@@ -49,14 +48,12 @@ def update_new_htf_levels(
     # ---------------------------------------------------------
 
     for level in swings:
-        
         _add_htf_level(
             context,
             level,
         )
 
     for level in fvgs:
-
         _add_htf_level(
             context,
             level,
@@ -80,10 +77,6 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
     # ---------------------------------------------------------
     # 1. Detect newly formed HTF levels
     # ---------------------------------------------------------
-    # print("auction updates for: ", candle_30m.timestamp)
-    # print("last_3_4h_candles: ", last_3_4h_candles)
-    # print("last_3_7h_candles: ", last_3_7h_candles)
-    # print("last_3_1d_candles: ", last_3_1d_candles)
     
     if last_3_4h_candles:
         update_new_htf_levels(
@@ -146,6 +139,11 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
     auction_engine.status = build_auction_status(
         auction_engine.context,
     )
+    print("=======================================")
+    print("auction status latest: ", auction_engine.status.h7summary())
+    print("=======================================")
+    print("auction status latest: ", auction_engine.status.h4summary())
+    print("=======================================")
     
     return auction_engine
 

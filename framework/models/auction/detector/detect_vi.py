@@ -2,64 +2,123 @@ from data.models.candle import Candle
 from framework.models.auction.models.htf_vi import HTFVolumeImbalance
 
 
-def detect_htf_vi(
-    candles,
-    timeframe,
-):
+# def detect_htf_vi(
+#     candles,
+#     timeframe,
+# ):
+#     """
+#     Detect a VI formed by the last 2 candles.
+
+#     Returns:
+#         []       if no VI
+#         [HTFVI]  if a VI is formed
+#     """
+
+#     if len(candles) < 2:
+#         return []
+
+#     c1 = candles[-2]
+#     c2 = candles[-1]
+
+#     vi = []
+
+#     # ---------------------------------------------------------
+#     # Put your existing VI conditions here
+#     # ---------------------------------------------------------
+    
+    
+#     if (
+#         c1.close > c1.open
+#         and c2.close > c2.open
+#         and c2.open > c1.close
+#     ):
+#         vi.append(
+#             HTFVolumeImbalance(
+#                 timeframe=timeframe,
+#                 timestamp=c2.timestamp,
+#                 upper=c2.open,
+#                 lower=c1.close,
+#                 price=c2.open,
+#                 is_bullish=True,
+#                 is_buy_side=False
+#             )
+#         )
+
+#     elif (
+#         c1.open > c1.close
+#         and c2.open > c2.close
+#         and c1.close > c2.open
+#     ):
+#         vi.append(
+#             HTFVolumeImbalance(
+#                 timeframe=timeframe,
+#                 timestamp=c2.timestamp,
+#                 upper=c1.close,
+#                 lower=c2.open,
+#                 price=c2.open,
+#                 is_bullish=False,
+#                 is_buy_side=True
+#             )
+#         )
+
+#     return vi
+def detect_htf_vi(candles, timeframe):
     """
-    Detect a VI formed by the last 2 candles.
+    Detect VIs between consecutive candles.
 
     Returns:
         []       if no VI
-        [HTFVI]  if a VI is formed
+        [HTFVI]  for each VI detected
     """
 
     if len(candles) < 2:
         return []
 
-    c1 = candles[-2]
-    c2 = candles[-1]
-
     vi = []
 
-    # ---------------------------------------------------------
-    # Put your existing VI conditions here
-    # ---------------------------------------------------------
-    
-    
-    if (
-        c1.close > c1.open
-        and c2.close > c2.open
-        and c2.open > c1.close
-    ):
-        vi.append(
-            HTFVolumeImbalance(
-                timeframe=timeframe,
-                timestamp=c2.timestamp,
-                upper=c2.open,
-                lower=c1.close,
-                price=c2.open,
-                is_bullish=True,
-                is_buy_side=False
-            )
-        )
+    for c1, c2 in zip(candles[:-1], candles[1:]):
 
-    elif (
-        c1.open > c1.close
-        and c2.open > c2.close
-        and c1.close > c2.open
-    ):
-        vi.append(
-            HTFVolumeImbalance(
-                timeframe=timeframe,
-                timestamp=c2.timestamp,
-                upper=c1.close,
-                lower=c2.open,
-                price=c2.open,
-                is_bullish=False,
-                is_buy_side=True
+        # -----------------------------------------------------
+        # Bullish VI
+        # -----------------------------------------------------
+
+        if (
+            c1.close > c1.open
+            and c2.close > c2.open
+            and c2.open > c1.close
+        ):
+            vi.append(
+                HTFVolumeImbalance(
+                    timeframe=timeframe,
+                    timestamp=c2.timestamp,
+                    upper=c2.open,
+                    lower=c1.close,
+                    price=c2.open,
+                    is_bullish=True,
+                    is_buy_side=False,
+                )
             )
-        )
+
+        # -----------------------------------------------------
+        # Bearish VI
+        # -----------------------------------------------------
+
+        elif (
+            c1.open > c1.close
+            and c2.open > c2.close
+            and c1.close > c2.open
+        ):
+            vi.append(
+                HTFVolumeImbalance(
+                    timeframe=timeframe,
+                    timestamp=c2.timestamp,
+                    upper=c1.close,
+                    lower=c2.open,
+                    price=c2.open,
+                    is_bullish=False,
+                    is_buy_side=True,
+                )
+            )
 
     return vi
 

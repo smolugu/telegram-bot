@@ -140,7 +140,7 @@ def update_vi_status(
                 # Previous candle completely ABOVE VI
                 # -------------------------------------------------
 
-                if previous_candle.low > vi.upper:
+                if previous_candle.low >= vi.upper:
 
                     # ---------------------------------------------
                     # Exact touch of upper boundary
@@ -242,7 +242,7 @@ def update_vi_status(
                 # Previous candle completely BELOW VI
                 # -------------------------------------------------
 
-                if previous_candle.high < vi.lower:
+                if previous_candle.high <= vi.lower:
 
                     # ---------------------------------------------
                     # Exact touch of lower boundary

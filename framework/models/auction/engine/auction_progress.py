@@ -248,14 +248,41 @@ def _update_timeframe_progress(
 
     if interacting_levels:
 
-        current_htf = max(
-            interacting_levels,
-            key=lambda level: abs(
-                current_price - level.price
-            ),
-        )
-        # print("interacting with htf: ", current_htf)
+        # -----------------------------------------------------
+        # Find latest interacting mitigation time
+        # -----------------------------------------------------
+        print("interacting levels: ", interacting_levels)
+        # Only consider levels with a valid mitigation time
+        valid_interacting_levels = [
+            level
+            for level in interacting_levels
+            if level.mitigation_time is not None
+        ]
+        if valid_interacting_levels:
 
+            latest_mitigation_time = max(
+                level.mitigation_time
+                for level in valid_interacting_levels
+            )
+
+            latest_interacting_levels = [
+                level
+                for level in valid_interacting_levels
+                if level.mitigation_time == latest_mitigation_time
+            ]
+
+            # -----------------------------------------------------
+            # If multiple levels interacted at the same time,
+            # select the level with maximum distance.
+            # -----------------------------------------------------
+
+            current_htf = max(
+                latest_interacting_levels,
+                key=lambda level: abs(
+                    current_price - level.price
+                ),
+            )
+    
     # =========================================================
     # 2. PRICE IS AT HTF
     # =========================================================
@@ -281,7 +308,7 @@ def _update_timeframe_progress(
                 for level in tf_levels
                 if (
                     level.is_swept
-                    and level.is_buy_side
+                    and not level.is_buy_side
                     and level.timestamp <= current_htf.timestamp
                     and _is_valid_htf_level(level)
                 )
@@ -328,6 +355,116 @@ def _update_timeframe_progress(
             tf_auction_progress.previous_objective = (
                 current_htf
             )
+        
+        # -----------------------------------------------------
+        # Determine possible continuation and reversal.
+        # -----------------------------------------------------
+
+        continuation_direction = direction
+
+        reversal_direction = (
+            AuctionDirection.BEARISH
+            if direction == AuctionDirection.BULLISH
+            else AuctionDirection.BULLISH
+        )
+
+        # Find unswept, valid liquidity levels beyond HTF.
+        available_levels = [
+            level
+            for level in tf_levels
+            if (
+                not level.is_swept
+                and level != current_htf
+                and _is_valid_htf_level(level)
+            )
+        ]
+        
+        # -----------------------------------------------------
+        # Continuation objective.
+        # -----------------------------------------------------
+
+        if direction == AuctionDirection.BULLISH:
+
+            continuation_levels = [
+                level for level in available_levels
+                if level.is_buy_side
+                and level.price > current_htf.price
+            ]
+
+            if continuation_levels:
+                continuation_objective = min(
+                    continuation_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                continuation_objective = None
+
+        else:
+
+            continuation_levels = [
+                level for level in available_levels
+                if not level.is_buy_side
+                and level.price < current_htf.price
+            ]
+
+            if continuation_levels:
+                continuation_objective = max(
+                    continuation_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                continuation_objective = None
+        
+        # -----------------------------------------------------
+        # Reversal objective.
+        # -----------------------------------------------------
+
+        if direction == AuctionDirection.BULLISH:
+
+            reversal_levels = [
+                level for level in available_levels
+                if not level.is_buy_side
+                and level.price < current_htf.price
+            ]
+
+            if reversal_levels:
+                reversal_objective = max(
+                    reversal_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                reversal_objective = None
+
+        else:
+
+            reversal_levels = [
+                level for level in available_levels
+                if level.is_buy_side
+                and level.price > current_htf.price
+            ]
+
+            if reversal_levels:
+                reversal_objective = min(
+                    reversal_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                reversal_objective = None
+
+        # Store candidate directions and objectives.
+        tf_auction_progress.continuation_direction = (
+            continuation_direction
+        )
+        tf_auction_progress.continuation_objective = (
+            continuation_objective
+        )
+
+        tf_auction_progress.reversal_direction = (
+            reversal_direction
+        )
+        tf_auction_progress.reversal_objective = (
+            reversal_objective
+        )
 
         # -----------------------------------------------------
         # Preserve direction of auction that reached HTF.

@@ -8,6 +8,7 @@ import asyncio
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.request import HTTPXRequest
 
 from data.models.candle import Candle
 from data.models.runtime_state import PingRuntime
@@ -1415,7 +1416,7 @@ def main():
 
         scheduler.add_boundary_job(
             name="30m_processing",
-            minutes=3,
+            minutes=1,
             callback=process_scheduler_tasks,
         )
 
@@ -1573,14 +1574,25 @@ def main():
         # run_quick_test("2026-04-21")
         # return
     # token = os.getenv("BOT_TOKEN")
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    request = HTTPXRequest(
+        connection_pool_size=10,
+        connect_timeout=30,
+        read_timeout=30,
+        write_timeout=30,
+        pool_timeout=10,
+    )
+
+    application = ApplicationBuilder().token(BOT_TOKEN).request(request).build()
 
     register_handlers(application)
 
     application.post_init = on_startup
     application.bot_data["runtime"] = runtime
     print("Chartless bot is running...")
-    application.run_polling()
+    # application.run_polling()
+    application.run_polling(
+        bootstrap_retries=5
+    )
     # token = os.getenv("BOT_TOKEN")
     # if not token:
     #     raise RuntimeError("BOT_TOKEN not found in .env")

@@ -106,7 +106,7 @@ def send_telegram_alert_to_all(message, start_up, admin_only):
         print("start_up or admin_only")
 
         subscribers = ADMIN_CHAT_LIST
-        print("subscribers: ", subscribers)
+        # print("subscribers: ", subscribers)
 
     else:
 
@@ -146,10 +146,10 @@ def send_telegram_alert_to_all(message, start_up, admin_only):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     active_subscribers = []
-    print("subscribers: ", subscribers)
+    # print("subscribers: ", subscribers)
     for chat_id in subscribers:
 
-        print("Sending alert to", chat_id)
+        # print("Sending alert to", chat_id)
 
         payload = {
             "chat_id": chat_id,

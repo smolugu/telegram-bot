@@ -368,6 +368,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             
             # auction_history_end_ny is start of day for ping start up
             auction_history_end_ny = get_start_of_trading_day(start_time_ny)
+            print("auction history end: ", auction_history_end_ny)
             
             auction_start_ny_60 = auction_history_end_ny - timedelta(days=60)
             auction_start_ny_45 = auction_history_end_ny - timedelta(days=45)
@@ -411,14 +412,14 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             nq_7h_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=420,
-                start=auction_start_utc_10,
+                start=auction_start_utc_30,
                 end=auction_history_end_utc,
             )
 
             nq_1d_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=1440,
-                start=auction_start_utc_10,
+                start=auction_start_utc_45,
                 end=auction_history_end_utc,
             )
 
@@ -447,14 +448,14 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             es_7h_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=420,
-                start=auction_start_utc_10,
+                start=auction_start_utc_30,
                 end=auction_history_end_utc,
             )
 
             es_1d_auction = candle_repo.get_between(
                 contract=runtime.es_contract,
                 timeframe=1440,
-                start=auction_start_utc_10,
+                start=auction_start_utc_45,
                 end=auction_history_end_utc,
             )
 

@@ -25,9 +25,6 @@ def  start_ping_flow(start_time, contract_repo, candle_repo, runtime):
             raise ValueError("Ping start_time must be timezone-aware")
         start_time_ny = start_time.astimezone(NY_TZ)
         
-        
-        
-        
         runtime.start_time = start_time_ny
         # get active contract info
         # ---------------------------------------------------------
