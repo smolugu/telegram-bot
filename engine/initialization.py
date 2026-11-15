@@ -368,6 +368,7 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
             
             # auction_history_end_ny is start of day for ping start up
             auction_history_end_ny = get_start_of_trading_day(start_time_ny)
+            auction_history_end_ny = auction_history_end_ny - timedelta(minutes=30)
             print("auction history end: ", auction_history_end_ny)
             
             auction_start_ny_60 = auction_history_end_ny - timedelta(days=60)
@@ -395,6 +396,13 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 start=auction_start_utc_10,
                 end=auction_history_end_utc,
             )
+            nq_1h_candles_for_weekly_context = candle_repo.get_between(
+                contract=runtime.nq_contract,
+                timeframe=60,
+                start=auction_start_utc_10,
+                end=auction_history_end_utc + timedelta(minutes=30),
+            )
+
             nq_3m_auction = candle_repo.get_between(
                 contract=runtime.nq_contract,
                 timeframe=3,
@@ -429,6 +437,12 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
                 timeframe=60,
                 start=auction_start_utc_10,
                 end=auction_history_end_utc,
+            )
+            es_1h_candles_for_weekly_context = candle_repo.get_between(
+                contract=runtime.es_contract,
+                timeframe=60,
+                start=auction_start_utc_10,
+                end=auction_history_end_utc + timedelta(minutes=30),
             )
 
             es_3m_auction = candle_repo.get_between(
@@ -510,16 +524,17 @@ def  initialize_ping(contract_repo, candle_repo, runtime, weekday):
         week_start_ny = get_week_start(futures_session_start)
         runtime.week_start_ny = week_start_ny
         runtime.week_start_utc = week_start_ny.astimezone(timezone.utc)
+        # canl
         runtime.nq_weekly_state = build_weekly_state(
             nq_1d_auction,
-            nq_1h_candles,
+            nq_1h_candles_for_weekly_context,
             futures_session_start,
             "NQ",
             week_start_ny
         )
         runtime.es_weekly_state = build_weekly_state(
             es_1d_auction,
-            es_1h_candles,
+            es_1h_candles_for_weekly_context,
             futures_session_start,
             "ES",
             week_start_ny

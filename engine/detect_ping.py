@@ -105,13 +105,13 @@ def detect_ping(
         last_3_1d_nq = candle_repo.get_last_n(
             contract=runtime.nq_contract,
             timeframe=1440,
-            end=current_30m_start_utc,
+            end=last_closed_candle_utc if dt.hour == 18 else current_30m_start_utc,
             n=3,
         )
         last_3_1d_es = candle_repo.get_last_n(
             contract=runtime.es_contract,
             timeframe=1440,
-            end=current_30m_start_utc,
+            end=last_closed_candle_utc if dt.hour == 18 else current_30m_start_utc,
             n=3,
         )
     # start last closed 8am 30m candle, 
@@ -125,13 +125,13 @@ def detect_ping(
         last_3_7h_nq = candle_repo.get_last_n(
             contract=runtime.nq_contract,
             timeframe=420,
-            end=current_30m_start_utc,
+            end=last_closed_candle_utc if dt.hour == 18 else current_30m_start_utc,
             n=3,
         )
         last_3_7h_es = candle_repo.get_last_n(
             contract=runtime.es_contract,
             timeframe=420,
-            end=current_30m_start_utc,
+            end=last_closed_candle_utc if dt.hour == 18 else current_30m_start_utc,
             n=3,
         )
         
@@ -142,13 +142,13 @@ def detect_ping(
         last_3_4h_nq = candle_repo.get_last_n(
             contract=runtime.nq_contract,
             timeframe=240,
-            end=current_30m_start_utc,
+            end=last_closed_candle_utc if dt.hour == 18 else current_30m_start_utc,
             n=3,
         )
         last_3_4h_es = candle_repo.get_last_n(
             contract=runtime.es_contract,
             timeframe=240,
-            end=current_30m_start_utc,
+            end=last_closed_candle_utc if dt.hour == 18 else current_30m_start_utc,
             n=3,
         )
         
@@ -616,12 +616,12 @@ def detect_ping(
         # runtime.es_sell_candidate.reset()    
         
     if dt.hour == 10 and dt.minute == 0:
-        print("es ibs: ")
-        print("ib18: ",  runtime.es_seven_hour_builder.candles["6PM"].values())
+        # print("es ibs: ")
+        # print("ib18: ",  runtime.es_seven_hour_builder.candles["6PM"].values())
         runtime.nq_ny_market_context.set_10am_ib(last_closed_nq)
         runtime.es_ny_market_context.set_10am_ib(last_closed_es)
-        print("nq 10am IB: ", runtime.nq_ny_market_context.ib_10)
-        print("es 10am IB: ", runtime.es_ny_market_context.ib_10)
+        # print("nq 10am IB: ", runtime.nq_ny_market_context.ib_10)
+        # print("es 10am IB: ", runtime.es_ny_market_context.ib_10)
     
     # update market context for NQ and ES
     runtime.nq_market_context.update_session_range(last_closed_nq.high, last_closed_nq.low, last_closed_nq.open, last_closed_nq.close, dt.hour, dt.minute, last_closed_candle_timestamp)

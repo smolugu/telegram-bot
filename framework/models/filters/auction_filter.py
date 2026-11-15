@@ -8,6 +8,190 @@ from framework.models.auction.models.auction_status import AuctionStatus
 #     direction = auction_status.h7_status["direction"]
 
 
+def get_auction_details(
+    auction_engine,
+    co_asset_auction_engine,
+) -> bool:
+
+    def is_auction_in_progress(auction):
+        is_bullish_auction_in_progress = False
+        is_bearish_auction_in_progress = False
+        if auction.confirmed_direction == AuctionDirection.BEARISH:
+            is_bullish_auction_in_progress = False
+            is_bearish_auction_in_progress = True
+        elif auction.confirmed_direction == AuctionDirection.BULLISH:
+            is_bullish_auction_in_progress = True
+            is_bearish_auction_in_progress = False
+        elif auction.previous_direction == AuctionDirection.BULLISH and auction.progress > 0.0 and auction.progress < 1.0:
+            # initial signs of bearish auction progress, candidate direction is confirmation
+            is_bullish_auction_in_progress = False
+            is_bearish_auction_in_progress = True
+        elif auction.previous_direction == AuctionDirection.BEARISH and auction.progress > 0.0 and auction.progress < 1.0:
+            # initial signs of bullish auction progress, candidate direction is confirmation
+            is_bullish_auction_in_progress = True
+            is_bearish_auction_in_progress = False
+        return is_bullish_auction_in_progress, is_bearish_auction_in_progress
+        
+        
+    is_bullish_auction_in_progress = False
+    is_bearish_auction_in_progress = False
+    # Primary asset auction completion
+    print("7h")
+    is_7h_bullish_auction_in_progress, is_7h_bearish_auction_in_progress = is_auction_in_progress(
+            auction_engine.status.h7,
+        )
+    print("4h")
+    is_4h_bullish_auction_in_progress, is_4h_bearish_auction_in_progress = is_auction_in_progress(
+            auction_engine.status.h4,
+        )
+
+    is_7h_bullish_co_asset_auction_in_progress, is_7h_bearish_co_asset_auction_in_progress = is_auction_in_progress(
+            co_asset_auction_engine.status.h7,
+        )
+    print("4h")
+    is_4h_bullish_co_asset_auction_in_progress, is_4h_bearish_co_asset_auction_in_progress = is_auction_in_progress(
+            co_asset_auction_engine.status.h4,
+        )
+
+    is_bullish_auction_in_progress = (
+        is_7h_bullish_auction_in_progress 
+        and is_4h_bullish_auction_in_progress 
+        and is_7h_bullish_co_asset_auction_in_progress 
+        and is_4h_bullish_co_asset_auction_in_progress
+    )
+    is_bearish_auction_in_progress = (
+        is_7h_bearish_auction_in_progress 
+        and is_4h_bearish_auction_in_progress 
+        and is_7h_bearish_co_asset_auction_in_progress 
+        and is_4h_bearish_co_asset_auction_in_progress
+    )
+    
+    return is_bullish_auction_in_progress, is_bearish_auction_in_progress
+
+
+def check_auction_status(
+    auction_engine,
+    session_direction,
+    candidate_side,
+    co_asset_auction_engine,
+    co_asset_session_direction,
+    co_asset_candidate_side,
+) -> bool:
+
+    def is_auction_complete(auction, session_direction, candidate_side):
+        if session_direction == "bullish":
+            if auction.confirmed_direction == AuctionDirection.BEARISH:
+                print("201")
+                return True
+
+            if (
+                auction.previous_direction == AuctionDirection.BULLISH
+                and auction.anticipated_direction == AuctionDirection.NEUTRAL
+            ):
+                print("202")
+                return True
+
+        elif session_direction == "bearish":
+            if auction.confirmed_direction == AuctionDirection.BULLISH:
+                print("203")
+                return True
+
+            if (
+                auction.previous_direction == AuctionDirection.BEARISH
+                and auction.anticipated_direction == AuctionDirection.NEUTRAL
+            ):
+                print("204")
+                return True
+        print("205")
+        return False
+
+    # Primary asset auction completion
+    print("7h")
+    is_7h_auction_complete = is_auction_complete(
+        auction_engine.status.h7,
+        session_direction,
+        candidate_side,
+    )
+    print("7h status: ", is_7h_auction_complete)
+
+    print("4h")
+    is_4h_auction_complete = is_auction_complete(
+        auction_engine.status.h4,
+        session_direction,
+        candidate_side,
+    )
+    print("4h status: ", is_4h_auction_complete)
+
+    # Cross-asset auction completion
+    print("7h co asset")
+    is_co_asset_7h_auction_complete = is_auction_complete(
+        co_asset_auction_engine.status.h7,
+        co_asset_session_direction,
+        co_asset_candidate_side,
+    )
+    print("7h co asset status: ", is_co_asset_7h_auction_complete)
+
+    print("4h co asset")
+    is_co_asset_4h_auction_complete = is_auction_complete(
+        co_asset_auction_engine.status.h4,
+        co_asset_session_direction,
+        co_asset_candidate_side,
+    )
+    print("4h co asset status: ", is_co_asset_4h_auction_complete)
+
+    return (
+        is_7h_auction_complete
+        and is_4h_auction_complete
+        and is_co_asset_7h_auction_complete
+        and is_co_asset_4h_auction_complete
+    )
+
+        
+
+
+# def check_auction_status(
+#     auction_engine, direction, co_asset_auction_engine, co_asset_direction
+# ) -> bool:
+#     is_auction_complete = False
+#     is_co_asset_auction_complete = False
+#     if auction_engine.status.h7_status["state"] == "at_htf" and auction_engine.status.h4_status == "at_htf":
+#         print("x01")
+#         if (
+#             direction == "bullish" 
+#             and auction_engine.status.h7_status["direction"] == AuctionDirection.BULLISH 
+#             and auction_engine.status.h4_status["direction"] == AuctionDirection.BULLISH
+#         ):
+#             print("x02")
+#             is_auction_complete = True
+#         elif (
+#             direction == "bearish" 
+#             and auction_engine.status.h7_status["direction"] == AuctionDirection.BEARISH
+#             and auction_engine.status.h4_status["direction"] == AuctionDirection.BEARISH
+#         ):
+#             print("x03")
+#             is_auction_complete = True
+
+#     if co_asset_auction_engine.status.h7_status["state"] == "at_htf" and co_asset_auction_engine.status.h4_status == "at_htf":
+#         print("x04")
+#         if (
+#             co_asset_direction == "bullish" 
+#             and co_asset_auction_engine.status.h7_status["direction"] == AuctionDirection.BULLISH 
+#             and co_asset_auction_engine.status.h4_status["direction"] == AuctionDirection.BULLISH
+#         ):
+#             print("x05")
+#             is_co_asset_auction_complete = True
+#         elif (
+#             co_asset_direction == "bearish" 
+#             and co_asset_auction_engine.status.h7_status["direction"] == AuctionDirection.BEARISH
+#             and co_asset_auction_engine.status.h4_status["direction"] == AuctionDirection.BEARISH
+#         ):
+#             print("x06")
+#             is_co_asset_auction_complete = True
+    
+
+#     return is_auction_complete and is_co_asset_auction_complete
+
+
 
 def get_auction_direction(
         auction_status: AuctionStatus,

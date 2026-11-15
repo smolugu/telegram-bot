@@ -62,6 +62,7 @@ def _add_htf_level(
     #
     elif isinstance(level, HTFFVG):
         if level.is_bullish:
+            print("adding bullish fvg xxx")
             context.bullish_fvgs.append(level)
         else:
             context.bearish_fvgs.append(level)

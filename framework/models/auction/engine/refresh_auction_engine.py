@@ -54,12 +54,14 @@ def update_new_htf_levels(
         )
 
     for level in fvgs:
+        print("adding fvg")
         _add_htf_level(
             context,
             level,
         )
 
     for level in vis:
+        print("adding VI")
         _add_htf_level(
             context,
             level,
@@ -74,9 +76,31 @@ def update_new_htf_levels(
 
 def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_candles, last_3_7h_candles, last_3_1d_candles):
 
-    # ---------------------------------------------------------
-    # 1. Detect newly formed HTF levels
-    # ---------------------------------------------------------
+
+    # 1. update levels status with candle_30m before adding any new levels
+    
+    update_current_level_status(
+        auction_engine.context,
+        candle_30m,
+        ltf_candles,
+        last_3_4h_candles,
+        last_3_7h_candles,
+        last_3_1d_candles,
+    )    
+
+    # 2. update auction progress and status with candle_30m before adding any new levels
+    update_auction_progress(
+        auction_engine.context,
+        candle_30m,
+    )
+
+    # 3. update auction status with candle_30m before adding any new levels
+    auction_engine.status = build_auction_status(
+        auction_engine.context,
+    )
+    
+    # 4. Detect newly formed HTF levels
+    
     
     if last_3_4h_candles:
         update_new_htf_levels(
@@ -99,21 +123,6 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
             "1d",
         )
 
-    # levels = update_level_state(levels, candles_for_auction)
-    # build auction context
-    # auction_engine.auction_context = build_auction_context(levels)
-    # 1. update level status with candle_30m
-
-    update_current_level_status(
-        auction_engine.context,
-        candle_30m,
-        ltf_candles,
-        last_3_4h_candles,
-        last_3_7h_candles,
-        last_3_1d_candles,
-    )
-
-    # 
     _refresh_level_lists(auction_engine.context)
 
     # ---------------------------------------------------------
@@ -131,14 +140,6 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
 
     _refresh_level_statistics(auction_engine.context)
 
-    update_auction_progress(
-        auction_engine.context,
-        candle_30m,
-    )
-
-    auction_engine.status = build_auction_status(
-        auction_engine.context,
-    )
     print("=======================================")
     print("auction status latest: ", auction_engine.status.h7summary())
     print("=======================================")

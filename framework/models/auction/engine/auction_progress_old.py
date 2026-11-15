@@ -1,0 +1,792 @@
+from data.models.candle import Candle
+from framework.models.auction.models.auction_progress import AuctionDirection, AuctionProgress
+from framework.models.auction.models.enums import HTFCisdStatus, HTFFvgStatus, HTFMitlStatus, HTFSwingStatus, HTFViStatus, LevelType, LiquidityType, SwingType
+
+def _closest_level(
+    levels,
+    direction,
+):
+    """
+    Return the closest level to reference_level
+    in the direction of the auction.
+
+    `levels` should already contain only valid candidates
+    that are ahead of reference_level.
+    """
+
+    if not levels:
+        return None
+
+    if direction == AuctionDirection.BULLISH:
+
+        return min(
+            levels,
+            key=lambda level: level.price,
+        )
+
+    if direction == AuctionDirection.BEARISH:
+
+        return max(
+            levels,
+            key=lambda level: level.price,
+        )
+
+    return None
+
+def _is_in_direction(
+    level,
+    reference_level,
+    direction,
+):
+    """
+    Return True if `level` is ahead of `reference_level`
+    in the direction of the auction.
+    """
+
+    if direction == AuctionDirection.BULLISH:
+        return level.price > reference_level.price and level.is_buy_side
+
+    if direction == AuctionDirection.BEARISH:
+        return level.price < reference_level.price and not level.is_buy_side
+
+    return False
+
+def _candle_interacts_with_level(
+    level,
+    candle_high: float,
+    candle_low: float,
+) -> bool:
+
+    # =========================================================
+    # SWING
+    # =========================================================
+
+    if level.level_type == LevelType.SWING:
+
+        # Reclaimed swing is no longer a valid HTF level.
+        if level.status == HTFSwingStatus.RECLAIMED:
+            return False
+
+        if level.swing_type == SwingType.BUY_SIDE:
+            # Swing high:
+            # interaction zone = wick/high -> middle candle close
+            return (
+                candle_low <= level.price
+                and candle_high >= level.close
+            )
+
+        else:
+            # Swing low:
+            # interaction zone = middle candle close -> wick/low
+            return (
+                candle_low <= level.close
+                and candle_high >= level.price
+            )
+
+    # =========================================================
+    # FVG
+    # =========================================================
+
+    elif level.level_type == LevelType.FVG:
+
+        if level.status == HTFFvgStatus.RECLAIMED:
+            return False
+
+        if level.is_buy_side:
+            # Bearish FVG:
+            # Interaction level = lower boundary.
+            return (
+                candle_low <= level.lower
+                and candle_high >= level.lower
+            )
+
+        else:
+            # Bullish FVG:
+            # Interaction level = upper boundary.
+            return (
+                candle_low <= level.upper
+                and candle_high >= level.upper
+            )
+
+    # =========================================================
+    # VI
+    # =========================================================
+
+    elif level.level_type == LevelType.VI:
+
+        if level.status == HTFViStatus.RECLAIMED:
+            return False
+
+        if level.is_buy_side:
+            # Bearish VI:
+            # Interaction level = lower boundary.
+            return (
+                candle_low <= level.lower
+                and candle_high >= level.lower
+            )
+
+        else:
+            # Bullish VI:
+            # Interaction level = upper boundary.
+            return (
+                candle_low <= level.upper
+                and candle_high >= level.upper
+            )
+
+    # =========================================================
+    # CISD
+    # =========================================================
+
+    elif level.level_type == LevelType.CISD:
+
+        if level.status in (
+            HTFCisdStatus.RECLAIMED,
+            HTFCisdStatus.RCISD,
+        ):
+            return False
+
+        # Full CISD zone overlap.
+        return (
+            candle_low <= level.upper
+            and candle_high >= level.lower
+        )
+
+    # =========================================================
+    # HTF MITL
+    # =========================================================
+
+    elif level.level_type == LevelType.MITL:
+
+        # Reclaimed MITL is no longer a valid HTF level.
+        if level.status == HTFMitlStatus.RECLAIMED:
+            return False
+
+        if level.is_buy_side:
+            # Buy-side MITL is ABOVE price.
+            # Candle must approach from BELOW.
+            return (
+                candle_low < level.price
+                and candle_high >= level.price
+            )
+
+        else:
+            # Sell-side MITL is BELOW price.
+            # Candle must approach from ABOVE.
+            return (
+                candle_high > level.price
+                and candle_low <= level.price
+            )
+
+    return False
+
+def _is_valid_htf_level(level) -> bool:
+
+    if level.level_type == LevelType.SWING:
+        return level.status != HTFSwingStatus.RECLAIMED
+
+    if level.level_type == LevelType.FVG:
+        return level.status != HTFFvgStatus.RECLAIMED
+
+    if level.level_type == LevelType.VI:
+        return level.status != HTFViStatus.RECLAIMED
+
+    if level.level_type == LevelType.CISD:
+        return level.status not in (
+            HTFCisdStatus.RECLAIMED,
+            HTFCisdStatus.RCISD,
+        )
+
+    if level.level_type == LevelType.MITL:
+        return level.status != HTFMitlStatus.RECLAIMED
+
+    return True
+
+
+def _update_timeframe_progress(
+    tf_auction_progress: AuctionProgress,
+    bullish_levels,
+    bearish_levels,
+    candle_30m: Candle,
+):
+    """
+    auction_progress is the auction progress for a specific timeframe daily, 7h, 4h
+    Update auction progress for one HTF timeframe.
+
+    Auction model:
+
+    1. Price is either at HTF or not at HTF.
+
+    2. If NOT at HTF:
+       - Find the latest swept liquidity.
+       - Find the closest next liquidity in the direction
+         of travel.
+       - Anticipate that auction.
+       - Confirm it after 40% delivery.
+
+    3. If the objective is reached:
+       - Mark the auction complete.
+       - Find the next closest liquidity.
+       - Begin anticipating the next auction.
+
+    4. If AT HTF:
+       - Determine direction from the HTF level.
+       - Find the closest previously swept opposing level.
+       - Preserve that direction in previous_direction.
+       - Mark at_htf=True.
+    """
+
+    current_price = candle_30m.close
+    current_candle_high = candle_30m.high
+    current_candle_low = candle_30m.low
+    all_levels = bullish_levels + bearish_levels
+    print("current_price: ", current_price)
+    print("current_high: ", current_candle_high)
+    print("current_low: ", current_candle_low)
+    
+    # print("updating auction progress for :", tf_auction_progress.timeframe)
+    tf_levels = [
+        level
+        for level in all_levels
+        if level.timeframe
+        == tf_auction_progress.timeframe
+    ]
+
+    if not tf_levels:
+        return
+
+    # =========================================================
+    # 1. Check HTF interaction
+    # =========================================================
+
+    # interacting levels includes all buy side and sell side interacting levels
+    interacting_levels = [
+        level
+        for level in tf_levels
+        if _candle_interacts_with_level(
+            level,
+            current_candle_high,
+            current_candle_low,
+        )
+    ]
+
+    current_htf = None
+
+    if interacting_levels:
+
+        # -----------------------------------------------------
+        # Find latest interacting mitigation time
+        # -----------------------------------------------------
+        print("interacting levels: ", interacting_levels)
+        # Only consider levels with a valid mitigation time
+        valid_interacting_levels = [
+            level
+            for level in interacting_levels
+            if level.mitigation_time is not None
+        ]
+        if valid_interacting_levels:
+
+            latest_mitigation_time = max(
+                level.mitigation_time
+                for level in valid_interacting_levels
+            )
+
+            latest_interacting_levels = [
+                level
+                for level in valid_interacting_levels
+                if level.mitigation_time == latest_mitigation_time
+            ]
+
+            # -----------------------------------------------------
+            # If multiple levels interacted at the same time,
+            # select the level with maximum distance.
+            # -----------------------------------------------------
+
+            current_htf = max(
+                latest_interacting_levels,
+                key=lambda level: abs(
+                    current_price - level.price
+                ),
+            )
+    
+    # =========================================================
+    # 2. PRICE IS AT HTF
+    # =========================================================
+
+    if current_htf is not None:
+        print("price is at htf")
+
+        tf_auction_progress.at_htf = True
+        tf_auction_progress.at_htf_level = current_htf
+
+        # if there is an ongoing auction,
+        # 1. check progress and update the progress
+        # 2. current htf between origin and target, dont change anticipated direction
+        # 3. dont reset progress, direction or anticipated direction
+        tf_auction_progress.anticipated_direction = AuctionDirection.NEUTRAL
+
+        # -----------------------------------------------------
+        # Determine auction direction from HTF level.
+        #
+        # Bullish level = price arrived from below.
+        # Bearish level = price arrived from above.
+        # -----------------------------------------------------
+
+        if current_htf.is_buy_side:
+            print("current_htf is buy_side")
+            direction = AuctionDirection.BULLISH
+            opposing_levels = [
+                level
+                for level in tf_levels
+                if (
+                    level.is_mitigated
+                    and not level.is_buy_side
+                    and level.timestamp <= current_htf.timestamp
+                    and _is_valid_htf_level(level)
+                )
+            ]
+
+        else:
+            print("current_htf is sell_side")
+            direction = AuctionDirection.BEARISH
+
+            opposing_levels = [
+                level
+                for level in tf_levels
+                if (
+                    level.is_mitigated
+                    and level.is_buy_side
+                    and level.timestamp <= current_htf.timestamp
+                    and _is_valid_htf_level(level)
+                )
+            ]
+
+        # -----------------------------------------------------
+        # Find closest opposing swept liquidity.
+        # -----------------------------------------------------
+
+        if opposing_levels:
+            print("opposing levels is not None")
+
+            if direction == AuctionDirection.BULLISH:
+
+                previous = max(
+                    opposing_levels,
+                    key=lambda level: level.price,
+                )
+
+            else:
+
+                previous = min(
+                    opposing_levels,
+                    key=lambda level: level.price,
+                )
+            # print("previous htf: ", previous)
+            tf_auction_progress.previous_origin = previous
+            tf_auction_progress.previous_objective = (
+                current_htf
+            )
+        
+        # -----------------------------------------------------
+        # Determine possible continuation and reversal.
+        # -----------------------------------------------------
+
+        continuation_direction = direction
+
+        reversal_direction = (
+            AuctionDirection.BEARISH
+            if direction == AuctionDirection.BULLISH
+            else AuctionDirection.BULLISH
+        )
+
+        # Find unswept, valid liquidity levels beyond HTF.
+        available_levels = [
+            level
+            for level in tf_levels
+            if (
+                not level.is_mitigated
+                and level != current_htf
+                and _is_valid_htf_level(level)
+            )
+        ]
+        
+        # -----------------------------------------------------
+        # Continuation objective.
+        # -----------------------------------------------------
+
+        if direction == AuctionDirection.BULLISH:
+
+            continuation_levels = [
+                level for level in available_levels
+                if level.is_buy_side
+                and level.price > current_htf.price
+            ]
+
+            if continuation_levels:
+                continuation_objective = min(
+                    continuation_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                continuation_objective = None
+
+        else:
+
+            continuation_levels = [
+                level for level in available_levels
+                if not level.is_buy_side
+                and level.price < current_htf.price
+            ]
+
+            if continuation_levels:
+                continuation_objective = max(
+                    continuation_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                continuation_objective = None
+        
+        # -----------------------------------------------------
+        # Reversal objective.
+        # -----------------------------------------------------
+
+        if direction == AuctionDirection.BULLISH:
+
+            reversal_levels = [
+                level for level in available_levels
+                if not level.is_buy_side
+                and level.price < current_htf.price
+            ]
+
+            if reversal_levels:
+                reversal_objective = max(
+                    reversal_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                reversal_objective = None
+
+        else:
+
+            reversal_levels = [
+                level for level in available_levels
+                if level.is_buy_side
+                and level.price > current_htf.price
+            ]
+
+            if reversal_levels:
+                reversal_objective = min(
+                    reversal_levels,
+                    key=lambda level: level.price,
+                )
+            else:
+                reversal_objective = None
+
+        # Store candidate directions and objectives.
+        tf_auction_progress.continuation_direction = (
+            continuation_direction
+        )
+        tf_auction_progress.continuation_objective = (
+            continuation_objective
+        )
+
+        tf_auction_progress.reversal_direction = (
+            reversal_direction
+        )
+        tf_auction_progress.reversal_objective = (
+            reversal_objective
+        )
+
+        # -----------------------------------------------------
+        # Preserve direction of auction that reached HTF.
+        # -----------------------------------------------------
+
+        tf_auction_progress.previous_direction = (
+            direction
+        )
+
+        tf_auction_progress.confirmed_direction = (
+            direction
+        )
+
+        tf_auction_progress.confirmed = False
+        tf_auction_progress.progress = 0.0
+        tf_auction_progress.direction = direction
+        tf_auction_progress.completed = True
+        tf_auction_progress.origin = current_htf
+
+
+        return
+
+    # =========================================================
+    # 3. PRICE IS NOT AT HTF
+    # =========================================================
+
+    tf_auction_progress.at_htf = False
+    tf_auction_progress.at_htf_level = None
+
+    # ---------------------------------------------------------
+    # Find latest swept liquidity.
+    # ---------------------------------------------------------
+
+    swept_levels = [
+        level
+        for level in tf_levels
+        if (
+            level.is_mitigated
+            and _is_valid_htf_level(level)
+            and level.mitigation_time is not None
+        )
+    ]
+
+    if not swept_levels:
+        return
+    
+    mitigated_swept_levels = [
+        level
+        for level in swept_levels
+        if level.mitigation_time is not None
+    ]
+    print("timeframe: ", tf_auction_progress.timeframe)
+    print("mitigated_swept_levels: ", mitigated_swept_levels)
+
+    if not mitigated_swept_levels:
+        return
+
+    latest_swept = max(
+        mitigated_swept_levels,
+        key=lambda level: level.mitigation_time,
+    )
+
+    mitigated_swept_levels.sort(
+        key=lambda level: level.mitigation_time,
+        reverse=True,
+    )
+
+    swept_levels = mitigated_swept_levels
+    
+    # print("recent swept: ", latest_swept)
+
+    # ---------------------------------------------------------
+    # Determine direction of anticipated auction.
+    # ---------------------------------------------------------
+
+    if current_price > latest_swept.price:
+
+        direction = AuctionDirection.BULLISH
+
+    elif current_price < latest_swept.price:
+
+        direction = AuctionDirection.BEARISH
+
+    else:
+
+        direction = AuctionDirection.NEUTRAL
+        return
+
+    print("direction relative to last swept: ", direction)
+
+
+    # ---------------------------------------------------------
+    # Find candidate objectives.
+    #
+    # Prefer INTERNAL liquidity.
+    # If none exists, use EXTERNAL.
+    # ---------------------------------------------------------
+    print("direction XX: ", direction)
+    candidates = [
+        level
+        for level in tf_levels
+        if (
+            not level.is_mitigated
+            and _is_valid_htf_level(level)
+            and _is_in_direction(
+                level,
+                latest_swept,
+                direction,
+            )
+        )
+    ]
+    print("candidates xx: ", candidates)
+
+    if not candidates:
+        return
+
+
+    internal = [
+        level
+        for level in candidates
+        if level.liquidity_type == LiquidityType.INTERNAL
+    ]
+
+    if internal:
+
+        objective = _closest_level(
+            internal,
+            direction,
+        )
+
+    else:
+
+        external = [
+            level
+            for level in candidates
+            if level.liquidity_type == LiquidityType.EXTERNAL
+        ]
+
+        if not external:
+            return
+
+        objective = _closest_level(
+            external,
+            direction,
+        )
+
+
+    # ---------------------------------------------------------
+    # New anticipated auction
+    # ---------------------------------------------------------
+
+    # print("next target: ", objective)
+
+    if tf_auction_progress.origin is None:
+        tf_auction_progress.origin = latest_swept
+    tf_auction_progress.current_objective = objective
+    print("timeframe: ", tf_auction_progress.timeframe)
+    print("last swept: ", latest_swept)
+    print("origin: ", tf_auction_progress.origin)
+    print("current_objective: ", tf_auction_progress.current_objective)
+    
+    if tf_auction_progress.continuation_objective is None:
+        tf_auction_progress.continuation_objective = tf_auction_progress.current_objective
+
+
+    # ---------------------------------------------------------
+    # Calculate auction progress
+    # ---------------------------------------------------------
+
+    total_distance = abs(
+        objective.price
+        - latest_swept.price
+    )
+
+    if total_distance <= 0:
+        return
+
+
+    if direction == AuctionDirection.BULLISH:
+
+        travelled = (
+            current_candle_high
+            - latest_swept.price
+        )
+
+    else:
+
+        travelled = (
+            latest_swept.price
+            - current_candle_low
+        )
+
+    print("travelled: ", travelled)
+
+    progress = (
+        travelled / total_distance
+    )
+
+    print("progress after travelled: ", progress)
+
+    progress = max(
+        0.0,
+        min(progress, 1.0),
+    )
+
+    print("progressX: ", progress)
+
+    tf_auction_progress.progress = progress
+
+
+    # ---------------------------------------------------------
+    # Confirm auction after 40%
+    # ---------------------------------------------------------
+
+    if progress >= 0.40:
+
+        print("progress > 0.4")
+
+        tf_auction_progress.confirmed = True
+
+        tf_auction_progress.confirmed_direction = (
+            direction
+        )
+        tf_auction_progress.anticipated_direction = tf_auction_progress.confirmed_direction
+
+        tf_auction_progress.direction = direction
+
+        # if continuation or reversal candidates are none, update them
+
+        assert tf_auction_progress.origin is not None
+        assert tf_auction_progress.current_objective is not None
+
+    else:
+
+        print("progress less than 0.4")
+
+        tf_auction_progress.confirmed = False
+
+        # tf_auction_progress.confirmed_direction = (
+        #     AuctionDirection.NEUTRAL
+        # )
+        tf_auction_progress.anticipated_direction = AuctionDirection.NEUTRAL
+
+        tf_auction_progress.direction = direction
+
+
+    # ---------------------------------------------------------
+    # Objective reached
+    # ---------------------------------------------------------
+
+    if objective.is_swept:
+
+        print("new objective reached")
+
+        tf_auction_progress.progress = 1.0
+
+        tf_auction_progress.completed = True
+
+        tf_auction_progress.previous_direction = (
+            direction
+        )
+
+    else:
+
+        print(
+            "price not at htf and auction is not complete"
+        )
+
+        tf_auction_progress.completed = False
+
+
+def update_auction_progress(context, candle_30m):
+
+    _update_timeframe_progress(
+        context.daily,
+        context.bullish_levels,
+        context.bearish_levels,
+        candle_30m,
+    )
+
+    
+    _update_timeframe_progress(
+        context.h7,
+        context.bullish_levels,
+        context.bearish_levels,
+        candle_30m,
+    )
+
+    
+    _update_timeframe_progress(
+        context.h4,
+        context.bullish_levels,
+        context.bearish_levels,
+        candle_30m,
+    )

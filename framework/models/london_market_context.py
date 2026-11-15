@@ -174,6 +174,8 @@ class LondonMarketContext:
             self.structure["auction_phase"] = AuctionPhaseEnums.EARLY_EXPANSION
             self.structure["compression"] = False
             self.structure["ib_relationship"] = "engulfing"
+            self.structure["compression_high"] = ib18_high
+            self.structure["compression_low"] = ib18_low
             
 
             self.structure["range_high"] = ib1_high
@@ -185,6 +187,7 @@ class LondonMarketContext:
         # -----------------------------------
         elif ib1_low > ib18_high:
             print("Ib relationship: ib1 above ib18")
+            self.structure["name"] = "bullish_migration"
             self.structure["ib_relationship"] = "above_18"
             self.structure["compression"] = False
 
@@ -196,6 +199,7 @@ class LondonMarketContext:
         # -----------------------------------
         elif ib1_high < ib18_low:
             print("Ib relationship: ib1 below ib18")
+            self.structure["name"] = "bearish_migration"
             self.structure["ib_relationship"] = "below_18"
             self.structure["compression"] = False
             
@@ -205,17 +209,39 @@ class LondonMarketContext:
         # -----------------------------------
         # 5. PARTIAL OVERLAP (true overlap)
         # -----------------------------------
-        else:
+        elif (
+            (ib1_high > ib18_high and ib1_low < ib18_high and ib1_low > ib18_low)
+            
+        ):
             print("Ib relationship: partial overlap")
+            self.structure["name"] = "bullish_overlap"
             self.structure["ib_relationship"] = "partial_overlap"
             self.structure["overlap_type"] = "bearish" if ib1_low < ib18_low else "bullish"
 
             # treat as weak compression
             self.structure["compression"] = True
             self.structure["is_strong_compression"] = False
+            self.structure["compression_high"] = ib1_high
+            self.structure["compression_low"] = ib18_low
 
-            self.structure["range_high"] = max(ib18_high, ib1_high)
-            self.structure["range_low"] = min(ib18_low, ib1_low)
+            self.structure["range_high"] = ib1_high
+            self.structure["range_low"] = ib18_low
+        elif (
+            (ib1_low < ib18_low and ib1_high > ib18_low and ib1_high < ib18_high)
+        ):
+            print("Ib relationship: partial overlap")
+            self.structure["name"] = "bearish_overlap"
+            self.structure["ib_relationship"] = "partial_overlap"
+            self.structure["overlap_type"] = "bearish" if ib1_low < ib18_low else "bullish"
+
+            # treat as weak compression
+            self.structure["compression"] = True
+            self.structure["is_strong_compression"] = False
+            self.structure["compression_high"] = ib18_high
+            self.structure["compression_low"] = ib1_low
+
+            self.structure["range_high"] = ib18_high
+            self.structure["range_low"] = ib1_low
         self.directional_mode = self.structure["ib_relationship"] in ["above_18", "below_18"]
 
     # =========================================
@@ -370,6 +396,7 @@ class LondonMarketContext:
         self.detect_sweep(candle, levels)
         self.update_acceptance(candle)
         self.update_phase()
+        self.update_compression_state(levels)
         # self.update_pattern()
 
     
@@ -508,6 +535,28 @@ class LondonMarketContext:
         return result
     
 
+
+    # =========================================
+    # 7. Compression state
+    # =========================================
+    def update_compression_state(self, liquidity_level):
+        # if the last closed candle sweeps both sides, we need which one swept first
+        if liquidity_level["cr1am_high"]["swept"] and not liquidity_level["cr1am_low"]["swept"]:
+            self.structure["compression_state"]["first_sweep"] = "high"
+            self.structure["compression_state"]["compression_partially_resolved"] = True
+        elif not liquidity_level["cr1am_high"]["swept"] and liquidity_level["cr1am_low"]["swept"]:
+            self.structure["compression_state"]["first_sweep"] = "low"
+            self.structure["compression_state"]["compression_partially_resolved"] = True
+        elif liquidity_level["cr1am_high"]["swept"] and liquidity_level["cr1am_low"]["swept"]:
+            first_sweep_high = liquidity_level["cr1am_high"]["timestamp"] < liquidity_level["cr1am_low"]["timestamp"]
+            self.structure["compression_state"]["first_sweep"] = "high" if first_sweep_high else "low"
+            self.structure["compression_state"]["second_sweep"] = "low" if first_sweep_high else "high"
+            if not self.structure["compression_state"]["compression_resolved"]:
+                self.structure["compression_state"]["compression_resolved"] = True
+                self.structure["compression_state"]["compression_partially_resolved"] = True
+                self.structure["compression_state"]["is_fresh_compression_resolution"] = True                
+            else:
+                self.structure["compression_state"]["is_fresh_compression_resolution"] = False
     # =========================================
     # Compression Data
     # =========================================
@@ -581,24 +630,6 @@ class LondonMarketContextES:
         # -------- PHASE --------
         self.phase = "init"
 
-    # =========================================
-    # 1. UPDATE 1AM IB STRUCTURE
-    # =========================================
-    def set_18_1am_ibs(self, ib_18x, ib_1x):
-        # seven_hour_candle_6pm = seven_hour_builder_candles["6PM"].values()
-        # seven_hour_candle_1am = seven_hour_builder_candles["1AM"].values()
-        print("seven_hour_candle_6pm: ", ib_18x)
-        print("seven_hour_candle_1am: ", ib_1x)
-        self.ib_18["high"] = ib_18x["ib_high"]
-        print("self.ib_18Highx: ", self.ib_18["high"], "| ", self.instrument)
-        self.ib_18["low"] = ib_18x["ib_low"]
-        self.ib_18["ce"] = ib_18x["ib_ce"]
-        self.ib_1["high"] = ib_1x["ib_high"]
-        self.ib_1["low"] = ib_1x["ib_low"]
-        self.ib_1["ce"] = ib_1x["ib_ce"]
-        self.ib_1["open"] = ib_1x["ib_open"]
-        self.ib_1["close"] = ib_1x["ib_close"]
-        self.update_ib_relationships()
     
     def set_2am_ib(self, last_closed):
         self.ib_2["high"] = last_closed["high"]

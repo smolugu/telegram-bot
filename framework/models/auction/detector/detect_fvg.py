@@ -60,7 +60,7 @@ def detect_htf_fvg(
                 is_buy_side=True
             )
         )
-
+    print("new fvg detected: ", fvg)
     return fvg
 
 
