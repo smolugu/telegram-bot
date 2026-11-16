@@ -145,10 +145,10 @@ def main():
 
         print(mapper.to_projectx("ESU6"))
         print(mapper.from_projectx("CON.F.US.EP.U26"))
-        projectx_rest = ProjectXREST(
-            username=PROJECTX_USERNAME,
-            api_key=PROJECTX_API_KEY,
-        )
+        # projectx_rest = ProjectXREST(
+        #     username=PROJECTX_USERNAME,
+        #     api_key=PROJECTX_API_KEY,
+        # )
 
         projectx_session = SessionLocal()
         projectx_contract_repo = SQLiteContractRepository(

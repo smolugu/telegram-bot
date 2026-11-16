@@ -140,11 +140,11 @@ def refresh_auction_engine(auction_engine, candle_30m, ltf_candles, last_3_4h_ca
 
     _refresh_level_statistics(auction_engine.context)
 
-    print("=======================================")
-    print("auction status latest: ", auction_engine.status.h7summary())
-    print("=======================================")
-    print("auction status latest: ", auction_engine.status.h4summary())
-    print("=======================================")
+    # print("=======================================")
+    # print("auction status latest: ", auction_engine.status.h7summary())
+    # print("=======================================")
+    # print("auction status latest: ", auction_engine.status.h4summary())
+    # print("=======================================")
     
     return auction_engine
 

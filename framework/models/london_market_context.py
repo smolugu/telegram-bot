@@ -185,7 +185,7 @@ class LondonMarketContext:
         # -----------------------------------
         # 3. ABOVE → directional bullish
         # -----------------------------------
-        elif ib1_low > ib18_high:
+        elif ib1_low >= ib18_high:
             print("Ib relationship: ib1 above ib18")
             self.structure["name"] = "bullish_migration"
             self.structure["ib_relationship"] = "above_18"
@@ -197,7 +197,7 @@ class LondonMarketContext:
         # -----------------------------------
         # 4. BELOW → directional bearish
         # -----------------------------------
-        elif ib1_high < ib18_low:
+        elif ib1_high <= ib18_low:
             print("Ib relationship: ib1 below ib18")
             self.structure["name"] = "bearish_migration"
             self.structure["ib_relationship"] = "below_18"
@@ -274,7 +274,9 @@ class LondonMarketContext:
         # -------------------------
         # SELL-SIDE SWEEP
         # -------------------------
-        if low < self.structure["range_low"]:
+        if self.structure["range_low"] is None or self.structure["range_high"] is None:
+            print("range has None values")
+        elif low < self.structure["range_low"]:
             self.sweep["side"] = "sell_side"
             self.sweep["time"] = candle.timestamp
             if self.sweep['count_low'] == 0:

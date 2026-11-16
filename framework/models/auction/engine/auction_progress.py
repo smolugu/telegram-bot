@@ -276,7 +276,7 @@ def _update_timeframe_progress(
         # -----------------------------------------------------
         # Find latest interacting mitigation time
         # -----------------------------------------------------
-        print("interacting levels: ", interacting_levels)
+        # print("interacting levels: ", interacting_levels)
         # Only consider levels with a valid mitigation time
         valid_interacting_levels = [
             level
@@ -548,8 +548,8 @@ def _update_timeframe_progress(
         for level in swept_levels
         if level.mitigation_time is not None
     ]
-    print("timeframe: ", tf_auction_progress.timeframe)
-    print("mitigated_swept_levels: ", mitigated_swept_levels)
+    # print("timeframe: ", tf_auction_progress.timeframe)
+    # print("mitigated_swept_levels: ", mitigated_swept_levels)
 
     if not mitigated_swept_levels:
         return
@@ -595,7 +595,7 @@ def _update_timeframe_progress(
     # Prefer INTERNAL liquidity.
     # If none exists, use EXTERNAL.
     # ---------------------------------------------------------
-    print("direction XX: ", direction)
+    # print("direction XX: ", direction)
     candidates = [
         level
         for level in tf_levels
@@ -609,7 +609,7 @@ def _update_timeframe_progress(
             )
         )
     ]
-    print("candidates xx: ", candidates)
+    # print("candidates xx: ", candidates)
 
     if not candidates:
         return
@@ -654,10 +654,10 @@ def _update_timeframe_progress(
     
     if tf_auction_progress.current_objective is None:
         tf_auction_progress.current_objective = objective
-    print("timeframe: ", tf_auction_progress.timeframe)
-    print("last swept: ", latest_swept)
-    print("origin: ", tf_auction_progress.origin)
-    print("current_objective: ", tf_auction_progress.current_objective)
+    # print("timeframe: ", tf_auction_progress.timeframe)
+    # print("last swept: ", latest_swept)
+    # print("origin: ", tf_auction_progress.origin)
+    # print("current_objective: ", tf_auction_progress.current_objective)
     
     if tf_auction_progress.continuation_objective is None:
         tf_auction_progress.continuation_objective = tf_auction_progress.current_objective
